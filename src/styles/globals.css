@@ -1,0 +1,56 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Nepali Font Support */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@100;200;300;400;500;600;700;800;900&display=swap');
+
+/* Global Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', 'Noto Sans', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background-color: #f8fafc;
+}
+
+.font-nepali {
+    font-family: 'Noto Sans Devanagari', 'Arial Unicode MS', sans-serif;
+}
+
+/* Production Floor Optimizations */
+.touch-target {
+    min-height: 44px;
+    min-width: 44px;
+}
+
+.high-contrast {
+    filter: contrast(1.2);
+}
+
+/* PWA Specific */
+.pwa-install-prompt {
+    display: none;
+}
+
+@media (display-mode: standalone) {
+    .pwa-install-prompt {
+        display: block;
+    }
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+    .mobile-padding {
+        padding: 1rem;
+    }
+
+    .mobile-text {
+        font-size: 1.1rem;
+    }
+}
