@@ -1,7 +1,96 @@
 import React, { createContext, useContext, useReducer, useEffect } from "react";
-import authService from "../services/authService";
-import dataService from "../services/dataService";
-import { requestNotificationPermission } from "../config/firebase";
+// Import mock auth service instead of Firebase for demo
+import mockAuthService from "../services/mockAuthService";
+
+// For demo purposes, we'll create a simple mock data service
+const mockDataService = {
+  unsubscribeAll: () => console.log("Mock: All subscriptions cleaned up"),
+  subscribeToUserBundles: (userId, callback) => {
+    // Simulate real-time bundle updates
+    setTimeout(() => {
+      callback({
+        success: true,
+        data: [
+          {
+            id: 1,
+            bundleNumber: "B001-85-BL-XL",
+            article: "8085",
+            status: "in-progress",
+            assignedTime: new Date(Date.now() - 45 * 60000),
+          },
+        ],
+      });
+    }, 500);
+
+    // Return mock unsubscribe function
+    return () => console.log("Mock: Bundle subscription unsubscribed");
+  },
+  subscribeToUserNotifications: (userId, callback) => {
+    // Simulate real-time notifications
+    setTimeout(() => {
+      callback({
+        success: true,
+        data: [
+          {
+            id: 1,
+            type: "work-ready",
+            title: "Bundle Ready",
+            titleNepali: "बन्डल तयार",
+            message: "Bundle #B002-33-GR-2XL ready for your station",
+            messageNepali: "बन्डल #B002-33-GR-2XL तपाईंको स्टेसनको लागि तयार छ",
+            time: new Date(Date.now() - 2 * 60000),
+            read: false,
+          },
+        ],
+      });
+    }, 500);
+
+    return () => console.log("Mock: Notifications subscription unsubscribed");
+  },
+  startWork: async (bundleId) => {
+    console.log("Mock: Starting work on bundle:", bundleId);
+    return { success: true };
+  },
+  completeWork: async (bundleId, completionData) => {
+    console.log("Mock: Completing work on bundle:", bundleId, completionData);
+    return { success: true };
+  },
+  createQualityIssue: async (issueData) => {
+    console.log("Mock: Creating quality issue:", issueData);
+    return { success: true };
+  },
+  getProductionStats: async (dateRange) => {
+    console.log("Mock: Getting production stats for:", dateRange);
+    return {
+      success: true,
+      data: {
+        totalPieces: 85,
+        totalEarnings: 237.5,
+        efficiency: 88,
+        qualityScore: 98,
+      },
+    };
+  },
+  getWageRecords: async (userId, dateRange) => {
+    console.log("Mock: Getting wage records for:", userId, dateRange);
+    return {
+      success: true,
+      data: {
+        records: [],
+        summary: {
+          totalEarnings: 6205,
+          totalPieces: 2480,
+          averageRate: 2.5,
+          workingDays: 26,
+        },
+      },
+    };
+  },
+  markNotificationRead: async (notificationId) => {
+    console.log("Mock: Marking notification read:", notificationId);
+    return { success: true };
+  },
+};
 
 // Auth Context
 const AuthContext = createContext();
@@ -109,12 +198,12 @@ const authReducer = (state, action) => {
 export const AuthProvider = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Initialize Firebase Auth listener
+  // Initialize auth listener
   useEffect(() => {
-    const unsubscribe = authService.initializeAuthListener();
+    const unsubscribe = mockAuthService.initializeAuthListener();
 
     // Set up auth state listener
-    authService.addAuthStateListener((user) => {
+    mockAuthService.addAuthStateListener((user) => {
       if (user) {
         dispatch({
           type: AUTH_ACTIONS.LOGIN_SUCCESS,
@@ -132,7 +221,7 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       if (unsubscribe) unsubscribe();
-      dataService.unsubscribeAll();
+      mockDataService.unsubscribeAll();
     };
   }, []);
 
@@ -167,24 +256,12 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  // Setup FCM notifications
-  useEffect(() => {
-    if (state.isAuthenticated && state.user && !state.fcmToken) {
-      requestNotificationPermission().then((token) => {
-        if (token) {
-          // Store FCM token in user profile
-          updateProfile({ fcmToken: token });
-        }
-      });
-    }
-  }, [state.isAuthenticated, state.user]);
-
-  // Login function using Firebase Auth Service
+  // Login function
   const login = async (credentials) => {
     dispatch({ type: AUTH_ACTIONS.LOGIN_START });
 
     try {
-      const result = await authService.login(credentials);
+      const result = await mockAuthService.login(credentials);
 
       if (result.success) {
         // Success is handled by the auth state listener
@@ -213,8 +290,7 @@ export const AuthProvider = ({ children }) => {
   // Logout function
   const logout = async () => {
     try {
-      await authService.logout();
-      // Logout success is handled by the auth state listener
+      await mockAuthService.logout();
       return { success: true };
     } catch (error) {
       console.error("Logout error:", error);
@@ -225,7 +301,7 @@ export const AuthProvider = ({ children }) => {
   // Update profile
   const updateProfile = async (updates) => {
     try {
-      const result = await authService.updateUserProfile(updates);
+      const result = await mockAuthService.updateUserProfile(updates);
 
       if (result.success) {
         dispatch({
@@ -299,30 +375,31 @@ export const AuthProvider = ({ children }) => {
     return hoursSinceLogin < 12;
   };
 
-  // Get current user bundles (with real-time subscription)
+  // Mock data service functions
   const subscribeToUserBundles = (callback) => {
     if (!state.user?.uid) {
       callback({ success: false, error: "No authenticated user" });
       return null;
     }
 
-    return dataService.subscribeToUserBundles(state.user.uid, callback);
+    return mockDataService.subscribeToUserBundles(state.user.uid, callback);
   };
 
-  // Get current user notifications (with real-time subscription)
   const subscribeToUserNotifications = (callback) => {
     if (!state.user?.uid) {
       callback({ success: false, error: "No authenticated user" });
       return null;
     }
 
-    return dataService.subscribeToUserNotifications(state.user.uid, callback);
+    return mockDataService.subscribeToUserNotifications(
+      state.user.uid,
+      callback
+    );
   };
 
-  // Work management functions
   const startWork = async (bundleId) => {
     try {
-      return await dataService.startWork(bundleId);
+      return await mockDataService.startWork(bundleId);
     } catch (error) {
       console.error("Error starting work:", error);
       return { success: false, error: "Failed to start work" };
@@ -331,7 +408,7 @@ export const AuthProvider = ({ children }) => {
 
   const completeWork = async (bundleId, completionData) => {
     try {
-      return await dataService.completeWork(bundleId, completionData);
+      return await mockDataService.completeWork(bundleId, completionData);
     } catch (error) {
       console.error("Error completing work:", error);
       return { success: false, error: "Failed to complete work" };
@@ -340,41 +417,38 @@ export const AuthProvider = ({ children }) => {
 
   const reportQualityIssue = async (issueData) => {
     try {
-      return await dataService.createQualityIssue(issueData);
+      return await mockDataService.createQualityIssue(issueData);
     } catch (error) {
       console.error("Error reporting quality issue:", error);
       return { success: false, error: "Failed to report quality issue" };
     }
   };
 
-  // Get production statistics
   const getProductionStats = async (dateRange = "today") => {
     try {
-      return await dataService.getProductionStats(dateRange);
+      return await mockDataService.getProductionStats(dateRange);
     } catch (error) {
       console.error("Error getting production stats:", error);
       return { success: false, error: "Failed to get production stats" };
     }
   };
 
-  // Get wage records
   const getWageRecords = async (dateRange = "month") => {
     if (!state.user?.uid) {
       return { success: false, error: "No authenticated user" };
     }
 
     try {
-      return await dataService.getWageRecords(state.user.uid, dateRange);
+      return await mockDataService.getWageRecords(state.user.uid, dateRange);
     } catch (error) {
       console.error("Error getting wage records:", error);
       return { success: false, error: "Failed to get wage records" };
     }
   };
 
-  // Mark notification as read
   const markNotificationRead = async (notificationId) => {
     try {
-      return await dataService.markNotificationRead(notificationId);
+      return await mockDataService.markNotificationRead(notificationId);
     } catch (error) {
       console.error("Error marking notification as read:", error);
       return { success: false, error: "Failed to mark notification as read" };

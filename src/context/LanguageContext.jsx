@@ -1,5 +1,8 @@
+import React, { createContext, useContext, useState, useEffect } from "react";
+import { Globe } from "lucide-react";
+
 // Complete language translations for Garment ERP
-export const languages = {
+const languages = {
   np: {
     // App Info
     appTitle: "गारमेन्ट ERP",
@@ -273,17 +276,14 @@ export const languages = {
     sync: "सिंक",
     syncComplete: "सिंक सकियो",
 
-    // Size Labels (Common in garments)
-    extraSmall: "XS",
-    small: "S",
-    medium: "M",
-    large: "L",
-    extraLarge: "XL",
-    doubleXL: "2XL",
-    tripleXL: "3XL",
-    quadXL: "4XL",
-    quinXL: "5XL",
-    freeSize: "फ्री साइज",
+    // Additional terms used in dashboard
+    dailyTarget: "दैनिक लक्ष्य",
+    earned: "कमाईएको",
+    time: "समय",
+    noWorkInQueue: "लाइनमा काम छैन",
+    myStats: "मेरो तथ्याङ्क",
+    all: "सबै",
+    vs: "विरुद्ध",
   },
 
   en: {
@@ -559,16 +559,269 @@ export const languages = {
     sync: "Sync",
     syncComplete: "Sync Complete",
 
-    // Size Labels
-    extraSmall: "XS",
-    small: "S",
-    medium: "M",
-    large: "L",
-    extraLarge: "XL",
-    doubleXL: "2XL",
-    tripleXL: "3XL",
-    quadXL: "4XL",
-    quinXL: "5XL",
-    freeSize: "Free Size",
+    // Additional terms used in dashboard
+    dailyTarget: "Daily Target",
+    earned: "Earned",
+    time: "Time",
+    noWorkInQueue: "No Work in Queue",
+    myStats: "My Stats",
+    all: "All",
+    vs: "vs",
   },
 };
+
+// Language Context
+const LanguageContext = createContext();
+
+// Language Provider Component
+export const LanguageProvider = ({ children }) => {
+  const [currentLanguage, setCurrentLanguage] = useState(() => {
+    // Check localStorage for saved language preference
+    const savedLanguage = localStorage.getItem("garment-erp-language");
+    return savedLanguage || "np"; // Default to Nepali
+  });
+
+  // Save language preference to localStorage
+  useEffect(() => {
+    localStorage.setItem("garment-erp-language", currentLanguage);
+
+    // Apply font family based on language
+    if (currentLanguage === "np") {
+      document.documentElement.classList.add("font-nepali");
+    } else {
+      document.documentElement.classList.remove("font-nepali");
+    }
+  }, [currentLanguage]);
+
+  // Translation function
+  const t = (key) => {
+    return languages[currentLanguage][key] || key;
+  };
+
+  // Switch language
+  const switchLanguage = (lang) => {
+    if (languages[lang]) {
+      setCurrentLanguage(lang);
+    }
+  };
+
+  // Toggle between Nepali and English
+  const toggleLanguage = () => {
+    const newLang = currentLanguage === "np" ? "en" : "np";
+    setCurrentLanguage(newLang);
+  };
+
+  // Format time based on language
+  const formatTime = (date) => {
+    const options = {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: currentLanguage === "en",
+    };
+
+    return date.toLocaleTimeString(
+      currentLanguage === "np" ? "ne-NP" : "en-US",
+      options
+    );
+  };
+
+  // Format date based on language
+  const formatDate = (date) => {
+    const options = {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    };
+
+    return date.toLocaleDateString(
+      currentLanguage === "np" ? "ne-NP" : "en-US",
+      options
+    );
+  };
+
+  // Format currency
+  const formatCurrency = (amount) => {
+    if (currentLanguage === "np") {
+      return `रु. ${amount.toLocaleString("ne-NP")}`;
+    } else {
+      return `Rs. ${amount.toLocaleString("en-US")}`;
+    }
+  };
+
+  // Format numbers
+  const formatNumber = (number) => {
+    return number.toLocaleString(currentLanguage === "np" ? "ne-NP" : "en-US");
+  };
+
+  // Get time-based greeting
+  const getTimeBasedGreeting = () => {
+    const hour = new Date().getHours();
+
+    if (hour < 12) {
+      return t("goodMorning");
+    } else if (hour < 17) {
+      return t("goodAfternoon");
+    } else {
+      return t("goodEvening");
+    }
+  };
+
+  // Get relative time (e.g., "2 minutes ago")
+  const getRelativeTime = (date) => {
+    const now = new Date();
+    const diff = now - date;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
+
+    if (minutes < 1) {
+      return currentLanguage === "np" ? "अहिले" : "now";
+    } else if (minutes < 60) {
+      return currentLanguage === "np"
+        ? `${minutes} मिनेट अगाडि`
+        : `${minutes} minute${minutes > 1 ? "s" : ""} ago`;
+    } else if (hours < 24) {
+      return currentLanguage === "np"
+        ? `${hours} घण्टा अगाडि`
+        : `${hours} hour${hours > 1 ? "s" : ""} ago`;
+    } else {
+      return currentLanguage === "np"
+        ? `${days} दिन अगाडि`
+        : `${days} day${days > 1 ? "s" : ""} ago`;
+    }
+  };
+
+  // Get day of week
+  const getDayOfWeek = (date = new Date()) => {
+    const days = {
+      np: [
+        "आइतबार",
+        "सोमबार",
+        "मंगलबार",
+        "बुधबार",
+        "बिहिबार",
+        "शुक्रबार",
+        "शनिबार",
+      ],
+      en: [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ],
+    };
+
+    return days[currentLanguage][date.getDay()];
+  };
+
+  // Get month name
+  const getMonthName = (date = new Date()) => {
+    const months = {
+      np: [
+        "जनवरी",
+        "फेब्रुअरी",
+        "मार्च",
+        "अप्रिल",
+        "मे",
+        "जुन",
+        "जुलाई",
+        "अगस्त",
+        "सेप्टेम्बर",
+        "अक्टोबर",
+        "नोभेम्बर",
+        "डिसेम्बर",
+      ],
+      en: [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+      ],
+    };
+
+    return months[currentLanguage][date.getMonth()];
+  };
+
+  // Check if current language is RTL
+  const isRTL = () => {
+    // Nepali is LTR, but keeping this for future RTL language support
+    return false;
+  };
+
+  // Get text direction
+  const getTextDirection = () => {
+    return isRTL() ? "rtl" : "ltr";
+  };
+
+  const value = {
+    currentLanguage,
+    setCurrentLanguage,
+    switchLanguage,
+    toggleLanguage,
+    t,
+    formatTime,
+    formatDate,
+    formatCurrency,
+    formatNumber,
+    getTimeBasedGreeting,
+    getRelativeTime,
+    getDayOfWeek,
+    getMonthName,
+    isRTL,
+    getTextDirection,
+    languages,
+  };
+
+  return (
+    <LanguageContext.Provider value={value}>
+      {children}
+    </LanguageContext.Provider>
+  );
+};
+
+// Custom hook to use language context
+export const useLanguage = () => {
+  const context = useContext(LanguageContext);
+
+  if (!context) {
+    throw new Error("useLanguage must be used within a LanguageProvider");
+  }
+
+  return context;
+};
+
+// Language Toggle Component
+export const LanguageToggle = ({ showText = true, className = "" }) => {
+  const { currentLanguage, toggleLanguage, t } = useLanguage();
+
+  return (
+    <button
+      onClick={toggleLanguage}
+      className={`flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors ${className}`}
+      aria-label="Toggle Language"
+    >
+      <Globe className="w-4 h-4" />
+      {showText && (
+        <span className="text-sm font-medium">
+          {currentLanguage === "np" ? "English" : "नेपाली"}
+        </span>
+      )}
+      <span className="text-xs px-2 py-1 bg-gray-100 rounded">
+        {currentLanguage === "np" ? "🇳🇵" : "🇺🇸"}
+      </span>
+    </button>
+  );
+};
+
+export default LanguageContext;
