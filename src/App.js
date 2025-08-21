@@ -9,6 +9,7 @@ import { LanguageProvider } from "./context/LanguageContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoginScreen from "./components/auth/LoginScreen";
 import OperatorDashboard from "./components/operator/Dashboard";
+import SupervisorDashboard from "./components/supervisor/Dashboard";
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -25,7 +26,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   return children;
 };
 
-// Placeholder Component for Supervisor/Management
+// Placeholder Component for Management
 const PlaceholderComponent = ({ title }) => (
   <div className="min-h-screen flex items-center justify-center bg-gray-50">
     <div className="text-center">
@@ -47,7 +48,7 @@ const AppRoutes = () => {
   if (userRole === "operator") {
     return <OperatorDashboard />;
   } else if (userRole === "supervisor") {
-    return <PlaceholderComponent title="Supervisor Dashboard" />;
+    return <SupervisorDashboard />;
   } else if (userRole === "management") {
     return <PlaceholderComponent title="Management Dashboard" />;
   }
