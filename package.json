@@ -8,6 +8,7 @@
     "@netlify/functions": "^2.8.2",
     "firebase": "^10.14.1",
     "lucide-react": "^0.263.1",
+    "nepali-datepicker-reactjs": "^1.1.9",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.30.1",

@@ -9,6 +9,8 @@ import {
   useNotifications,
 } from "./context/NotificationContext";
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
+import DatePickerDemo from "./components/common/DatePickerDemo";
+import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
 
 // Login Component
 const LoginScreen = () => {
@@ -31,7 +33,7 @@ const LoginScreen = () => {
         credentials.password,
         credentials.rememberMe
       );
-      showNotification("सफलतापूर्वक लगइन भयो!", "success");
+      showNotification("Login successful!", "success");
     } catch (error) {
       showNotification(error.message, "error");
     } finally {
@@ -47,10 +49,10 @@ const LoginScreen = () => {
             🏭
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            गारमेन्ट ERP
+            Garment ERP
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            उत्पादन व्यवस्थापन प्रणाली
+            Production Management System
           </p>
         </div>
 
@@ -58,7 +60,7 @@ const LoginScreen = () => {
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
               <label htmlFor="username" className="sr-only">
-                प्रयोगकर्ता नाम
+                Username
               </label>
               <input
                 id="username"
@@ -66,7 +68,7 @@ const LoginScreen = () => {
                 type="text"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="प्रयोगकर्ता नाम (जस्तै: ram.singh)"
+                placeholder="Username (e.g., ram.singh)"
                 value={credentials.username}
                 onChange={(e) =>
                   setCredentials({ ...credentials, username: e.target.value })
@@ -75,7 +77,7 @@ const LoginScreen = () => {
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
-                पासवर्ड
+                Password
               </label>
               <input
                 id="password"
@@ -83,7 +85,7 @@ const LoginScreen = () => {
                 type="password"
                 required
                 className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="पासवर्ड (password123)"
+                placeholder="Password (password123)"
                 value={credentials.password}
                 onChange={(e) =>
                   setCredentials({ ...credentials, password: e.target.value })
@@ -111,7 +113,7 @@ const LoginScreen = () => {
                 htmlFor="remember-me"
                 className="ml-2 block text-sm text-gray-900"
               >
-                मलाई सम्झनुहोस्
+                Remember me
               </label>
             </div>
           </div>
@@ -125,25 +127,25 @@ const LoginScreen = () => {
               {loginLoading ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  लगइन गर्दै...
+                  Logging in...
                 </div>
               ) : (
-                "लगइन गर्नुहोस्"
+                "Login"
               )}
             </button>
           </div>
 
           <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-md">
-            <p className="font-medium mb-2">डेमो अकाउन्टहरू:</p>
+            <p className="font-medium mb-2">Demo Accounts:</p>
             <div className="space-y-1">
               <p>
-                <strong>ऑपरेटर:</strong> ram.singh / password123
+                <strong>Operator:</strong> ram.singh / password123
               </p>
               <p>
-                <strong>सुपरभाइजर:</strong> hari.supervisor / password123
+                <strong>Supervisor:</strong> hari.supervisor / password123
               </p>
               <p>
-                <strong>व्यवस्थापक:</strong> admin.manager / password123
+                <strong>Manager:</strong> admin.manager / password123
               </p>
             </div>
           </div>
@@ -193,7 +195,7 @@ const NotificationBell = () => {
         <div className="origin-top-right absolute right-0 mt-2 w-80 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50">
           <div className="py-1">
             <div className="px-4 py-2 border-b flex justify-between items-center">
-              <h3 className="font-medium">सूचनाहरू</h3>
+              <h3 className="font-medium">Notifications</h3>
               {unreadCount > 0 && (
                 <button
                   onClick={() => {
@@ -202,7 +204,7 @@ const NotificationBell = () => {
                   }}
                   className="text-xs text-blue-600 hover:text-blue-800"
                 >
-                  सबै पढेको चिन्ह लगाउनुहोस्
+                  Mark all as read
                 </button>
               )}
             </div>
@@ -211,7 +213,7 @@ const NotificationBell = () => {
               {notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center text-gray-500">
                   <span className="text-4xl block mb-2">📭</span>
-                  कुनै सूचना छैन
+                  No notifications
                 </div>
               ) : (
                 notifications.slice(0, 5).map((notification) => (
@@ -253,7 +255,7 @@ const NotificationBell = () => {
                   onClick={() => setShowNotifications(false)}
                   className="text-sm text-blue-600 hover:text-blue-800"
                 >
-                  सबै हेर्नुहोस्
+                  View all
                 </button>
               </div>
             )}
@@ -290,9 +292,9 @@ const Navigation = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      showNotification("सफलतापूर्वक लगआउट भयो", "success");
+      showNotification("Logged out successfully", "success");
     } catch (error) {
-      showNotification("लगआउट गर्न समस्या भयो", "error");
+      showNotification("Logout failed", "error");
     }
   };
 
@@ -306,10 +308,10 @@ const Navigation = () => {
             </div>
             <div className="ml-4">
               <h1 className="text-xl font-semibold text-gray-900">
-                गारमेन्ट ERP
+                Garment ERP
               </h1>
               <p className="text-sm text-gray-500">
-                उत्पादन व्यवस्थापन प्रणाली
+                Production Management System
               </p>
             </div>
           </div>
@@ -347,20 +349,20 @@ const Navigation = () => {
                       onClick={() => setShowUserMenu(false)}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                     >
-                      👤 प्रोफाइल
+                      👤 Profile
                     </button>
                     <button
                       onClick={() => setShowUserMenu(false)}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                     >
-                      ⚙️ सेटिङ्स
+                      ⚙️ Settings
                     </button>
                     <hr className="my-1" />
                     <button
                       onClick={handleLogout}
                       className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 w-full text-left"
                     >
-                      🚪 लगआउट
+                      🚪 Logout
                     </button>
                   </div>
                 </div>
@@ -380,7 +382,7 @@ const OperatorDashboard = ({ onNavigate }) => {
 
   // Demo notification buttons
   const testNotifications = () => {
-    sendWorkAssigned("8085", "काँध जोड्ने");
+    sendWorkAssigned("8085", "Shoulder Join");
     setTimeout(() => {
       sendWorkCompleted("8085", 75);
     }, 2000);
@@ -391,10 +393,10 @@ const OperatorDashboard = ({ onNavigate }) => {
       <div className="px-4 py-6 sm:px-0">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">
-            नमस्कार, {user.name}! 👋
+            Welcome, {user.name}! 👋
           </h1>
           <p className="mt-2 text-gray-600">
-            {user.specialityNepali} ऑपरेटर | स्टेसन: {user.station}
+            {user.speciality} Operator | Station: {user.station}
           </p>
         </div>
 
@@ -404,47 +406,47 @@ const OperatorDashboard = ({ onNavigate }) => {
             <div className="text-2xl font-bold text-blue-600">
               {user.stats.todayPieces}
             </div>
-            <div className="text-sm text-gray-500">आजका टुक्राहरू</div>
+            <div className="text-sm text-gray-500">Today's Pieces</div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="text-2xl font-bold text-green-600">
-              रु. {user.stats.todayEarnings}
+              Rs. {user.stats.todayEarnings}
             </div>
-            <div className="text-sm text-gray-500">आजको कमाई</div>
+            <div className="text-sm text-gray-500">Today's Earnings</div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="text-2xl font-bold text-purple-600">
               {user.efficiency}%
             </div>
-            <div className="text-sm text-gray-500">दक्षता</div>
+            <div className="text-sm text-gray-500">Efficiency</div>
           </div>
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="text-2xl font-bold text-orange-600">
               {user.qualityScore}%
             </div>
-            <div className="text-sm text-gray-500">गुणस्तर</div>
+            <div className="text-sm text-gray-500">Quality</div>
           </div>
         </div>
 
         {/* Current Work */}
         {user.currentWork && (
           <div className="bg-white p-6 rounded-lg shadow-sm border mb-8">
-            <h3 className="text-lg font-semibold mb-4">🔄 हालको काम</h3>
+            <h3 className="text-lg font-semibold mb-4">🔄 Current Work</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <div className="text-sm text-gray-500">लेख</div>
+                <div className="text-sm text-gray-500">Article</div>
                 <div className="font-medium">
                   #{user.currentWork.articleNumber}
                 </div>
               </div>
               <div>
-                <div className="text-sm text-gray-500">काम</div>
+                <div className="text-sm text-gray-500">Operation</div>
                 <div className="font-medium">{user.currentWork.operation}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500">प्रगति</div>
+                <div className="text-sm text-gray-500">Progress</div>
                 <div className="font-medium">
-                  {user.currentWork.completed}/{user.currentWork.pieces} टुक्रा
+                  {user.currentWork.completed}/{user.currentWork.pieces} pieces
                 </div>
               </div>
             </div>
@@ -458,9 +460,9 @@ const OperatorDashboard = ({ onNavigate }) => {
             className="bg-indigo-600 text-white p-6 rounded-lg hover:bg-indigo-700 transition-colors text-left"
           >
             <div className="text-3xl mb-2">🎯</div>
-            <div className="text-xl font-semibold">काम छनोट गर्नुहोस्</div>
+            <div className="text-xl font-semibold">Choose Work</div>
             <div className="text-indigo-200 mt-1">
-              आफ्नो क्षमता अनुसार काम छान्नुहोस्
+              Select work based on your skills
             </div>
           </button>
 
@@ -469,8 +471,8 @@ const OperatorDashboard = ({ onNavigate }) => {
             className="bg-green-600 text-white p-6 rounded-lg hover:bg-green-700 transition-colors text-left"
           >
             <div className="text-3xl mb-2">🔔</div>
-            <div className="text-xl font-semibold">टेस्ट नोटिफिकेसन</div>
-            <div className="text-green-200 mt-1">नमूना सूचनाहरू हेर्नुहोस्</div>
+            <div className="text-xl font-semibold">Test Notifications</div>
+            <div className="text-green-200 mt-1">Try sample notifications</div>
           </button>
         </div>
       </div>
@@ -491,13 +493,20 @@ const AppContent = () => {
       switch (currentView) {
         case "self-assignment":
           return <SelfAssignmentSystem />;
+        case "date-picker":
+          return <DatePickerDemo />;
         case "dashboard":
         default:
           return <OperatorDashboard onNavigate={setCurrentView} />;
       }
     }
 
-    // Add supervisor and manager views here
+    // Supervisor and manager views
+    if (user.role === "supervisor") {
+      return <SupervisorDashboard />;
+    }
+
+    // Manager and admin views - still under development
     return (
       <div className="p-8 text-center">Under Development for {user.role}</div>
     );
@@ -520,7 +529,7 @@ const AppContent = () => {
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
-                📊 ड्यासबोर्ड
+                📊 Dashboard
               </button>
               <button
                 onClick={() => setCurrentView("self-assignment")}
@@ -530,7 +539,17 @@ const AppContent = () => {
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
-                🎯 काम छनोट
+                🎯 Choose Work
+              </button>
+              <button
+                onClick={() => setCurrentView("date-picker")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  currentView === "date-picker"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                📅 Nepali Dates
               </button>
             </nav>
           </div>
@@ -551,7 +570,7 @@ const App = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">लोड गर्दै...</p>
+          <p className="text-gray-600">Loading...</p>
         </div>
       </div>
     );

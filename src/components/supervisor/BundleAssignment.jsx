@@ -1,5 +1,4 @@
 
-// Bundle Assignment Component
 import React, { useState, useEffect } from 'react';
 import { BundleService } from '../../services/firebase-services';
 
@@ -19,15 +18,6 @@ const BundleAssignment = () => {
     }
   };
 
-  const loadActiveOperators = async () => {
-    // Demo operators - in production this would load from Firebase
-    setOperators([
-      { id: 'op001', name: 'राम सिंह', machine: 'Overlock' },
-      { id: 'op002', name: 'सीता देवी', machine: 'Flatlock' },
-      { id: 'op003', name: 'हरि बहादुर', machine: 'Single Needle' }
-    ]);
-  };
-
   const assignBundle = async (bundleId, operatorId) => {
     const result = await BundleService.assignBundle(bundleId, operatorId, 'sup001');
     if (result.success) {
@@ -36,27 +26,14 @@ const BundleAssignment = () => {
     }
   };
 
-  return (
-    <div>
-      <h2>Bundle Assignment</h2>
-      
-      {availableBundles.map(bundle => (
-        <div key={bundle.id} style={{ border: '1px solid #ccc', margin: '10px', padding: '10px' }}>
-          <p>{bundle.article}# - {bundle.articleName}</p>
-          <p>Size: {bundle.size} | Pieces: {bundle.pieces}</p>
-          <p>Operation: {bundle.currentOperation}</p>
+  return (Bundle Assignment{availableBundles.map(bundle => ({bundle.article}# - {bundle.articleName}Size: {bundle.size} | Pieces: {bundle.pieces}Operation: {bundle.currentOperation}<select onChange={(e) => e.target.value && assignBundle(bundle.id, e.target.value)}>Select Operator
+राम सिंह (Overlock)
+            सीता देवी (Flatlock)
+            हरि बहादुर (Single Needle)
           
-          <select onChange={(e) => e.target.value && assignBundle(bundle.id, e.target.value)}>
-            <option value="">Select Operator</option>
-            {operators.map(operator => (
-              <option key={operator.id} value={operator.id}>
-                {operator.name} ({operator.machine})
-              </option>
-            ))}
-          </select>
-        </div>
+        
       ))}
-    </div>
+    
   );
 };
 
