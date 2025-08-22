@@ -25,6 +25,9 @@ import {
   onAuthStateChanged,
 } from "../config/firebase";
 
+// Import optimized query service
+import optimizedQueryService from './optimizedQueryService';
+
 // Authentication Service
 export class AuthService {
   // Login with username/email
