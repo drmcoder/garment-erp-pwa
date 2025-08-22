@@ -113,10 +113,28 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    console.log('🚪 Logging out...');
-    setUser(null);
-    localStorage.removeItem('garment-erp-user');
+  const logout = async () => {
+    try {
+      setIsLoading(true);
+      console.log('🚪 Logging out...');
+      
+      // Clear user data
+      setUser(null);
+      
+      // Clear localStorage
+      localStorage.removeItem('garment-erp-user');
+      
+      console.log('✅ User logged out successfully');
+      
+      // Redirect to login page
+      window.location.href = '/';
+      
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const getUserDisplayInfo = () => {
