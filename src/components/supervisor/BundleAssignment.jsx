@@ -1,4 +1,5 @@
 
+// Bundle Assignment Component
 import React, { useState, useEffect } from 'react';
 import { BundleService } from '../../services/firebase-services';
 
