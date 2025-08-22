@@ -1,0 +1,40 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Development rules - allow all reads/writes for now
+    // TODO: Implement proper security rules in production
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+    
+    // Production rules (commented out for development)
+    /*
+    // Profile images - users can upload their own profile images
+    match /profiles/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Bundle images - operators and supervisors can upload
+    match /bundles/{bundleId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // Quality issue images - authenticated users can upload
+    match /quality_issues/{issueId}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+    
+    // App assets - public read access
+    match /app_assets/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        exists(/databases/$(database)/documents/management/$(request.auth.uid));
+    }
+    */
+  }
+}

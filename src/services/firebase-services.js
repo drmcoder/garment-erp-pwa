@@ -1,0 +1,577 @@
+// File: src/services/firebase-services.js
+// Firebase Services - Data Operations Layer
+
+import {
+  db,
+  auth,
+  COLLECTIONS,
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  onSnapshot,
+  serverTimestamp,
+  increment,
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "../config/firebase";
+
+// Authentication Service
+export class AuthService {
+  // Login with username/email
+  static async login(usernameOrEmail, password, role = "operator") {
+    try {
+      // First, find user by username in the appropriate collection
+      const userCollection =
+        role === "operator"
+          ? COLLECTIONS.OPERATORS
+          : role === "supervisor"
+          ? COLLECTIONS.SUPERVISORS
+          : COLLECTIONS.MANAGEMENT;
+
+      const userQuery = query(
+        collection(db, userCollection),
+        where("username", "==", usernameOrEmail)
+      );
+
+      const userSnapshot = await getDocs(userQuery);
+
+      if (userSnapshot.empty) {
+        throw new Error("User not found");
+      }
+
+      const userData = userSnapshot.docs[0].data();
+
+      // For demo purposes, check password directly
+      // In production, use Firebase Auth with email
+      if (userData.password !== password) {
+        throw new Error("Invalid password");
+      }
+
+      // Update last login
+      await updateDoc(doc(db, userCollection, userData.id), {
+        lastLogin: serverTimestamp(),
+      });
+
+      return {
+        success: true,
+        user: {
+          id: userData.id,
+          username: userData.username,
+          name: userData.name,
+          nameEn: userData.nameEn,
+          role: userData.role,
+          machine: userData.machine,
+          station: userData.station,
+          department: userData.department,
+          permissions: userData.permissions || [],
+        },
+      };
+    } catch (error) {
+      console.error("Login error:", error);
+      return {
+        success: false,
+        error: error.message,
+      };
+    }
+  }
+
+  // Logout
+  static async logout() {
+    try {
+      await signOut(auth);
+      return { success: true };
+    } catch (error) {
+      console.error("Logout error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get current user details
+  static async getCurrentUser(userId, role) {
+    try {
+      const userCollection =
+        role === "operator"
+          ? COLLECTIONS.OPERATORS
+          : role === "supervisor"
+          ? COLLECTIONS.SUPERVISORS
+          : COLLECTIONS.MANAGEMENT;
+
+      const userDoc = await getDoc(doc(db, userCollection, userId));
+
+      if (!userDoc.exists()) {
+        throw new Error("User not found");
+      }
+
+      return {
+        success: true,
+        user: userDoc.data(),
+      };
+    } catch (error) {
+      console.error("Get user error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+// Bundle Service
+export class BundleService {
+  // Get all bundles
+  static async getAllBundles() {
+    try {
+      const bundlesSnapshot = await getDocs(
+        query(collection(db, COLLECTIONS.BUNDLES), orderBy("createdAt", "desc"))
+      );
+
+      const bundles = bundlesSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return { success: true, bundles };
+    } catch (error) {
+      console.error("Get bundles error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get bundles for specific operator
+  static async getOperatorBundles(operatorId) {
+    try {
+      const bundlesSnapshot = await getDocs(
+        query(
+          collection(db, COLLECTIONS.BUNDLES),
+          where("assignedOperator", "==", operatorId),
+          orderBy("priority", "desc"),
+          orderBy("createdAt", "asc")
+        )
+      );
+
+      const bundles = bundlesSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return { success: true, bundles };
+    } catch (error) {
+      console.error("Get operator bundles error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get available bundles for assignment
+  static async getAvailableBundles(machineType = null) {
+    try {
+      let bundleQuery = query(
+        collection(db, COLLECTIONS.BUNDLES),
+        where("status", "==", "pending"),
+        orderBy("priority", "desc"),
+        orderBy("createdAt", "asc")
+      );
+
+      if (machineType) {
+        bundleQuery = query(
+          collection(db, COLLECTIONS.BUNDLES),
+          where("status", "==", "pending"),
+          where("machineType", "==", machineType),
+          orderBy("priority", "desc"),
+          orderBy("createdAt", "asc")
+        );
+      }
+
+      const bundlesSnapshot = await getDocs(bundleQuery);
+
+      const bundles = bundlesSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return { success: true, bundles };
+    } catch (error) {
+      console.error("Get available bundles error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Assign bundle to operator
+  static async assignBundle(bundleId, operatorId, supervisorId) {
+    try {
+      const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
+
+      await updateDoc(bundleRef, {
+        assignedOperator: operatorId,
+        currentOperatorId: operatorId,
+        status: "assigned",
+        assignedAt: serverTimestamp(),
+        assignedBy: supervisorId,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Update operator's current bundle
+      const operatorRef = doc(db, COLLECTIONS.OPERATORS, operatorId);
+      await updateDoc(operatorRef, {
+        currentBundle: bundleId,
+      });
+
+      // Create notification for operator
+      await NotificationService.createNotification({
+        title: "नयाँ काम तोकिएको",
+        titleEn: "New Work Assigned",
+        message: `बन्डल #${bundleId} तपाईंको स्टेसनमा तयार छ`,
+        messageEn: `Bundle #${bundleId} ready at your station`,
+        type: "work_assignment",
+        priority: "high",
+        targetUser: operatorId,
+        targetRole: "operator",
+        bundleId: bundleId,
+        actionRequired: true,
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Assign bundle error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Start work on bundle
+  static async startWork(bundleId, operatorId) {
+    try {
+      const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
+
+      await updateDoc(bundleRef, {
+        status: "in-progress",
+        startedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Start work error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Complete work on bundle
+  static async completeWork(bundleId, completionData) {
+    try {
+      const {
+        operatorId,
+        completedPieces,
+        defectivePieces,
+        qualityGood,
+        qualityNotes,
+        actualTime,
+      } = completionData;
+
+      const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
+      const bundleDoc = await getDoc(bundleRef);
+
+      if (!bundleDoc.exists()) {
+        throw new Error("Bundle not found");
+      }
+
+      const bundleData = bundleDoc.data();
+      const earnings = completedPieces * bundleData.rate;
+      const qualityScore =
+        completedPieces > 0
+          ? Math.round(
+              ((completedPieces - defectivePieces) / completedPieces) * 100
+            )
+          : 100;
+
+      // Update bundle
+      await updateDoc(bundleRef, {
+        status: qualityGood ? "completed" : "quality-check",
+        completedAt: serverTimestamp(),
+        completedPieces,
+        defectivePieces,
+        qualityStatus: qualityGood ? "passed" : "rework",
+        qualityNotes: qualityNotes || "",
+        actualTime,
+        qualityScore,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Update operator stats
+      const operatorRef = doc(db, COLLECTIONS.OPERATORS, operatorId);
+      await updateDoc(operatorRef, {
+        currentBundle: null,
+        "todayStats.piecesCompleted": increment(completedPieces),
+        "todayStats.earnings": increment(earnings),
+        "todayStats.defects": increment(defectivePieces),
+      });
+
+      // Create wage record
+      await addDoc(collection(db, COLLECTIONS.WAGE_RECORDS), {
+        operatorId,
+        bundleId,
+        date: new Date().toISOString().split("T")[0],
+        pieces: completedPieces,
+        rate: bundleData.rate,
+        earnings,
+        article: bundleData.article,
+        operation: bundleData.currentOperation,
+        qualityScore,
+        createdAt: serverTimestamp(),
+      });
+
+      return {
+        success: true,
+        earnings,
+        qualityScore,
+      };
+    } catch (error) {
+      console.error("Complete work error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Real-time bundle updates subscription
+  static subscribeToOperatorBundles(operatorId, callback) {
+    const q = query(
+      collection(db, COLLECTIONS.BUNDLES),
+      where("assignedOperator", "==", operatorId),
+      orderBy("createdAt", "desc")
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const bundles = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      callback(bundles);
+    });
+  }
+}
+
+// Notification Service
+export class NotificationService {
+  // Create notification
+  static async createNotification(notificationData) {
+    try {
+      const docRef = await addDoc(collection(db, COLLECTIONS.NOTIFICATIONS), {
+        ...notificationData,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      console.error("Create notification error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get notifications for user
+  static async getUserNotifications(userId, role, limit_count = 20) {
+    try {
+      const notificationsSnapshot = await getDocs(
+        query(
+          collection(db, COLLECTIONS.NOTIFICATIONS),
+          where("targetUser", "==", userId),
+          orderBy("createdAt", "desc"),
+          limit(limit_count)
+        )
+      );
+
+      const notifications = notificationsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return { success: true, notifications };
+    } catch (error) {
+      console.error("Get notifications error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Mark notification as read
+  static async markAsRead(notificationId) {
+    try {
+      await updateDoc(doc(db, COLLECTIONS.NOTIFICATIONS, notificationId), {
+        read: true,
+        readAt: serverTimestamp(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Mark notification read error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Real-time notifications subscription
+  static subscribeToUserNotifications(userId, callback) {
+    const q = query(
+      collection(db, COLLECTIONS.NOTIFICATIONS),
+      where("targetUser", "==", userId),
+      where("read", "==", false),
+      orderBy("createdAt", "desc")
+    );
+
+    return onSnapshot(q, (snapshot) => {
+      const notifications = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      callback(notifications);
+    });
+  }
+}
+
+// Production Statistics Service
+export class ProductionService {
+  // Get today's production stats
+  static async getTodayStats() {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const statsDoc = await getDoc(
+        doc(db, COLLECTIONS.PRODUCTION_STATS, today)
+      );
+
+      if (!statsDoc.exists()) {
+        // Return default stats if none exist
+        return {
+          success: true,
+          stats: {
+            totalProduction: 0,
+            targetProduction: 5000,
+            efficiency: 0,
+            qualityScore: 100,
+            activeOperators: 0,
+            completedBundles: 0,
+            pendingBundles: 0,
+          },
+        };
+      }
+
+      return {
+        success: true,
+        stats: statsDoc.data(),
+      };
+    } catch (error) {
+      console.error("Get today stats error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Update production stats
+  static async updateProductionStats(updates) {
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const statsRef = doc(db, COLLECTIONS.PRODUCTION_STATS, today);
+
+      await updateDoc(statsRef, {
+        ...updates,
+        updatedAt: serverTimestamp(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Update production stats error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get line status
+  static async getLineStatus(lineId = "line-1") {
+    try {
+      const lineDoc = await getDoc(doc(db, COLLECTIONS.LINE_STATUS, lineId));
+
+      if (!lineDoc.exists()) {
+        throw new Error("Line status not found");
+      }
+
+      return {
+        success: true,
+        lineStatus: lineDoc.data(),
+      };
+    } catch (error) {
+      console.error("Get line status error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Real-time line status subscription
+  static subscribeToLineStatus(lineId, callback) {
+    return onSnapshot(doc(db, COLLECTIONS.LINE_STATUS, lineId), (doc) => {
+      if (doc.exists()) {
+        callback(doc.data());
+      }
+    });
+  }
+}
+
+// Quality Service
+export class QualityService {
+  // Report quality issue
+  static async reportQualityIssue(issueData) {
+    try {
+      const docRef = await addDoc(collection(db, COLLECTIONS.QUALITY_ISSUES), {
+        ...issueData,
+        status: "reported",
+        createdAt: serverTimestamp(),
+      });
+
+      // Create notification for supervisor
+      await NotificationService.createNotification({
+        title: "गुणस्तर समस्या रिपोर्ट",
+        titleEn: "Quality Issue Reported",
+        message: `बन्डल #${issueData.bundleId} मा गुणस्तर समस्या`,
+        messageEn: `Quality issue reported in Bundle #${issueData.bundleId}`,
+        type: "quality_alert",
+        priority: "high",
+        targetUser: issueData.supervisorId,
+        targetRole: "supervisor",
+        bundleId: issueData.bundleId,
+        actionRequired: true,
+      });
+
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      console.error("Report quality issue error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get quality issues
+  static async getQualityIssues(filters = {}) {
+    try {
+      let q = collection(db, COLLECTIONS.QUALITY_ISSUES);
+
+      if (filters.bundleId) {
+        q = query(q, where("bundleId", "==", filters.bundleId));
+      }
+
+      if (filters.operatorId) {
+        q = query(q, where("reportedBy", "==", filters.operatorId));
+      }
+
+      q = query(q, orderBy("createdAt", "desc"));
+
+      const issuesSnapshot = await getDocs(q);
+      const issues = issuesSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return { success: true, issues };
+    } catch (error) {
+      console.error("Get quality issues error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+// All services are already exported individually above

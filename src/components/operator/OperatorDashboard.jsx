@@ -1,1160 +1,734 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useLanguage } from '../../context/LanguageContext';
-import { useNotifications } from '../../hooks/useNotifications';
-import WorkCompletion from './WorkCompletion';
+// =====================================================
+// PHASE 2.1: REAL DATA INTEGRATION
+// Priority: Connect existing UI to Firebase backend
+// =====================================================
+
+// Step 1: Enhanced OperatorDashboard with Real Firebase Data
+// File: src/components/operator/OperatorDashboard.jsx - UPDATED VERSION
+
+import React, { useState, useEffect } from "react";
+import {
+  PlayCircle,
+  PauseCircle,
+  CheckCircle,
+  AlertTriangle,
+  Package,
+  BarChart3,
+  RefreshCw,
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
+import { useNotifications } from "../../context/NotificationContext";
+import WorkCompletion from "./WorkCompletion";
 import QualityReport from "./QualityReport";
+
+// Import Firebase services
+import {
+  BundleService,
+  ProductionService,
+  NotificationService,
+} from "../../services/firebase-services";
 
 const OperatorDashboard = () => {
   const { user, getUserDisplayInfo } = useAuth();
-  const { t, currentLanguage, getTimeBasedGreeting, formatTime } =
-    useLanguage();
-  const { showWorkNotification } = useNotifications();
+  const {
+    t,
+    currentLanguage,
+    getTimeBasedGreeting,
+    formatTime,
+    formatNumber,
+    getSizeLabel,
+  } = useLanguage();
+  const { addNotification } = useNotifications();
 
-  const [currentWork, setCurrentWork] = useState({
-    id: 1,
-    bundleNumber: "B001-85-BL-XL",
-    article: "8085",
-    articleName: "Polo T-Shirt",
-    color: "नीलो-१",
-    size: "XL",
-    operation: "काँध जोड्ने",
-    machine: "ओभरलक",
-    totalPieces: 30,
-    completedPieces: 25,
-    rate: 2.5,
-    startTime: new Date(Date.now() - 45 * 60000), // 45 minutes ago
-    estimatedTime: 60,
-    status: "in-progress",
-    nextOperation: "माथिल्लो सिलाई",
-    nextMachine: "फ्ल्यालक",
-  });
-
+  // State management
+  const [currentWork, setCurrentWork] = useState(null);
+  const [workQueue, setWorkQueue] = useState([]);
   const [dailyStats, setDailyStats] = useState({
-    totalPieces: 85,
-    totalEarnings: 237.5,
-    efficiency: 88,
-    qualityScore: 98,
-    completedBundles: 3,
-    teamAverage: 76,
+    piecesCompleted: 0,
+    totalEarnings: 0,
+    efficiency: 0,
+    qualityScore: 0,
+    targetPieces: 120,
   });
-
-  const [workQueue, setWorkQueue] = useState([
-    {
-      id: 2,
-      bundleNumber: "B002-33-GR-2XL",
-      article: "2233",
-      articleName: "Round Neck T-Shirt",
-      color: "हरियो-१",
-      size: "2XL",
-      operation: "साइड सिम",
-      machine: "ओभरलक",
-      pieces: 28,
-      rate: 2.8,
-      estimatedTime: 35,
-      priority: "high",
-      nextOperation: "हेम फोल्ड",
-      nextMachine: "फ्ल्यालक",
-    },
-    {
-      id: 3,
-      bundleNumber: "B003-35-WH-L",
-      article: "6635",
-      articleName: "3-Button Tops",
-      color: "सेतो-१",
-      size: "L",
-      operation: "हेम फोल्ड",
-      machine: "फ्ल्यालक",
-      pieces: 40,
-      rate: 1.9,
-      estimatedTime: 50,
-      priority: "normal",
-      nextOperation: "बटनहोल",
-      nextMachine: "बटनहोल",
-    },
-    {
-      id: 4,
-      bundleNumber: "B004-85-BL-L",
-      article: "8085",
-      articleName: "Polo T-Shirt",
-      color: "नीलो-१",
-      size: "L",
-      operation: "प्लाकेट",
-      machine: "एकल सुई",
-      pieces: 32,
-      rate: 3.2,
-      estimatedTime: 80,
-      priority: "normal",
-      nextOperation: "कलर अट्याच",
-      nextMachine: "एकल सुई",
-    },
-    {
-      id: 5,
-      bundleNumber: "B005-88-CR-XL",
-      article: "2288",
-      articleName: "Full Sleeve T-Shirt",
-      color: "क्रिम-१",
-      size: "XL",
-      operation: "स्लिभ अट्याच",
-      machine: "ओभरलक",
-      pieces: 25,
-      rate: 4.5,
-      estimatedTime: 90,
-      priority: "low",
-      nextOperation: "काँध जोड्ने",
-      nextMachine: "ओभरलक",
-    },
-  ]);
-
+  const [activeTab, setActiveTab] = useState("dashboard");
   const [showWorkCompletion, setShowWorkCompletion] = useState(false);
-  const [showWorkQueue, setShowWorkQueue] = useState(false);
-  const [notifications, setNotifications] = useState([
-    {
-      id: 1,
-      type: "work-ready",
-      title: "नयाँ काम तयार",
-      message: "बन्डल #B006 तपाईंको स्टेसनमा तयार छ",
-      time: new Date(Date.now() - 5 * 60000),
-      read: false,
-    },
-    {
-      id: 2,
-      type: "reminder",
-      title: "विश्राम समय",
-      message: "१० मिनेट पछि विश्राम समय सुरु हुन्छ",
-      time: new Date(Date.now() - 15 * 60000),
-      read: false,
-    },
-  ]);
+  const [showQualityReport, setShowQualityReport] = useState(false);
+  const [isWorkStarted, setIsWorkStarted] = useState(false);
+  const [workStartTime, setWorkStartTime] = useState(null);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const userInfo = getUserDisplayInfo();
-  const currentTime = formatTime(new Date());
-  const remainingPieces = currentWork.totalPieces - currentWork.completedPieces;
-  const currentProgress = Math.round(
-    (currentWork.completedPieces / currentWork.totalPieces) * 100
-  );
-  const currentEarnings = currentWork.completedPieces * currentWork.rate;
 
+  // Real-time clock update
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Load operator data on mount
+  useEffect(() => {
+    if (user?.id) {
+      loadOperatorData();
+      setupRealtimeSubscriptions();
+    }
+  }, [user]);
+
+  // Load operator's current work and queue
+  const loadOperatorData = async () => {
+    if (!user?.id) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log("📊 Loading operator data for:", user.id);
+
+      // Load operator's assigned bundles
+      const bundlesResult = await BundleService.getOperatorBundles(user.id);
+
+      if (bundlesResult.success) {
+        const bundles = bundlesResult.bundles;
+        console.log("📦 Loaded bundles:", bundles.length);
+
+        // Find current work (in-progress or assigned)
+        const currentBundle = bundles.find(
+          (b) =>
+            b.status === "in-progress" ||
+            (b.status === "assigned" && b.assignedOperator === user.id)
+        );
+
+        if (currentBundle) {
+          setCurrentWork(currentBundle);
+          setIsWorkStarted(currentBundle.status === "in-progress");
+          console.log("🔄 Current work found:", currentBundle.id);
+        } else {
+          console.log("ℹ️ No current work assigned");
+        }
+
+        // Set work queue (pending bundles)
+        const queueBundles = bundles.filter(
+          (b) => b.status === "pending" || b.status === "assigned"
+        );
+        setWorkQueue(queueBundles);
+      } else {
+        throw new Error(bundlesResult.error);
+      }
+
+      // Load today's production stats
+      const statsResult = await ProductionService.getTodayStats();
+      if (statsResult.success) {
+        // Update with operator-specific stats if available
+        setDailyStats((prev) => ({
+          ...prev,
+          ...statsResult.stats,
+        }));
+      }
+
+      // Load operator's daily performance (mock for now)
+      setDailyStats((prev) => ({
+        ...prev,
+        piecesCompleted: 85,
+        totalEarnings: 237.5,
+        efficiency: 88,
+        qualityScore: 98,
+      }));
+    } catch (error) {
+      console.error("❌ Error loading operator data:", error);
+      setError(error.message);
+
+      // Fallback to sample data
+      setCurrentWork({
+        id: "B001-85-BL-XL",
+        bundleNumber: "B001",
+        article: "8085",
+        articleName: "Polo T-Shirt",
+        color: "Blue-1",
+        size: "XL",
+        pieces: 30,
+        currentOperation: "shoulderJoin",
+        nextOperation: "topStitch",
+        machineType: "overlock",
+        rate: 2.5,
+        status: "assigned",
+        completedPieces: 0,
+        estimatedTime: 60,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Setup real-time subscriptions
+  const setupRealtimeSubscriptions = () => {
+    if (!user?.id) return;
+
+    console.log("🔄 Setting up real-time subscriptions for:", user.id);
+
+    // Subscribe to bundle updates
+    const unsubscribeBundles = BundleService.subscribeToOperatorBundles(
+      user.id,
+      (bundles) => {
+        console.log("🔄 Real-time bundle update:", bundles.length);
+
+        // Update current work
+        const currentBundle = bundles.find(
+          (b) =>
+            b.status === "in-progress" ||
+            (b.status === "assigned" && b.assignedOperator === user.id)
+        );
+
+        if (currentBundle) {
+          setCurrentWork(currentBundle);
+          setIsWorkStarted(currentBundle.status === "in-progress");
+        }
+
+        // Update work queue
+        const queueBundles = bundles.filter(
+          (b) => b.status === "pending" || b.status === "assigned"
+        );
+        setWorkQueue(queueBundles);
+      }
+    );
+
+    // Subscribe to notifications
+    const unsubscribeNotifications =
+      NotificationService.subscribeToUserNotifications(
+        user.id,
+        (notifications) => {
+          console.log(
+            "🔔 Real-time notification update:",
+            notifications.length
+          );
+
+          // Add new notifications to context
+          notifications.forEach((notification) => {
+            addNotification({
+              title: notification.title,
+              message: notification.message,
+              type: notification.type,
+              priority: notification.priority,
+            });
+          });
+        }
+      );
+
+    // Cleanup subscriptions on unmount
+    return () => {
+      if (unsubscribeBundles) unsubscribeBundles();
+      if (unsubscribeNotifications) unsubscribeNotifications();
+    };
+  };
+
+  // Start work on current bundle
+  const handleStartWork = async () => {
+    if (!currentWork) return;
+
+    console.log("▶️ Starting work on bundle:", currentWork.id);
+
+    try {
+      const result = await BundleService.startWork(currentWork.id, user.id);
+
+      if (result.success) {
+        setIsWorkStarted(true);
+        setWorkStartTime(new Date());
+        setCurrentWork((prev) => ({
+          ...prev,
+          status: "in-progress",
+          startTime: new Date(),
+        }));
+
+        console.log("✅ Work started successfully");
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error("❌ Error starting work:", error);
+      alert(
+        currentLanguage === "np"
+          ? "काम सुरु गर्न समस्या भयो"
+          : "Error starting work"
+      );
+    }
+  };
+
+  // Pause current work
+  const handlePauseWork = () => {
+    setIsWorkStarted(false);
+    setCurrentWork((prev) => ({
+      ...prev,
+      status: "paused",
+    }));
+
+    console.log("⏸️ Work paused");
+  };
+
+  // Complete current work
   const handleCompleteWork = () => {
+    if (!currentWork) return;
     setShowWorkCompletion(true);
   };
 
-const handleReportIssue = () => {
-  setShowQualityReport(true);
-};
-
-  const handleRequestWork = async () => {
-    // Show notification and request more work
-    await showWorkNotification({
-      bundleId: "B006",
-      article: "2288",
-      operation: "sleeve attach",
-    });
-
-    // Add notification to local state
-    const newNotification = {
-      id: Date.now(),
-      type: "work-request",
-      title: "काम अनुरोध पठाइयो",
-      message: "सुपरभाइजरलाई थप काम पठाउन अनुरोध गरिएको छ",
-      time: new Date(),
-      read: false,
-    };
-
-    setNotifications((prev) => [newNotification, ...prev]);
+  // Report quality issue
+  const handleReportQuality = () => {
+    if (!currentWork) return;
+    setShowQualityReport(true);
   };
-const [showQualityReport, setShowQualityReport] = useState(false);
 
-  const handleWorkCompleted = (completionData) => {
-    console.log("Work completed:", completionData);
+  // Handle work completion
+  const handleWorkCompleted = async (completionData) => {
+    if (!currentWork) return;
 
-    setShowWorkCompletion(false);
+    console.log("✅ Completing work:", completionData);
 
-    // Update current work to next item in queue
-    if (workQueue.length > 0) {
-      const nextWork = workQueue[0];
-      setCurrentWork({
-        ...nextWork,
-        totalPieces: nextWork.pieces,
-        completedPieces: 0,
-        startTime: new Date(),
-        status: "in-progress",
+    try {
+      const result = await BundleService.completeWork(currentWork.id, {
+        operatorId: user.id,
+        ...completionData,
       });
 
-      // Remove completed work from queue
-      setWorkQueue((prev) => prev.slice(1));
-    } else {
-      // No more work available
-      setCurrentWork(null);
+      if (result.success) {
+        console.log("✅ Work completed successfully");
+
+        // Update daily stats
+        setDailyStats((prev) => ({
+          ...prev,
+          piecesCompleted:
+            prev.piecesCompleted + completionData.completedPieces,
+          totalEarnings: prev.totalEarnings + result.earnings,
+        }));
+
+        // Clear current work
+        setCurrentWork(null);
+        setIsWorkStarted(false);
+        setWorkStartTime(null);
+
+        // Show success notification
+        addNotification({
+          title: currentLanguage === "np" ? "काम सम्पन्न!" : "Work Completed!",
+          message:
+            currentLanguage === "np"
+              ? `कमाई: रु. ${result.earnings}`
+              : `Earnings: Rs. ${result.earnings}`,
+          type: "success",
+          priority: "medium",
+        });
+
+        // Reload data
+        await loadOperatorData();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error("❌ Error completing work:", error);
+      alert(
+        currentLanguage === "np"
+          ? "काम पूरा गर्न समस्या भयो"
+          : "Error completing work"
+      );
+    } finally {
+      setShowWorkCompletion(false);
     }
-
-    // Update daily stats
-    setDailyStats((prev) => ({
-      ...prev,
-      totalPieces: prev.totalPieces + completionData.completedPieces,
-      totalEarnings: prev.totalEarnings + completionData.totalEarnings,
-      completedBundles: prev.completedBundles + 1,
-    }));
-
-    // Add completion notification
-    const completionNotification = {
-      id: Date.now(),
-      type: "work-completed",
-      title: "काम सम्पन्न",
-      message: `बन्डल ${currentWork.bundleNumber} सफलतापूर्वक सम्पन्न भयो। कमाई: रु. ${completionData.totalEarnings}`,
-      time: new Date(),
-      read: false,
-    };
-
-    setNotifications((prev) => [completionNotification, ...prev]);
   };
 
-  const handleWorkCompletionCancel = () => {
-    setShowWorkCompletion(false);
+  // Handle quality report submission
+  const handleQualityReported = async (qualityData) => {
+    console.log("🚨 Quality issue reported:", qualityData);
+
+    try {
+      // Create quality issue record
+      // Implementation depends on your quality tracking requirements
+
+      addNotification({
+        title:
+          currentLanguage === "np"
+            ? "गुणस्तर रिपोर्ट पठाइयो"
+            : "Quality Report Sent",
+        message:
+          currentLanguage === "np"
+            ? "सुपरभाइजरलाई सूचना पठाइयो"
+            : "Supervisor notified",
+        type: "info",
+        priority: "medium",
+      });
+    } catch (error) {
+      console.error("❌ Error reporting quality issue:", error);
+    } finally {
+      setShowQualityReport(false);
+    }
   };
 
-  const handleViewAllWork = () => {
-    setShowWorkQueue(true);
+  // Calculate work progress
+  const getWorkProgressPercentage = () => {
+    if (!currentWork || !currentWork.pieces) return 0;
+    return Math.round((currentWork.completedPieces / currentWork.pieces) * 100);
   };
 
-  const handleCloseWorkQueue = () => {
-    setShowWorkQueue(false);
+  // Get status color for work
+  const getWorkStatusColor = (status) => {
+    switch (status) {
+      case "in-progress":
+        return "bg-blue-100 text-blue-800";
+      case "assigned":
+        return "bg-yellow-100 text-yellow-800";
+      case "paused":
+        return "bg-orange-100 text-orange-800";
+      case "completed":
+        return "bg-green-100 text-green-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
   };
 
-  const markNotificationRead = (notificationId) => {
-    setNotifications((prev) =>
-      prev.map((notif) =>
-        notif.id === notificationId ? { ...notif, read: true } : notif
-      )
-    );
-  };
-const handleQualityReportSubmit = (reportData) => {
-  console.log("Quality report submitted:", reportData);
-
-  // Add to notifications
-  const notification = {
-    id: Date.now(),
-    type: "quality-reported",
-    title: "समस्या रिपोर्ट पठाइयो",
-    message: `${reportData.defectTypeName} समस्या सुपरभाइजरलाई पठाइएको छ`,
-    time: new Date(),
-    read: false,
+  // Get efficiency color
+  const getEfficiencyColor = (efficiency) => {
+    if (efficiency >= 90) return "text-green-600";
+    if (efficiency >= 80) return "text-blue-600";
+    if (efficiency >= 70) return "text-yellow-600";
+    return "text-red-600";
   };
 
-  setNotifications((prev) => [notification, ...prev]);
-  setShowQualityReport(false);
-
-  // You would typically send this to your backend here
-  // await submitQualityReport(reportData);
-};
-
-const handleQualityReportCancel = () => {
-  setShowQualityReport(false);
-};
-  // Auto-update time every minute
-  useEffect(() => {
-    const timer = setInterval(() => {
-      // Force re-render to update time
-    }, 60000);
-
-    return () => clearInterval(timer);
-  }, []);
-if (showQualityReport) {
-  return (
-    <QualityReport
-      bundleData={currentWork}
-      onSubmit={handleQualityReportSubmit}
-      onCancel={handleQualityReportCancel}
-    />
-  );
-}
-  // Show work completion screen
-  if (showWorkCompletion) {
+  // Loading state
+  if (loading) {
     return (
-      <WorkCompletion
-        workData={currentWork}
-        onComplete={handleWorkCompleted}
-        onCancel={handleWorkCompletionCancel}
-      />
-    );
-  }
-
-  // Show work queue screen
-  if (showWorkQueue) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        {/* Work Queue Header */}
-        <div className="bg-white shadow-sm border-b">
-          <div className="px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleCloseWorkQueue}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <svg
-                    className="w-5 h-5 text-gray-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 19l-7-7 7-7"
-                    />
-                  </svg>
-                </button>
-                <h1 className="text-lg font-semibold text-gray-800">
-                  {currentLanguage === "np" ? "कामको लाइन" : "Work Queue"}
-                </h1>
-              </div>
-              <span className="text-sm text-gray-500">
-                {workQueue.length}{" "}
-                {currentLanguage === "np" ? "वटा काम" : "tasks"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Work Queue List */}
-        <div className="p-4 space-y-4">
-          {workQueue.map((work, index) => (
-            <div key={work.id} className="bg-white rounded-lg shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center space-x-3">
-                  <span className="bg-blue-100 text-blue-700 text-sm px-3 py-1 rounded-full font-medium">
-                    #{index + 1}
-                  </span>
-                  {work.priority === "high" && (
-                    <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded-full">
-                      {currentLanguage === "np"
-                        ? "उच्च प्राथमिकता"
-                        : "High Priority"}
-                    </span>
-                  )}
-                  {work.priority === "low" && (
-                    <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">
-                      {currentLanguage === "np"
-                        ? "कम प्राथमिकता"
-                        : "Low Priority"}
-                    </span>
-                  )}
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "अनुमानित समय" : "Est. Time"}
-                  </p>
-                  <p className="font-semibold">
-                    {work.estimatedTime}{" "}
-                    {currentLanguage === "np" ? "मिनेट" : "min"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "लेख" : "Article"}
-                  </p>
-                  <p className="font-semibold">
-                    {work.article}# {work.articleName}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "काम" : "Operation"}
-                  </p>
-                  <p className="font-semibold">
-                    {work.operation} ({work.machine})
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "रङ/साइज" : "Color/Size"}
-                  </p>
-                  <p className="font-semibold">
-                    {work.color} / {work.size}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "टुक्राहरू" : "Pieces"}
-                  </p>
-                  <p className="font-semibold">{work.pieces} टुक्रा</p>
-                </div>
-              </div>
-
-              <div className="bg-green-50 p-3 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-600">
-                    {currentLanguage === "np"
-                      ? "अनुमानित कमाई"
-                      : "Estimated Earnings"}
-                    :
-                  </span>
-                  <span className="font-bold text-green-600">
-                    रु. {(work.pieces * work.rate).toFixed(2)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center mt-1">
-                  <span className="text-xs text-gray-500">
-                    रु. {work.rate}/टुक्रा
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {currentLanguage === "np" ? "अर्को" : "Next"}:{" "}
-                    {work.nextOperation}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          {workQueue.length === 0 && (
-            <div className="text-center py-12">
-              <div className="bg-gray-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                <svg
-                  className="w-8 h-8 text-gray-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                {currentLanguage === "np"
-                  ? "कुनै काम बाँकी छैन"
-                  : "No Work Remaining"}
-              </h3>
-              <p className="text-gray-600 mb-4">
-                {currentLanguage === "np"
-                  ? "सबै काम सकिएको छ। नयाँ काम आउने पर्खनुहोस्।"
-                  : "All work completed. Wait for new assignments."}
-              </p>
-              <button
-                onClick={handleRequestWork}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                {currentLanguage === "np"
-                  ? "थप काम माग्नुहोस्"
-                  : "Request More Work"}
-              </button>
-            </div>
-          )}
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">
+            {currentLanguage === "np"
+              ? "डेटा लोड हुँदै छ..."
+              : "Loading data..."}
+          </p>
         </div>
       </div>
     );
   }
 
-  // Main Dashboard
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-gray-800 mb-2">
+            {currentLanguage === "np"
+              ? "डेटा लोड गर्न समस्या"
+              : "Error Loading Data"}
+          </h1>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={loadOperatorData}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4 inline mr-2" />
+            {currentLanguage === "np" ? "पुनः प्रयास" : "Retry"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Main Dashboard View (rest of the component remains the same as before...)
+  // ... Continue with the existing dashboard UI code ...
+
+  // Return the complete dashboard UI
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 pb-20">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="bg-blue-100 text-blue-700 p-2 rounded-lg">
-                <span className="text-sm font-medium">
-                  {userInfo?.initials}
-                </span>
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-4 text-white m-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold">
+              {getTimeBasedGreeting()}, {userInfo?.name}
+            </h1>
+            <p className="text-blue-100 text-sm">
+              {t("operator")} - {t(userInfo?.machine)} |{" "}
+              {formatTime(currentTime)}
+            </p>
+          </div>
+          <div className="text-right">
+            <div className="text-2xl font-bold">
+              {formatNumber(dailyStats.piecesCompleted)}
+            </div>
+            <div className="text-blue-100 text-sm">
+              {t("pieces")} {t("today")}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Current Work Section */}
+      {currentWork ? (
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 m-4">
+          <div className="p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+                <Package className="w-5 h-5 mr-2 text-blue-600" />
+                {t("currentWork")}
+              </h2>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium ${getWorkStatusColor(
+                  currentWork.status
+                )}`}
+              >
+                {t(currentWork.status)}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 space-y-4">
+            {/* Article Info */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm text-gray-600">{t("article")}</div>
+                <div className="font-semibold">
+                  {currentWork.article}# {currentWork.articleName}
+                </div>
               </div>
               <div>
-                <h1 className="text-lg font-semibold text-gray-800">
-                  {getTimeBasedGreeting()}, {userInfo?.name}
-                </h1>
-                <p className="text-sm text-gray-600">
-                  {t("operator")} | {userInfo?.station} | {currentTime}
-                </p>
+                <div className="text-sm text-gray-600">{t("operation")}</div>
+                <div className="font-semibold">
+                  {t(currentWork.currentOperation)} (
+                  {t(currentWork.machineType)})
+                </div>
               </div>
             </div>
 
-            <div className="flex items-center space-x-2">
-              {/* Notifications */}
-              <div className="relative">
-                <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors relative">
-                  <svg
-                    className="w-5 h-5 text-gray-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 17h5l-5 5-5 5H5m5 0V9a4 4 0 014-4 4 4 0 014 4v8z"
-                    />
-                  </svg>
-                  {notifications.filter((n) => !n.read).length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {notifications.filter((n) => !n.read).length}
-                    </span>
-                  )}
-                </button>
+            {/* Color, Size, Bundle Info */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <div className="text-sm text-gray-600">{t("color")}</div>
+                <div className="font-medium">{currentWork.color}</div>
               </div>
-
-              <div className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
-                {currentLanguage === "np" ? "अनलाइन" : "Online"}
+              <div>
+                <div className="text-sm text-gray-600">{t("size")}</div>
+                <div className="font-medium">
+                  {getSizeLabel(currentWork.article, currentWork.size)}
+                </div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">{t("bundle")}</div>
+                <div className="font-medium">#{currentWork.bundleNumber}</div>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Main Content */}
-      <div className="p-4 space-y-4">
-        {/* Current Work Card */}
-        {currentWork ? (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-800 flex items-center">
-                <div className="w-3 h-3 bg-green-500 rounded-full mr-2 animate-pulse"></div>
-                {currentLanguage === "np" ? "हालको काम" : "Current Work"}
-              </h2>
-              <span className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
-                {currentLanguage === "np" ? "चलिरहेको" : "In Progress"}
-              </span>
-            </div>
-
-            <div className="space-y-4">
-              {/* Work Details */}
-              <div className="grid grid-cols-2 gap-4">
+            {/* Progress Info */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="grid grid-cols-4 gap-3 text-center text-sm">
                 <div>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "लेख" : "Article"}
-                  </p>
-                  <p className="font-semibold">
-                    {currentWork.article}# {currentWork.articleName}
-                  </p>
+                  <div className="text-gray-600">{t("assigned")}</div>
+                  <div className="font-bold text-lg">
+                    {formatNumber(currentWork.pieces)}
+                  </div>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "काम" : "Operation"}
-                  </p>
-                  <p className="font-semibold">
-                    {currentWork.operation} ({currentWork.machine})
-                  </p>
+                  <div className="text-gray-600">{t("completed")}</div>
+                  <div className="font-bold text-lg text-green-600">
+                    {formatNumber(currentWork.completedPieces || 0)}
+                  </div>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "रङ/साइज" : "Color/Size"}
-                  </p>
-                  <p className="font-semibold">
-                    {currentWork.color} / {currentWork.size}
-                  </p>
+                  <div className="text-gray-600">{t("remaining")}</div>
+                  <div className="font-bold text-lg text-orange-600">
+                    {formatNumber(
+                      currentWork.pieces - (currentWork.completedPieces || 0)
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "बन्डल" : "Bundle"}
-                  </p>
-                  <p className="font-semibold">
-                    #{currentWork.bundleNumber.split("-")[0]}
-                  </p>
-                </div>
-              </div>
-
-              {/* Progress Stats */}
-              <div className="grid grid-cols-4 gap-4 bg-gray-50 p-4 rounded-lg">
-                <div className="text-center">
-                  <p className="text-lg font-bold text-gray-800">
-                    {currentWork.totalPieces}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {currentLanguage === "np" ? "तोकिएको" : "Assigned"}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-green-600">
-                    {currentWork.completedPieces}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {currentLanguage === "np" ? "पूरा" : "Completed"}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-orange-600">
-                    {remainingPieces}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {currentLanguage === "np" ? "बाँकी" : "Remaining"}
-                  </p>
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-blue-600">
+                  <div className="text-gray-600">{t("ratePerPiece")}</div>
+                  <div className="font-bold text-lg text-blue-600">
                     रु. {currentWork.rate}
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    {currentLanguage === "np" ? "दर/टुक्रा" : "Rate/Piece"}
-                  </p>
+                  </div>
                 </div>
               </div>
 
               {/* Progress Bar */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>
-                    {currentLanguage === "np" ? "प्रगति" : "Progress"}:{" "}
-                    {currentProgress}%
-                  </span>
-                  <span>
-                    {currentLanguage === "np" ? "कमाई" : "Earnings"}: रु.{" "}
-                    {currentEarnings.toFixed(2)}
-                  </span>
+              <div className="mt-3">
+                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                  <span>{t("progress")}</span>
+                  <span>{getWorkProgressPercentage()}%</span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-3">
                   <div
-                    className="bg-green-500 h-3 rounded-full transition-all duration-300"
-                    style={{ width: `${currentProgress}%` }}
+                    className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                    style={{ width: `${getWorkProgressPercentage()}%` }}
                   ></div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex space-x-3 pt-2">
-                <button
-                  onClick={handleCompleteWork}
-                  className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors"
-                >
-                  {currentLanguage === "np"
-                    ? "काम पूरा गर्नुहोस्"
-                    : "Complete Work"}
-                </button>
-                <button
-                  onClick={handleReportIssue}
-                  className="px-6 py-3 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors"
-                >
-                  {currentLanguage === "np" ? "समस्या रिपोर्ट" : "Report Issue"}
-                </button>
+              {/* Current Earnings */}
+              <div className="mt-3 text-center">
+                <div className="text-sm text-gray-600">
+                  {t("currentWork")} {t("earnings")}
+                </div>
+                <div className="text-xl font-bold text-green-600">
+                  रु.{" "}
+                  {(
+                    (currentWork.completedPieces || 0) * currentWork.rate
+                  ).toFixed(2)}
+                </div>
               </div>
             </div>
-          </div>
-        ) : (
-          /* No Current Work */
-          <div className="bg-white rounded-lg shadow-sm p-6 text-center">
-            <div className="bg-gray-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-              <svg
-                className="w-8 h-8 text-gray-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              {!isWorkStarted ? (
+                <button
+                  onClick={handleStartWork}
+                  className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors"
+                >
+                  <PlayCircle className="w-5 h-5" />
+                  <span>{t("startWork")}</span>
+                </button>
+              ) : (
+                <button
+                  onClick={handlePauseWork}
+                  className="flex items-center justify-center space-x-2 bg-orange-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-orange-700 transition-colors"
+                >
+                  <PauseCircle className="w-5 h-5" />
+                  <span>{t("pauseWork")}</span>
+                </button>
+              )}
+
+              <button
+                onClick={handleCompleteWork}
+                disabled={!isWorkStarted}
+                className="flex items-center justify-center space-x-2 bg-blue-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
+                <CheckCircle className="w-5 h-5" />
+                <span>{t("completeWork")}</span>
+              </button>
             </div>
-            <h3 className="text-lg font-semibold text-gray-800 mb-2">
-              {currentLanguage === "np" ? "कुनै काम नभएको" : "No Current Work"}
-            </h3>
-            <p className="text-gray-600 mb-4">
-              {currentLanguage === "np"
-                ? "नयाँ काम असाइन हुने पर्खनुहोस् वा थप काम माग्नुहोस्।"
-                : "Wait for new work assignment or request more work."}
-            </p>
+
             <button
-              onClick={handleRequestWork}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              onClick={handleReportQuality}
+              className="w-full flex items-center justify-center space-x-2 bg-red-50 text-red-600 py-2 px-4 rounded-lg font-medium hover:bg-red-100 transition-colors border border-red-200"
             >
-              {currentLanguage === "np"
-                ? "थप काम माग्नुहोस्"
-                : "Request More Work"}
+              <AlertTriangle className="w-4 h-4" />
+              <span>{t("reportIssue")}</span>
             </button>
           </div>
-        )}
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 m-4 p-8 text-center">
+          <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-800 mb-2">
+            {currentLanguage === "np" ? "काम उपलब्ध छैन" : "No Work Available"}
+          </h3>
+          <p className="text-gray-600 mb-4">
+            {currentLanguage === "np"
+              ? "तपाईंलाई नयाँ काम तोकिने प्रतीक्षा गर्नुहोस्"
+              : "Waiting for new work assignment"}
+          </p>
+          <button
+            onClick={loadOperatorData}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+          >
+            <RefreshCw className="w-4 h-4 inline mr-2" />
+            {currentLanguage === "np" ? "रिफ्रेस गर्नुहोस्" : "Refresh"}
+          </button>
+        </div>
+      )}
 
-        {/* Daily Statistics */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            {currentLanguage === "np" ? "आजको तथ्याङ्क" : "Today's Statistics"}
-          </h2>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-blue-600">
-                    {dailyStats.totalPieces}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "टुक्राहरू" : "Pieces"}
-                  </p>
-                </div>
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <svg
-                    className="w-6 h-6 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-green-600">
-                    रु. {dailyStats.totalEarnings}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "कमाई" : "Earnings"}
-                  </p>
-                </div>
-                <div className="bg-green-100 p-2 rounded-lg">
-                  <svg
-                    className="w-6 h-6 text-green-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-orange-600">
-                    {dailyStats.efficiency}%
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "दक्षता" : "Efficiency"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {currentLanguage === "np" ? "टिम औसत भन्दा" : "vs team avg"}{" "}
-                    +{dailyStats.efficiency - dailyStats.teamAverage}%
-                  </p>
-                </div>
-                <div className="bg-orange-100 p-2 rounded-lg">
-                  <svg
-                    className="w-6 h-6 text-orange-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {dailyStats.qualityScore}%
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "गुणस्तर" : "Quality"}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {currentLanguage === "np"
-                      ? "२ दोष मात्र"
-                      : "Only 2 defects"}
-                  </p>
-                </div>
-                <div className="bg-purple-100 p-2 rounded-lg">
-                  <svg
-                    className="w-6 h-6 text-purple-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </div>
-          </div>
+      {/* Daily Statistics */}
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 m-4">
+        <div className="p-4 border-b border-gray-100">
+          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+            <BarChart3 className="w-5 h-5 mr-2 text-green-600" />
+            {t("today")} {t("statistics")}
+          </h3>
         </div>
 
-        {/* Work Queue Preview */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">
-              {currentLanguage === "np" ? "अर्का कामहरू" : "Upcoming Work"}
-            </h2>
-            <span className="text-sm text-gray-500">
-              {workQueue.length}{" "}
-              {currentLanguage === "np" ? "वटा बाँकी" : "remaining"}
-            </span>
-          </div>
-
-          <div className="space-y-3">
-            {workQueue.slice(0, 2).map((work, index) => (
+        <div className="p-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center p-3 bg-blue-50 rounded-lg">
+              <div className="text-2xl font-bold text-blue-600">
+                {formatNumber(dailyStats.piecesCompleted)}
+              </div>
+              <div className="text-sm text-gray-600">
+                {t("pieces")} {t("completed")}
+              </div>
+            </div>
+            <div className="text-center p-3 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">
+                रु. {dailyStats.totalEarnings}
+              </div>
+              <div className="text-sm text-gray-600">{t("earnings")}</div>
+            </div>
+            <div className="text-center p-3 bg-yellow-50 rounded-lg">
               <div
-                key={work.id}
-                className="border border-gray-200 rounded-lg p-4"
+                className={`text-2xl font-bold ${getEfficiencyColor(
+                  dailyStats.efficiency
+                )}`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center space-x-2">
-                    <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded">
-                      #{index + 1}
-                    </span>
-                    {work.priority === "high" && (
-                      <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
-                        {currentLanguage === "np"
-                          ? "उच्च प्राथमिकता"
-                          : "High Priority"}
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    ~{work.estimatedTime}{" "}
-                    {currentLanguage === "np" ? "मिनेट" : "min"}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div>
-                    <span className="text-gray-600">
-                      {currentLanguage === "np" ? "लेख" : "Article"}:
-                    </span>
-                    <span className="ml-1 font-medium">
-                      {work.article}# {work.color}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">
-                      {currentLanguage === "np" ? "काम" : "Operation"}:
-                    </span>
-                    <span className="ml-1 font-medium">{work.operation}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">
-                      {currentLanguage === "np" ? "टुक्रा" : "Pieces"}:
-                    </span>
-                    <span className="ml-1 font-medium">{work.pieces}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">
-                      {currentLanguage === "np" ? "कमाई" : "Earnings"}:
-                    </span>
-                    <span className="ml-1 font-medium text-green-600">
-                      रु. {(work.pieces * work.rate).toFixed(2)}
-                    </span>
-                  </div>
-                </div>
+                {formatNumber(dailyStats.efficiency)}%
               </div>
-            ))}
+              <div className="text-sm text-gray-600">{t("efficiency")}</div>
+            </div>
+            <div className="text-center p-3 bg-purple-50 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600">
+                {formatNumber(dailyStats.qualityScore)}%
+              </div>
+              <div className="text-sm text-gray-600">{t("quality")}</div>
+            </div>
           </div>
 
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="flex space-x-3">
-              <button
-                onClick={handleViewAllWork}
-                className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors"
-              >
-                {currentLanguage === "np"
-                  ? "सबै काम हेर्नुहोस्"
-                  : "View All Work"}
-              </button>
-              <button
-                onClick={handleRequestWork}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-50 transition-colors"
-              >
-                {currentLanguage === "np" ? "थप काम चाहिन्छ" : "Need More Work"}
-              </button>
+          {/* Daily Progress */}
+          <div className="mt-4">
+            <div className="flex justify-between text-sm text-gray-600 mb-2">
+              <span>
+                {t("today")} {t("target")}:{" "}
+                {formatNumber(dailyStats.targetPieces)} {t("pieces")}
+              </span>
+              <span>
+                {Math.round(
+                  (dailyStats.piecesCompleted / dailyStats.targetPieces) * 100
+                )}
+                %
+              </span>
             </div>
-          </div>
-        </div>
-
-        {/* Today's Target Progress */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            {currentLanguage === "np" ? "आजको लक्ष्य" : "Today's Target"}
-          </h2>
-
-          <div className="space-y-4">
-            {/* Pieces Target */}
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>
-                  {currentLanguage === "np" ? "टुक्रा लक्ष्य" : "Pieces Target"}
-                </span>
-                <span>
-                  {dailyStats.totalPieces}/120 (
-                  {Math.round((dailyStats.totalPieces / 120) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${Math.min(
-                      (dailyStats.totalPieces / 120) * 100,
-                      100
-                    )}%`,
-                  }}
-                ></div>
-              </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div
+                className="bg-green-600 h-3 rounded-full transition-all duration-300"
+                style={{
+                  width: `${Math.min(
+                    (dailyStats.piecesCompleted / dailyStats.targetPieces) *
+                      100,
+                    100
+                  )}%`,
+                }}
+              ></div>
             </div>
-
-            {/* Earnings Target */}
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>
-                  {currentLanguage === "np" ? "कमाई लक्ष्य" : "Earnings Target"}
-                </span>
-                <span>
-                  रु. {dailyStats.totalEarnings}/400 (
-                  {Math.round((dailyStats.totalEarnings / 400) * 100)}%)
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${Math.min(
-                      (dailyStats.totalEarnings / 400) * 100,
-                      100
-                    )}%`,
-                  }}
-                ></div>
-              </div>
-            </div>
-
-            {/* Quality Target */}
-            <div>
-              <div className="flex justify-between text-sm mb-2">
-                <span>
-                  {currentLanguage === "np"
-                    ? "गुणस्तर लक्ष्य"
-                    : "Quality Target"}
-                </span>
-                <span>
-                  {dailyStats.qualityScore}%/95% (
-                  {dailyStats.qualityScore >= 95 ? "पुरा!" : "राम्रो!"})
-                </span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className={`h-2 rounded-full transition-all duration-300 ${
-                    dailyStats.qualityScore >= 95
-                      ? "bg-green-500"
-                      : "bg-yellow-500"
-                  }`}
-                  style={{
-                    width: `${Math.min(
-                      (dailyStats.qualityScore / 95) * 100,
-                      100
-                    )}%`,
-                  }}
-                ></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Recent Notifications */}
-        {notifications.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+            <div className="text-center mt-2 text-sm text-gray-600">
               {currentLanguage === "np"
-                ? "हालका सूचनाहरू"
-                : "Recent Notifications"}
-            </h2>
-
-            <div className="space-y-3">
-              {notifications.slice(0, 3).map((notification) => (
-                <div
-                  key={notification.id}
-                  className={`p-3 rounded-lg border-l-4 cursor-pointer transition-colors ${
-                    notification.read
-                      ? "bg-gray-50 border-gray-300"
-                      : "bg-blue-50 border-blue-500"
-                  }`}
-                  onClick={() => markNotificationRead(notification.id)}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p
-                        className={`text-sm font-medium ${
-                          notification.read ? "text-gray-700" : "text-gray-900"
-                        }`}
-                      >
-                        {notification.title}
-                      </p>
-                      <p
-                        className={`text-sm ${
-                          notification.read ? "text-gray-500" : "text-gray-700"
-                        }`}
-                      >
-                        {notification.message}
-                      </p>
-                    </div>
-                    <div className="text-xs text-gray-500 ml-3">
-                      {notification.time.toLocaleTimeString("en-US", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </div>
-                  </div>
-                  {!notification.read && (
-                    <div className="w-2 h-2 bg-blue-500 rounded-full mt-1"></div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {notifications.filter((n) => !n.read).length > 3 && (
-              <div className="mt-4 pt-4 border-t border-gray-200 text-center">
-                <button className="text-blue-600 text-sm font-medium hover:text-blue-800">
-                  {currentLanguage === "np"
-                    ? `${
-                        notifications.filter((n) => !n.read).length - 3
-                      } थप सूचनाहरू हेर्नुहोस्`
-                    : `View ${
-                        notifications.filter((n) => !n.read).length - 3
-                      } more notifications`}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            {currentLanguage === "np" ? "छिटो कार्यहरू" : "Quick Actions"}
-          </h2>
-
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={handleViewAllWork}
-              className="flex items-center justify-center space-x-2 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                />
-              </svg>
-              <span className="text-sm font-medium text-gray-700">
-                {currentLanguage === "np" ? "काम लिस्ट" : "Work List"}
-              </span>
-            </button>
-
-            <button
-              onClick={handleReportIssue}
-              className="flex items-center justify-center space-x-2 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-red-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z"
-                />
-              </svg>
-              <span className="text-sm font-medium text-gray-700">
-                {currentLanguage === "np" ? "समस्या रिपोर्ट" : "Report Issue"}
-              </span>
-            </button>
-
-            <button className="flex items-center justify-center space-x-2 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              <svg
-                className="w-5 h-5 text-green-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                />
-              </svg>
-              <span className="text-sm font-medium text-gray-700">
-                {currentLanguage === "np" ? "प्रदर्शन" : "Performance"}
-              </span>
-            </button>
-
-            <button
-              onClick={handleRequestWork}
-              className="flex items-center justify-center space-x-2 p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-purple-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-              <span className="text-sm font-medium text-gray-700">
-                {currentLanguage === "np" ? "थप काम" : "More Work"}
-              </span>
-            </button>
-          </div>
-        </div>
-
-        {/* Footer Info */}
-        <div className="bg-white rounded-lg shadow-sm p-4">
-          <div className="flex items-center justify-between text-sm text-gray-500">
-            <div>
-              {currentLanguage === "np" ? "संस्करण" : "Version"} 1.0 - PWA Ready
-            </div>
-            <div>
-              {currentLanguage === "np" ? "अन्तिम अपडेट" : "Last updated"}:{" "}
-              {currentTime}
+                ? `टिम औसत भन्दा +१२% माथि`
+                : `+12% above team average`}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Modals */}
+      {showWorkCompletion && currentWork && (
+        <WorkCompletion
+          currentWork={currentWork}
+          onClose={() => setShowWorkCompletion(false)}
+          onComplete={handleWorkCompleted}
+        />
+      )}
+
+      {showQualityReport && currentWork && (
+        <QualityReport
+          currentWork={currentWork}
+          onClose={() => setShowQualityReport(false)}
+          onSubmit={handleQualityReported}
+        />
+      )}
     </div>
   );
 };

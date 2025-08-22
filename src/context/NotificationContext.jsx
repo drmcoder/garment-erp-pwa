@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
-import { useLanguage } from "./LanguageContext";
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { useLanguage } from './LanguageContext';
+import { NotificationService } from "../services/firebase-services";
+import { useAuth } from "./AuthContext";
 
 const NotificationContext = createContext();
 
@@ -13,44 +15,41 @@ export const NotificationProvider = ({ children }) => {
     const sampleNotifications = [
       {
         id: 1,
-        title: currentLanguage === "np" ? "बन्डल #५ तयार छ" : "Bundle #5 Ready",
-        message:
-          currentLanguage === "np"
-            ? "तपाईंको स्टेसनमा नयाँ काम तयार छ"
-            : "New work ready at your station",
+        title: currentLanguage === 'np' ? 'बन्डल #५ तयार छ' : 'Bundle #5 Ready',
+        message: currentLanguage === 'np' 
+          ? 'तपाईंको स्टेसनमा नयाँ काम तयार छ'
+          : 'New work ready at your station',
         time: new Date(Date.now() - 2 * 60000),
-        type: "work",
+        type: 'work',
         read: false,
-        priority: "high",
+        priority: 'high'
       },
       {
         id: 2,
-        title: currentLanguage === "np" ? "दैनिक लक्ष्य" : "Daily Target",
-        message:
-          currentLanguage === "np"
-            ? "आजको लक्ष्यको ८५% पूरा भयो"
-            : "85% of today's target completed",
+        title: currentLanguage === 'np' ? 'दैनिक लक्ष्य' : 'Daily Target',
+        message: currentLanguage === 'np'
+          ? 'आजको लक्ष्यको ८५% पूरा भयो'
+          : '85% of today\'s target completed',
         time: new Date(Date.now() - 30 * 60000),
-        type: "achievement",
+        type: 'achievement',
         read: false,
-        priority: "medium",
+        priority: 'medium'
       },
       {
         id: 3,
-        title: currentLanguage === "np" ? "गुणस्तर चेक" : "Quality Check",
-        message:
-          currentLanguage === "np"
-            ? "बन्डल #३ मा गुणस्तर जाँच सम्पन्न"
-            : "Quality check completed for Bundle #3",
+        title: currentLanguage === 'np' ? 'गुणस्तर चेक' : 'Quality Check',
+        message: currentLanguage === 'np'
+          ? 'बन्डल #३ मा गुणस्तर जाँच सम्पन्न'
+          : 'Quality check completed for Bundle #3',
         time: new Date(Date.now() - 60 * 60000),
-        type: "quality",
+        type: 'quality',
         read: true,
-        priority: "low",
-      },
+        priority: 'low'
+      }
     ];
 
     setNotifications(sampleNotifications);
-    setUnreadCount(sampleNotifications.filter((n) => !n.read).length);
+    setUnreadCount(sampleNotifications.filter(n => !n.read).length);
   }, [currentLanguage]);
 
   const addNotification = (notification) => {
@@ -58,48 +57,48 @@ export const NotificationProvider = ({ children }) => {
       id: Date.now(),
       time: new Date(),
       read: false,
-      priority: "medium",
-      ...notification,
+      priority: 'medium',
+      ...notification
     };
 
-    setNotifications((prev) => [newNotification, ...prev]);
-    setUnreadCount((prev) => prev + 1);
+    setNotifications(prev => [newNotification, ...prev]);
+    setUnreadCount(prev => prev + 1);
 
     // Show browser notification if permission granted
-    if ("Notification" in window && Notification.permission === "granted") {
+    if ('Notification' in window && Notification.permission === 'granted') {
       new Notification(newNotification.title, {
         body: newNotification.message,
-        icon: "/icon-192x192.png",
-        badge: "/badge-72x72.png",
+        icon: '/logo192.png',
+        badge: '/logo192.png',
         tag: newNotification.type,
-        vibrate: [100, 50, 100],
+        vibrate: [100, 50, 100]
       });
     }
   };
 
   const markAsRead = (notificationId) => {
-    setNotifications((prev) =>
-      prev.map((notification) =>
+    setNotifications(prev =>
+      prev.map(notification =>
         notification.id === notificationId
           ? { ...notification, read: true }
           : notification
       )
     );
-    setUnreadCount((prev) => Math.max(0, prev - 1));
+    setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
   const markAllAsRead = () => {
-    setNotifications((prev) =>
-      prev.map((notification) => ({ ...notification, read: true }))
+    setNotifications(prev =>
+      prev.map(notification => ({ ...notification, read: true }))
     );
     setUnreadCount(0);
   };
 
   const removeNotification = (notificationId) => {
-    const notification = notifications.find((n) => n.id === notificationId);
-    setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+    const notification = notifications.find(n => n.id === notificationId);
+    setNotifications(prev => prev.filter(n => n.id !== notificationId));
     if (notification && !notification.read) {
-      setUnreadCount((prev) => Math.max(0, prev - 1));
+      setUnreadCount(prev => Math.max(0, prev - 1));
     }
   };
 
@@ -110,7 +109,7 @@ export const NotificationProvider = ({ children }) => {
 
   // Request notification permission on mount
   useEffect(() => {
-    if ("Notification" in window && Notification.permission === "default") {
+    if ('Notification' in window && Notification.permission === 'default') {
       Notification.requestPermission();
     }
   }, []);
@@ -122,7 +121,7 @@ export const NotificationProvider = ({ children }) => {
     markAsRead,
     markAllAsRead,
     removeNotification,
-    clearAllNotifications,
+    clearAllNotifications
   };
 
   return (
@@ -135,9 +134,7 @@ export const NotificationProvider = ({ children }) => {
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error(
-      "useNotifications must be used within a NotificationProvider"
-    );
+    throw new Error('useNotifications must be used within a NotificationProvider');
   }
   return context;
 };
