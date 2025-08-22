@@ -1,979 +1,814 @@
-import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useLanguage } from '../../context/LanguageContext';
-import { useNotifications } from '../../hooks/useNotifications';
-import WIPImport from "./WIPImport";
-
+import React, { useState, useEffect } from "react";
+import {
+  Users,
+  Activity,
+  Clock,
+  TrendingUp,
+  AlertTriangle,
+  Package,
+  PlayCircle,
+  PauseCircle,
+  Target,
+  BarChart3,
+  Settings,
+  RefreshCw,
+  Plus,
+  Edit,
+  Eye,
+  Filter,
+  Download,
+  Bell,
+  Zap,
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
 
 const SupervisorDashboard = () => {
   const { user, getUserDisplayInfo } = useAuth();
-  const { t, currentLanguage, getTimeBasedGreeting, formatTime } =
-    useLanguage();
-  const { showWorkNotification } = useNotifications();
+  const {
+    t,
+    currentLanguage,
+    formatTime,
+    formatNumber,
+    getSizeLabel,
+    sizeUtils,
+  } = useLanguage();
 
-  const [lineStatus, setLineStatus] = useState([
-    {
-      id: "overlock-1",
-      station: "ओभरलक स्टेसन १",
-      operator: { id: "op1", name: "राम सिंह", initials: "रस" },
-      currentWork: {
-        bundleId: "B001-85-BL-XL",
-        article: "8085",
-        operation: "साइड सिम",
-        progress: 85,
-        timeRemaining: 5,
-        pieces: { completed: 25, total: 30 },
-      },
-      status: "active",
-      efficiency: 88,
-      lastUpdate: new Date(Date.now() - 2 * 60000),
-    },
-    {
-      id: "flatlock-1",
-      station: "फ्ल्यालक स्टेसन १",
-      operator: { id: "op2", name: "सीता देवी", initials: "सद" },
-      currentWork: {
-        bundleId: "B002-33-GR-2XL",
-        article: "2233",
-        operation: "हेम फोल्ड",
-        progress: 60,
-        timeRemaining: 12,
-        pieces: { completed: 17, total: 28 },
-      },
-      status: "active",
-      efficiency: 92,
-      lastUpdate: new Date(Date.now() - 1 * 60000),
-    },
-    {
-      id: "overlock-2",
-      station: "ओभरलक स्टेसन २",
-      operator: { id: "op3", name: "श्याम पोखरेल", initials: "शप" },
-      currentWork: null,
-      status: "idle",
-      efficiency: 85,
-      idleTime: 15,
-      lastUpdate: new Date(Date.now() - 15 * 60000),
-    },
-    {
-      id: "single-needle-1",
-      station: "एकल सुई स्टेसन १",
-      operator: { id: "op4", name: "हरि बहादुर", initials: "हब" },
-      currentWork: {
-        bundleId: "B004-85-BL-L",
-        article: "8085",
-        operation: "प्लाकेट",
-        progress: 70,
-        timeRemaining: 8,
-        pieces: { completed: 22, total: 32 },
-      },
-      status: "active",
-      efficiency: 78,
-      lastUpdate: new Date(Date.now() - 3 * 60000),
-    },
-    {
-      id: "single-needle-2",
-      station: "एकल सुई स्टेसन २",
-      operator: { id: "op5", name: "मिना तामाङ", initials: "मत" },
-      currentWork: null,
-      status: "break",
-      efficiency: 65,
-      breakTime: 10,
-      lastUpdate: new Date(Date.now() - 10 * 60000),
-    },
-  ]);
+  const [activeTab, setActiveTab] = useState("monitoring");
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const [lineData, setLineData] = useState([]);
+  const [productionStats, setProductionStats] = useState({});
+  const [efficiencyAlerts, setEfficiencyAlerts] = useState([]);
+  const [selectedStation, setSelectedStation] = useState(null);
+  const [showWorkAssignment, setShowWorkAssignment] = useState(false);
 
-  const [productionStats, setProductionStats] = useState({
-    today: {
-      target: 5000,
-      completed: 3750,
-      efficiency: 85,
+  const userInfo = getUserDisplayInfo();
+
+  // Update current time
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 30000); // Update every 30 seconds
+    return () => clearInterval(timer);
+  }, []);
+
+  // Sample line data with flexible sizes
+  useEffect(() => {
+    setLineData([
+      {
+        id: "overlock-1",
+        station: "ओभरलक स्टेसन १",
+        stationEn: "Overlock Station 1",
+        operator: "राम सिंह",
+        operatorEn: "Ram Singh",
+        currentWork: {
+          article: "8085",
+          articleName: "Polo T-Shirt",
+          color: "Blue-1",
+          size: "XL",
+          operation: "sideSeam",
+          pieces: 30,
+          completed: 25,
+          estimatedTime: 5,
+        },
+        status: "active",
+        efficiency: 85,
+        nextWork: {
+          article: "2233",
+          size: "2XL",
+          pieces: 28,
+        },
+      },
+      {
+        id: "flatlock-1",
+        station: "फ्ल्यालक स्टेसन १",
+        stationEn: "Flatlock Station 1",
+        operator: "सीता देवी",
+        operatorEn: "Sita Devi",
+        currentWork: {
+          article: "2233",
+          articleName: "Round Neck T-Shirt",
+          color: "Green-1",
+          size: "2XL",
+          operation: "hemFold",
+          pieces: 28,
+          completed: 17,
+          estimatedTime: 12,
+        },
+        status: "active",
+        efficiency: 92,
+        nextWork: {
+          article: "6635",
+          size: "L",
+          pieces: 40,
+        },
+      },
+      {
+        id: "single-needle-1",
+        station: "एकल सुई स्टेसन १",
+        stationEn: "Single Needle Station 1",
+        operator: "हरि बहादुर",
+        operatorEn: "Hari Bahadur",
+        currentWork: {
+          article: "6635",
+          articleName: "3-Button Tops",
+          color: "White-1",
+          size: "L",
+          operation: "placket",
+          pieces: 40,
+          completed: 28,
+          estimatedTime: 8,
+        },
+        status: "active",
+        efficiency: 78,
+        nextWork: {
+          article: "1020",
+          size: "26",
+          pieces: 25,
+        },
+      },
+      {
+        id: "overlock-2",
+        station: "ओभरलक स्टेसन २",
+        stationEn: "Overlock Station 2",
+        operator: "श्याम पोखरेल",
+        operatorEn: "Shyam Pokhrel",
+        currentWork: null,
+        status: "idle",
+        efficiency: 0,
+        idleTime: 15,
+        nextWork: {
+          article: "9001",
+          size: "5XL",
+          pieces: 20,
+        },
+      },
+      {
+        id: "flatlock-2",
+        station: "फ्ल्यालक स्टेसन २",
+        stationEn: "Flatlock Station 2",
+        operator: "गीता शर्मा",
+        operatorEn: "Gita Sharma",
+        currentWork: {
+          article: "8085",
+          articleName: "Polo T-Shirt",
+          color: "Blue-1",
+          size: "L",
+          operation: "topStitch",
+          pieces: 32,
+          completed: 10,
+          estimatedTime: 20,
+        },
+        status: "active",
+        efficiency: 88,
+        nextWork: null,
+      },
+      {
+        id: "single-needle-2",
+        station: "एकल सुई स्टेसन २",
+        stationEn: "Single Needle Station 2",
+        operator: "मिना तामाङ",
+        operatorEn: "Mina Tamang",
+        currentWork: null,
+        status: "break",
+        breakTimeRemaining: 10,
+        efficiency: 65,
+        nextWork: {
+          article: "1020",
+          size: "28",
+          pieces: 30,
+        },
+      },
+    ]);
+
+    setProductionStats({
+      totalProduction: 3750,
+      targetProduction: 5000,
+      efficiency: 75,
       qualityScore: 96,
       activeOperators: 48,
       totalOperators: 50,
-    },
-    hourly: [
-      { hour: "09:00", pieces: 450, target: 400 },
-      { hour: "10:00", pieces: 520, target: 500 },
-      { hour: "11:00", pieces: 480, target: 500 },
-      { hour: "12:00", pieces: 510, target: 500 },
-      { hour: "13:00", pieces: 320, target: 200 }, // lunch
-      { hour: "14:00", pieces: 540, target: 500 },
-      { hour: "15:00", pieces: 490, target: 500 },
-    ],
-  });
-const [showWIPImport, setShowWIPImport] = useState(false);
-const [wipData, setWipData] = useState([]);
-
-const handleWIPImport = (importedData) => {
-  console.log("WIP imported:", importedData);
-
-  // Add to available bundles
-  setAvailableBundles((prev) => [
-    ...prev,
-    ...importedData.bundles.slice(0, 10),
-  ]);
-
-  // Store WIP data
-  setWipData((prev) => [...prev, importedData]);
-
-  setShowWIPImport(false);
-};
-
-const handleWIPImportCancel = () => {
-  setShowWIPImport(false);
-};
-  const [availableBundles, setAvailableBundles] = useState([
-    {
-      id: "B005-88-CR-XL",
-      article: "2288",
-      articleName: "Full Sleeve T-Shirt",
-      color: "क्रिम-१",
-      size: "XL",
-      pieces: 25,
-      operation: "स्लिभ अट्याच",
-      machine: "ओभरलक",
-      rate: 4.5,
-      priority: "high",
-      estimatedTime: 90,
-      assignedTo: null,
-    },
-    {
-      id: "B006-35-WH-2XL",
-      article: "6635",
-      articleName: "3-Button Tops",
-      color: "सेतो-२",
-      size: "2XL",
-      pieces: 38,
-      operation: "बटनहोल",
-      machine: "बटनहोल",
-      rate: 1.5,
-      priority: "normal",
-      estimatedTime: 45,
-      assignedTo: null,
-    },
-    {
-      id: "B007-85-BK-L",
-      article: "8085",
-      articleName: "Polo T-Shirt",
-      color: "कालो-१",
-      size: "L",
-      pieces: 30,
-      operation: "कलर अट्याच",
-      machine: "एकल सुई",
-      rate: 4.5,
-      priority: "normal",
-      estimatedTime: 120,
-      assignedTo: null,
-    },
-  ]);
-
-  const [qualityIssues, setQualityIssues] = useState([
-    {
-      id: 1,
-      bundleId: "B003-35-WH-L",
-      operatorName: "सीता देवी",
-      defectType: "कपडामा प्वाल",
-      severity: "major",
-      affectedPieces: 2,
-      status: "open",
-      reportedAt: new Date(Date.now() - 30 * 60000),
-    },
-  ]);
-
-  const [showWorkAssignment, setShowWorkAssignment] = useState(false);
-  const [selectedBundle, setSelectedBundle] = useState(null);
-  const [selectedStation, setSelectedStation] = useState(null);
-
-  const userInfo = getUserDisplayInfo();
-  const currentTime = formatTime(new Date());
-
-  // Calculated stats
-  const activeStations = lineStatus.filter(
-    (station) => station.status === "active"
-  ).length;
-  const idleStations = lineStatus.filter(
-    (station) => station.status === "idle"
-  ).length;
-  const avgEfficiency = Math.round(
-    lineStatus.reduce((sum, station) => sum + station.efficiency, 0) /
-      lineStatus.length
-  );
-
-  const handleAssignWork = (bundleId, stationId) => {
-    const bundle = availableBundles.find((b) => b.id === bundleId);
-    const station = lineStatus.find((s) => s.id === stationId);
-
-    if (bundle && station) {
-      // Update bundle assignment
-      setAvailableBundles((prev) =>
-        prev.map((b) =>
-          b.id === bundleId ? { ...b, assignedTo: stationId } : b
-        )
-      );
-
-      // Update station status
-      setLineStatus((prev) =>
-        prev.map((s) =>
-          s.id === stationId
-            ? {
-                ...s,
-                currentWork: {
-                  bundleId: bundle.id,
-                  article: bundle.article,
-                  operation: bundle.operation,
-                  progress: 0,
-                  timeRemaining: bundle.estimatedTime,
-                  pieces: { completed: 0, total: bundle.pieces },
-                },
-                status: "active",
-                lastUpdate: new Date(),
-              }
-            : s
-        )
-      );
-
-      // Send notification to operator
-      showWorkNotification({
-        bundleId: bundle.id,
-        article: bundle.article,
-        operation: bundle.operation,
-      });
-
-      setShowWorkAssignment(false);
-      setSelectedBundle(null);
-      setSelectedStation(null);
-    }
-  };
-
-  const handleOptimizeLine = (stationId) => {
-    const station = lineStatus.find((s) => s.id === stationId);
-    const suitableBundles = availableBundles.filter((bundle) => {
-      if (station.id.includes("overlock")) return bundle.machine === "ओभरलक";
-      if (station.id.includes("flatlock")) return bundle.machine === "फ्ल्यालक";
-      if (station.id.includes("single-needle"))
-        return bundle.machine === "एकल सुई";
-      return false;
+      completedBundles: 85,
+      pendingBundles: 43,
     });
 
-    if (suitableBundles.length > 0) {
-      const priorityBundle =
-        suitableBundles.find((b) => b.priority === "high") ||
-        suitableBundles[0];
-      handleAssignWork(priorityBundle.id, stationId);
+    setEfficiencyAlerts([
+      {
+        id: 1,
+        type: "idle-station",
+        station: "ओभरलक स्टेसन २",
+        stationEn: "Overlock Station 2",
+        operator: "श्याम पोखरेल",
+        idleTime: 15,
+        suggestedWork: {
+          article: "2233",
+          size: "2XL",
+          pieces: 28,
+          operation: "sideSeam",
+          impact: "+80%",
+        },
+        priority: "high",
+      },
+      {
+        id: 2,
+        type: "efficiency-drop",
+        station: "एकल सुई स्टेसन १",
+        stationEn: "Single Needle Station 1",
+        operator: "हरि बहादुर",
+        currentEfficiency: 78,
+        targetEfficiency: 85,
+        suggestedAction: "training",
+        priority: "medium",
+      },
+    ]);
+  }, []);
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "active":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "idle":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "break":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "maintenance":
+        return "bg-purple-100 text-purple-800 border-purple-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
-if (showWIPImport) {
-  return (
-    <WIPImport onImport={handleWIPImport} onCancel={handleWIPImportCancel} />
+
+  const getEfficiencyColor = (efficiency) => {
+    if (efficiency >= 90) return "text-green-600";
+    if (efficiency >= 80) return "text-blue-600";
+    if (efficiency >= 70) return "text-yellow-600";
+    return "text-red-600";
+  };
+
+  const LineMonitoringView = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      {lineData.map((station) => (
+        <div
+          key={station.id}
+          className="bg-white rounded-lg shadow-md border border-gray-200 hover:shadow-lg transition-shadow"
+        >
+          {/* Station Header */}
+          <div className="p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-gray-800">
+                  {currentLanguage === "np"
+                    ? station.station
+                    : station.stationEn}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  👤{" "}
+                  {currentLanguage === "np"
+                    ? station.operator
+                    : station.operatorEn}
+                </p>
+              </div>
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
+                  station.status
+                )}`}
+              >
+                {t(station.status)}
+              </span>
+            </div>
+          </div>
+
+          {/* Station Content */}
+          <div className="p-4 space-y-4">
+            {/* Current Work */}
+            {station.currentWork ? (
+              <div className="bg-blue-50 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium text-blue-800">
+                    🔄 {t("currentWork")}
+                  </span>
+                  <span className="text-xs text-blue-600">
+                    {Math.round(
+                      (station.currentWork.completed /
+                        station.currentWork.pieces) *
+                        100
+                    )}
+                    % {t("completed")}
+                  </span>
+                </div>
+
+                <div className="text-sm space-y-1">
+                  <div className="font-medium">
+                    {station.currentWork.article}#{" "}
+                    {station.currentWork.articleName}
+                  </div>
+                  <div className="text-gray-600">
+                    {t(station.currentWork.operation)} |{" "}
+                    {station.currentWork.color} |{t("size")}:{" "}
+                    {getSizeLabel(
+                      station.currentWork.article,
+                      station.currentWork.size
+                    )}
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span>
+                      {formatNumber(station.currentWork.completed)}/
+                      {formatNumber(station.currentWork.pieces)} {t("pieces")}
+                    </span>
+                    <span>
+                      ⏱️ {formatNumber(station.currentWork.estimatedTime)}{" "}
+                      {t("minutes")} {t("remaining")}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="mt-2">
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${
+                          (station.currentWork.completed /
+                            station.currentWork.pieces) *
+                          100
+                        }%`,
+                      }}
+                    ></div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                {station.status === "idle" ? (
+                  <div className="text-orange-600">
+                    <Clock className="w-6 h-6 mx-auto mb-1" />
+                    <div className="text-sm font-medium">
+                      ⚠️ {formatNumber(station.idleTime)} {t("minutes")}{" "}
+                      {t("waiting")}
+                    </div>
+                    <div className="text-xs mt-1">{t("noWorkAvailable")}</div>
+                  </div>
+                ) : station.status === "break" ? (
+                  <div className="text-yellow-600">
+                    <PauseCircle className="w-6 h-6 mx-auto mb-1" />
+                    <div className="text-sm font-medium">
+                      ⏸️ {t("breakTime")}
+                    </div>
+                    <div className="text-xs mt-1">
+                      {formatNumber(station.breakTimeRemaining)} {t("minutes")}{" "}
+                      {t("remaining")}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-gray-500">
+                    <Package className="w-6 h-6 mx-auto mb-1" />
+                    <div className="text-sm">{t("noWorkAvailable")}</div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Next Work Preview */}
+            {station.nextWork && (
+              <div className="bg-green-50 rounded-lg p-3">
+                <div className="text-sm font-medium text-green-800 mb-2">
+                  📅 {t("nextWork")}
+                </div>
+                <div className="text-sm text-green-700">
+                  {station.nextWork.article}# | {t("size")}:{" "}
+                  {getSizeLabel(
+                    station.nextWork.article,
+                    station.nextWork.size
+                  )}{" "}
+                  |{formatNumber(station.nextWork.pieces)} {t("pieces")}
+                </div>
+              </div>
+            )}
+
+            {/* Efficiency & Actions */}
+            <div className="flex items-center justify-between">
+              <div className="text-sm">
+                <span className="text-gray-600">{t("efficiency")}: </span>
+                <span
+                  className={`font-bold ${getEfficiencyColor(
+                    station.efficiency
+                  )}`}
+                >
+                  {formatNumber(station.efficiency)}%
+                </span>
+              </div>
+
+              <div className="flex space-x-2">
+                {station.status === "idle" && (
+                  <button
+                    onClick={() => setSelectedStation(station)}
+                    className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                  >
+                    {t("assign")} {t("work")}
+                  </button>
+                )}
+                <button
+                  onClick={() => setSelectedStation(station)}
+                  className="px-3 py-1 bg-gray-100 text-gray-600 text-xs rounded hover:bg-gray-200 transition-colors"
+                >
+                  <Eye className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
   );
-}
+
+  const EfficiencyAlertsView = () => (
+    <div className="space-y-4">
+      {efficiencyAlerts.map((alert) => (
+        <div
+          key={alert.id}
+          className="bg-white rounded-lg shadow-md border border-gray-200 p-4"
+        >
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-2">
+                <div
+                  className={`w-3 h-3 rounded-full ${
+                    alert.priority === "high"
+                      ? "bg-red-500"
+                      : alert.priority === "medium"
+                      ? "bg-yellow-500"
+                      : "bg-blue-500"
+                  }`}
+                ></div>
+                <h3 className="font-semibold text-gray-800">
+                  🎯 {t("efficiencyOptimization")} {t("opportunity")}
+                </h3>
+                <span
+                  className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    alert.priority === "high"
+                      ? "bg-red-100 text-red-800"
+                      : alert.priority === "medium"
+                      ? "bg-yellow-100 text-yellow-800"
+                      : "bg-blue-100 text-blue-800"
+                  }`}
+                >
+                  {alert.priority === "high"
+                    ? "🔴 उच्च"
+                    : alert.priority === "medium"
+                    ? "🟡 सामान्य"
+                    : "🟢 कम"}
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <div className="text-sm text-gray-600 mb-1">
+                    ⚠️ {t("station")}:
+                  </div>
+                  <div className="font-medium">
+                    {currentLanguage === "np" ? alert.station : alert.stationEn}{" "}
+                    ({alert.operator})
+                  </div>
+                </div>
+
+                {alert.type === "idle-station" && (
+                  <div>
+                    <div className="text-sm text-gray-600 mb-1">
+                      📊 {t("status")}:
+                    </div>
+                    <div className="text-orange-600 font-medium">
+                      {formatNumber(alert.idleTime)} {t("minutes")}{" "}
+                      {currentLanguage === "np" ? "देखि खाली" : "idle"}
+                    </div>
+                  </div>
+                )}
+
+                {alert.suggestedWork && (
+                  <div className="bg-blue-50 rounded-lg p-3">
+                    <div className="text-sm font-medium text-blue-800 mb-2">
+                      💡 {t("suggested")} {t("work")}:
+                    </div>
+                    <div className="text-sm text-blue-700 space-y-1">
+                      <div>
+                        {t("article")}: {alert.suggestedWork.article}# |
+                        {t("size")}:{" "}
+                        {getSizeLabel(
+                          alert.suggestedWork.article,
+                          alert.suggestedWork.size
+                        )}{" "}
+                        |{formatNumber(alert.suggestedWork.pieces)}{" "}
+                        {t("pieces")}
+                      </div>
+                      <div>
+                        {t("operation")}: {t(alert.suggestedWork.operation)}
+                      </div>
+                      <div className="font-medium">
+                        📈 {t("impact")}: {alert.suggestedWork.impact}{" "}
+                        {t("efficiency")} {t("improvement")}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {alert.type === "efficiency-drop" && (
+                  <div className="bg-yellow-50 rounded-lg p-3">
+                    <div className="text-sm font-medium text-yellow-800 mb-2">
+                      📉 {t("efficiency")} {t("issue")}:
+                    </div>
+                    <div className="text-sm text-yellow-700 space-y-1">
+                      <div>
+                        {t("current")}: {formatNumber(alert.currentEfficiency)}%
+                        |{t("target")}: {formatNumber(alert.targetEfficiency)}%
+                      </div>
+                      <div>
+                        {t("suggestedAction")}: {t(alert.suggestedAction)}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col space-y-2 ml-4">
+              <button className="px-4 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors">
+                {t("accept")}
+              </button>
+              <button className="px-4 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors">
+                {t("modify")}
+              </button>
+              <button className="px-4 py-2 bg-gray-200 text-gray-600 text-sm rounded hover:bg-gray-300 transition-colors">
+                {t("ignore")}
+              </button>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  const ProductionOverviewView = () => (
+    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 mb-8">
+      {/* Production Summary Cards */}
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-gray-600">
+              {t("today")} {t("production")}
+            </h3>
+            <div className="text-3xl font-bold text-blue-600">
+              {formatNumber(productionStats.totalProduction)}
+            </div>
+            <div className="text-sm text-gray-500">
+              / {formatNumber(productionStats.targetProduction)} {t("target")}
+            </div>
+          </div>
+          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+            <Package className="w-6 h-6 text-blue-600" />
+          </div>
+        </div>
+        <div className="mt-4">
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full"
+              style={{
+                width: `${
+                  (productionStats.totalProduction /
+                    productionStats.targetProduction) *
+                  100
+                }%`,
+              }}
+            ></div>
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            {Math.round(
+              (productionStats.totalProduction /
+                productionStats.targetProduction) *
+                100
+            )}
+            % {t("completed")}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-gray-600">
+              {t("efficiency")}
+            </h3>
+            <div
+              className={`text-3xl font-bold ${getEfficiencyColor(
+                productionStats.efficiency
+              )}`}
+            >
+              {formatNumber(productionStats.efficiency)}%
+            </div>
+            <div className="text-sm text-gray-500">
+              {currentLanguage === "np" ? "लक्ष्य: ९०%" : "Target: 90%"}
+            </div>
+          </div>
+          <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+            <TrendingUp className="w-6 h-6 text-green-600" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-gray-600">
+              {t("quality")} {t("score")}
+            </h3>
+            <div className="text-3xl font-bold text-purple-600">
+              {formatNumber(productionStats.qualityScore)}%
+            </div>
+            <div className="text-sm text-gray-500">
+              {currentLanguage === "np" ? "लक्ष्य: ९५%" : "Target: 95%"}
+            </div>
+          </div>
+          <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+            <Target className="w-6 h-6 text-purple-600" />
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-medium text-gray-600">
+              {t("active")} {t("operators")}
+            </h3>
+            <div className="text-3xl font-bold text-orange-600">
+              {formatNumber(productionStats.activeOperators)}
+            </div>
+            <div className="text-sm text-gray-500">
+              / {formatNumber(productionStats.totalOperators)} {t("total")}
+            </div>
+          </div>
+          <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+            <Users className="w-6 h-6 text-orange-600" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="bg-blue-100 text-blue-700 p-3 rounded-lg">
-                <span className="text-lg font-medium">
-                  {userInfo?.initials}
-                </span>
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold text-gray-800">
-                  {getTimeBasedGreeting()}, {userInfo?.name}
-                </h1>
-                <p className="text-sm text-gray-600">
-                  {t("supervisor")} | उत्पादन विभाग | {currentTime}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-green-600">
-                  {activeStations}
-                </p>
-                <p className="text-xs text-gray-600">सक्रिय स्टेसन</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-orange-600">
-                  {idleStations}
-                </p>
-                <p className="text-xs text-gray-600">खाली स्टेसन</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-blue-600">
-                  {avgEfficiency}%
-                </p>
-                <p className="text-xs text-gray-600">औसत दक्षता</p>
-              </div>
-            </div>
+      <div className="bg-white border-b border-gray-200 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">
+              {t("appTitle")} - {t("supervisor")} {t("dashboard")}
+            </h1>
+            <p className="text-gray-600">
+              {getTimeBasedGreeting()}, {userInfo?.name} |{" "}
+              {formatTime(currentTime)}
+            </p>
           </div>
+
+          <div className="flex items-center space-x-4">
+            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+              <Bell className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => window.location.reload()}
+              className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            >
+              <RefreshCw className="w-5 h-5" />
+            </button>
+            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+              <Settings className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex space-x-6 mt-4">
+          <button
+            onClick={() => setActiveTab("monitoring")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "monitoring"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            🏭 {t("lineMonitoring")}
+          </button>
+          <button
+            onClick={() => setActiveTab("overview")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "overview"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            📊 {t("overview")}
+          </button>
+          <button
+            onClick={() => setActiveTab("efficiency")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "efficiency"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            ⚡ {t("efficiency")} {t("alerts")}
+          </button>
+          <button
+            onClick={() => setActiveTab("assignment")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "assignment"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            📦 {t("workAssignment")}
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="p-6 space-y-6">
-        {/* Production Overview */}
-        <div className="grid grid-cols-4 gap-6">
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">आजको उत्पादन</p>
-                <p className="text-2xl font-bold text-blue-600">
-                  {productionStats.today.completed.toLocaleString()}
-                </p>
-                <p className="text-sm text-gray-500">
-                  लक्ष्य: {productionStats.today.target.toLocaleString()}
-                </p>
-              </div>
-              <div className="bg-blue-100 p-3 rounded-lg">
-                <svg
-                  className="w-6 h-6 text-blue-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div
-                  className="bg-blue-500 h-2 rounded-full"
-                  style={{
-                    width: `${
-                      (productionStats.today.completed /
-                        productionStats.today.target) *
-                      100
-                    }%`,
-                  }}
-                ></div>
-              </div>
-            </div>
-          </div>
+      <div className="p-6">
+        {activeTab === "overview" && <ProductionOverviewView />}
 
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">लाइन दक्षता</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {productionStats.today.efficiency}%
-                </p>
-                <p className="text-sm text-green-500">+३% गतहप्ता भन्दा</p>
-              </div>
-              <div className="bg-green-100 p-3 rounded-lg">
-                <svg
-                  className="w-6 h-6 text-green-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">गुणस्तर स्कोर</p>
-                <p className="text-2xl font-bold text-purple-600">
-                  {productionStats.today.qualityScore}%
-                </p>
-                <p className="text-sm text-purple-500">लक्ष्य: ९५%</p>
-              </div>
-              <div className="bg-purple-100 p-3 rounded-lg">
-                <svg
-                  className="w-6 h-6 text-purple-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">सक्रिय ऑपरेटर</p>
-                <p className="text-2xl font-bold text-orange-600">
-                  {productionStats.today.activeOperators}/
-                  {productionStats.today.totalOperators}
-                </p>
-                <p className="text-sm text-orange-500">९६% उपस्थिति</p>
-              </div>
-              <div className="bg-orange-100 p-3 rounded-lg">
-                <svg
-                  className="w-6 h-6 text-orange-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                  />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Real-time Line Status */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-800">
-              {currentLanguage === "np"
-                ? "रियल-टाइम लाइन स्थिति"
-                : "Real-time Line Status"}
-            </h2>
-            <button
-              onClick={() => setShowWorkAssignment(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              {currentLanguage === "np" ? "काम असाइन गर्नुहोस्" : "Assign Work"}
-            </button>
-          </div>
-          // In the Real-time Line Status section, update the header:
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-800">
-              {currentLanguage === "np"
-                ? "रियल-टाइम लाइन स्थिति"
-                : "Real-time Line Status"}
-            </h2>
-            <div className="flex space-x-3">
-              <button
-                onClick={() => setShowWIPImport(true)}
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
-              >
-                {currentLanguage === "np" ? "WIP आयात गर्नुहोस्" : "Import WIP"}
-              </button>
-              <button
-                onClick={() => setShowWorkAssignment(true)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
+        {activeTab === "monitoring" && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">
+                🏭 {t("lineMonitoring")} -{" "}
                 {currentLanguage === "np"
-                  ? "काम असाइन गर्नुहोस्"
-                  : "Assign Work"}
-              </button>
-            </div>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {lineStatus.map((station) => (
-              <div
-                key={station.id}
-                className={`border-2 rounded-lg p-4 ${
-                  station.status === "active"
-                    ? "border-green-200 bg-green-50"
-                    : station.status === "idle"
-                    ? "border-orange-200 bg-orange-50"
-                    : "border-gray-200 bg-gray-50"
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <div
-                      className={`w-3 h-3 rounded-full ${
-                        station.status === "active"
-                          ? "bg-green-500 animate-pulse"
-                          : station.status === "idle"
-                          ? "bg-orange-500"
-                          : "bg-gray-400"
-                      }`}
-                    ></div>
-                    <h3 className="font-semibold text-gray-800">
-                      {station.station}
-                    </h3>
-                  </div>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      station.status === "active"
-                        ? "bg-green-100 text-green-700"
-                        : station.status === "idle"
-                        ? "bg-orange-100 text-orange-700"
-                        : "bg-gray-100 text-gray-700"
-                    }`}
-                  >
-                    {station.status === "active"
-                      ? "सक्रिय"
-                      : station.status === "idle"
-                      ? "खाली"
-                      : "विश्राम"}
-                  </span>
-                </div>
-
-                <div className="mb-3">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="bg-gray-100 p-1 rounded">
-                      <span className="text-xs font-medium">
-                        {station.operator.initials}
-                      </span>
-                    </div>
-                    <span className="text-sm font-medium">
-                      {station.operator.name}
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    दक्षता: {station.efficiency}%
-                  </div>
-                </div>
-
-                {station.currentWork ? (
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <span className="text-gray-600">काम:</span>
-                      <span className="ml-1 font-medium">
-                        {station.currentWork.operation}
-                      </span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-gray-600">लेख:</span>
-                      <span className="ml-1 font-medium">
-                        {station.currentWork.article}#
-                      </span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-gray-600">प्रगति:</span>
-                      <span className="ml-1 font-medium">
-                        {station.currentWork.pieces.completed}/
-                        {station.currentWork.pieces.total}
-                      </span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${station.currentWork.progress}%` }}
-                      ></div>
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      बाँकी: ~{station.currentWork.timeRemaining} मिनेट
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <div className="text-gray-400 mb-2">
-                      <svg
-                        className="w-8 h-8 mx-auto"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"
-                        />
-                      </svg>
-                    </div>
-                    <p className="text-sm text-gray-600">
-                      {station.status === "idle"
-                        ? `${station.idleTime} मिनेट खाली`
-                        : `${station.breakTime} मिनेट विश्राम`}
-                    </p>
-                    {station.status === "idle" && (
-                      <button
-                        onClick={() => handleOptimizeLine(station.id)}
-                        className="mt-2 text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 transition-colors"
-                      >
-                        काम लोड गर्नुहोस्
-                      </button>
-                    )}
-                  </div>
-                )}
+                  ? "रियल-टाइम स्थिति"
+                  : "Real-time Status"}
+              </h2>
+              <div className="flex space-x-3">
+                <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center">
+                  <Plus className="w-4 h-4 mr-2" />
+                  {t("load")} {t("work")}
+                </button>
+                <button className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center">
+                  <Zap className="w-4 h-4 mr-2" />
+                  {t("optimize")}
+                </button>
               </div>
-            ))}
+            </div>
+            <LineMonitoringView />
           </div>
-        </div>
+        )}
 
-        {/* Available Work & Quality Issues */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Available Bundles */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              उपलब्ध बन्डलहरू (
-              {availableBundles.filter((b) => !b.assignedTo).length})
+        {activeTab === "efficiency" && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-800">
+                ⚡ {t("efficiency")} {t("optimization")} {t("opportunities")}
+              </h2>
+              <div className="text-sm text-gray-600">
+                {efficiencyAlerts.length} {t("alerts")} {t("pending")}
+              </div>
+            </div>
+            <EfficiencyAlertsView />
+          </div>
+        )}
+
+        {activeTab === "assignment" && (
+          <div>
+            <h2 className="text-xl font-semibold text-gray-800 mb-6">
+              📦 {t("workAssignment")} & {t("lineBalancing")}
             </h2>
-
-            <div className="space-y-3">
-              {availableBundles
-                .filter((b) => !b.assignedTo)
-                .slice(0, 4)
-                .map((bundle) => (
-                  <div
-                    key={bundle.id}
-                    className="border border-gray-200 rounded-lg p-4"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">
-                          {bundle.article}#
-                        </span>
-                        {bundle.priority === "high" && (
-                          <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
-                            उच्च प्राथमिकता
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600">
-                        ~{bundle.estimatedTime} मिनेट
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <span className="text-gray-600">काम:</span>
-                        <span className="ml-1 font-medium">
-                          {bundle.operation}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">मेसिन:</span>
-                        <span className="ml-1 font-medium">
-                          {bundle.machine}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">टुक्रा:</span>
-                        <span className="ml-1 font-medium">
-                          {bundle.pieces}
-                        </span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">दर:</span>
-                        <span className="ml-1 font-medium text-green-600">
-                          रु. {bundle.rate}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        setSelectedBundle(bundle);
-                        setShowWorkAssignment(true);
-                      }}
-                      className="mt-3 w-full bg-blue-600 text-white py-2 px-3 rounded text-sm hover:bg-blue-700 transition-colors"
-                    >
-                      असाइन गर्नुहोस्
-                    </button>
-                  </div>
-                ))}
+            <div className="text-center text-gray-600 py-8">
+              {currentLanguage === "np"
+                ? "काम असाइनमेन्ट मोड्युल निर्माणाधीन..."
+                : "Work assignment module under construction..."}
             </div>
           </div>
-
-          {/* Quality Issues */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              गुणस्तर समस्याहरू (
-              {qualityIssues.filter((q) => q.status === "open").length})
-            </h2>
-
-            <div className="space-y-3">
-              {qualityIssues
-                .filter((q) => q.status === "open")
-                .map((issue) => (
-                  <div
-                    key={issue.id}
-                    className="border border-red-200 bg-red-50 rounded-lg p-4"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center space-x-2">
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            issue.severity === "major"
-                              ? "bg-red-500"
-                              : "bg-yellow-500"
-                          }`}
-                        ></span>
-                        <span className="font-medium text-red-800">
-                          {issue.defectType}
-                        </span>
-                      </div>
-                      <span className="text-xs text-red-600">
-                        {Math.round(
-                          (new Date() - issue.reportedAt) / (1000 * 60)
-                        )}{" "}
-                        मिनेट अगाडि
-                      </span>
-                    </div>
-
-                    <div className="text-sm text-red-700 mb-2">
-                      बन्डल: {issue.bundleId} | ऑपरेटर: {issue.operatorName}
-                    </div>
-
-                    <div className="text-sm text-red-700 mb-3">
-                      प्रभावित टुक्रा: {issue.affectedPieces}
-                    </div>
-
-                    <div className="flex space-x-2">
-                      <button className="flex-1 bg-red-600 text-white py-1 px-3 rounded text-xs hover:bg-red-700 transition-colors">
-                        समीक्षा गर्नुहोस्
-                      </button>
-                      <button className="flex-1 bg-gray-600 text-white py-1 px-3 rounded text-xs hover:bg-gray-700 transition-colors">
-                        समाधान गर्नुहोस्
-                      </button>
-                    </div>
-                  </div>
-                ))}
-
-              {qualityIssues.filter((q) => q.status === "open").length ===
-                0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <svg
-                    className="w-12 h-12 mx-auto mb-3 text-gray-300"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <p>कुनै गुणस्तर समस्या छैन</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
-      {/* Work Assignment Modal */}
-      {showWorkAssignment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-800">
-                  काम असाइन गर्नुहोस्
-                </h2>
-                <button
-                  onClick={() => {
-                    setShowWorkAssignment(false);
-                    setSelectedBundle(null);
-                    setSelectedStation(null);
-                  }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg
-                    className="w-6 h-6"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-              {/* Bundle Selection */}
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-3">
-                  बन्डल छान्नुहोस्:
-                </h3>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {availableBundles
-                    .filter((b) => !b.assignedTo)
-                    .map((bundle) => (
-                      <label
-                        key={bundle.id}
-                        className="flex items-center p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer"
-                      >
-                        <input
-                          type="radio"
-                          name="selectedBundle"
-                          value={bundle.id}
-                          checked={selectedBundle?.id === bundle.id}
-                          onChange={() => setSelectedBundle(bundle)}
-                          className="mr-3"
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">
-                              {bundle.article}#
-                            </span>
-                            <span className="font-medium">
-                              {bundle.operation}
-                            </span>
-                            {bundle.priority === "high" && (
-                              <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
-                                उच्च प्राथमिकता
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            {bundle.pieces} टुक्रा | {bundle.machine} | रु.{" "}
-                            {bundle.rate}/टुक्रा
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                </div>
-              </div>
+      {/* Station Detail Modal */}
+      {selectedStation && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">
+                {currentLanguage === "np"
+                  ? selectedStation.station
+                  : selectedStation.stationEn}
+              </h3>
+              <button
+                onClick={() => setSelectedStation(null)}
+                className="p-1 hover:bg-gray-100 rounded-full"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-              {/* Station Selection */}
-              <div className="mb-6">
-                <h3 className="text-lg font-medium text-gray-800 mb-3">
-                  स्टेसन छान्नुहोस्:
-                </h3>
-                <div className="grid grid-cols-1 gap-2">
-                  {lineStatus
-                    .filter((station) => {
-                      if (!selectedBundle) return station.status === "idle";
-                      // Filter compatible stations
-                      if (selectedBundle.machine === "ओभरलक")
-                        return station.id.includes("overlock");
-                      if (selectedBundle.machine === "फ्ल्यालक")
-                        return station.id.includes("flatlock");
-                      if (selectedBundle.machine === "एकल सुई")
-                        return station.id.includes("single-needle");
-                      if (selectedBundle.machine === "बटनहोल")
-                        return station.id.includes("buttonhole");
-                      return false;
-                    })
-                    .map((station) => (
-                      <label
-                        key={station.id}
-                        className={`flex items-center p-3 border rounded-lg cursor-pointer ${
-                          station.status === "idle"
-                            ? "border-green-200 hover:bg-green-50"
-                            : "border-gray-200 hover:bg-gray-50"
-                        }`}
-                      >
-                        <input
-                          type="radio"
-                          name="selectedStation"
-                          value={station.id}
-                          checked={selectedStation === station.id}
-                          onChange={() => setSelectedStation(station.id)}
-                          className="mr-3"
-                          disabled={
-                            station.status !== "idle" && !station.currentWork
-                          }
-                        />
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <span
-                              className={`w-2 h-2 rounded-full ${
-                                station.status === "active"
-                                  ? "bg-green-500"
-                                  : station.status === "idle"
-                                  ? "bg-orange-500"
-                                  : "bg-gray-400"
-                              }`}
-                            ></span>
-                            <span className="font-medium">
-                              {station.station}
-                            </span>
-                            <span className="text-sm text-gray-600">
-                              ({station.operator.name})
-                            </span>
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            दक्षता: {station.efficiency}% |
-                            {station.status === "idle"
-                              ? ` ${station.idleTime} मिनेट खाली`
-                              : station.status === "active"
-                              ? " काम चलिरहेको"
-                              : " विश्राममा"}
-                          </div>
-                        </div>
-                      </label>
-                    ))}
-                </div>
-              </div>
-
-              {/* Assignment Summary */}
-              {selectedBundle && selectedStation && (
-                <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                  <h4 className="font-medium text-blue-800 mb-2">
-                    असाइनमेन्ट सारांश:
-                  </h4>
-                  <div className="text-sm text-blue-700">
-                    <p>
-                      <strong>बन्डल:</strong> {selectedBundle.article}#{" "}
-                      {selectedBundle.operation}
-                    </p>
-                    <p>
-                      <strong>स्टेसन:</strong>{" "}
-                      {
-                        lineStatus.find((s) => s.id === selectedStation)
-                          ?.station
-                      }
-                    </p>
-                    <p>
-                      <strong>ऑपरेटर:</strong>{" "}
-                      {
-                        lineStatus.find((s) => s.id === selectedStation)
-                          ?.operator.name
-                      }
-                    </p>
-                    <p>
-                      <strong>अनुमानित समय:</strong>{" "}
-                      {selectedBundle.estimatedTime} मिनेट
-                    </p>
-                    <p>
-                      <strong>कुल कमाई:</strong> रु.{" "}
-                      {(selectedBundle.pieces * selectedBundle.rate).toFixed(2)}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex space-x-4">
-                <button
-                  onClick={() => {
-                    setShowWorkAssignment(false);
-                    setSelectedBundle(null);
-                    setSelectedStation(null);
-                  }}
-                  className="flex-1 py-2 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  रद्द गर्नुहोस्
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedBundle && selectedStation) {
-                      handleAssignWork(selectedBundle.id, selectedStation);
-                    }
-                  }}
-                  disabled={!selectedBundle || !selectedStation}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  असाइन गर्नुहोस्
-                </button>
+            <div className="p-4">
+              <div className="text-center text-gray-600 py-8">
+                {currentLanguage === "np"
+                  ? "स्टेसन विवरण लोड हुँदै..."
+                  : "Station details loading..."}
               </div>
             </div>
           </div>

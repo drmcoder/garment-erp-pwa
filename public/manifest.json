@@ -1,25 +1,227 @@
 {
-  "short_name": "React App",
-  "name": "Create React App Sample",
-  "icons": [
+  "name": "गारमेन्ट ERP - उत्पादन व्यवस्थापन",
+  "short_name": "गारमेन्ट ERP",
+  "description": "Garment manufacturing production management system with real-time tracking, flexible sizing, and multi-language support",
+  "version": "1.0.0",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#2563eb",
+  "background_color": "#f8fafc",
+  "lang": "ne",
+  "scope": "/",
+  "categories": ["business", "productivity", "utilities"],
+  "screenshots": [
     {
-      "src": "favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/screenshots/operator-dashboard.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "platform": "narrow",
+      "label": "Operator Dashboard - Mobile View"
     },
     {
-      "src": "logo192.png",
+      "src": "/screenshots/supervisor-dashboard.png", 
+      "sizes": "1024x768",
       "type": "image/png",
-      "sizes": "192x192"
-    },
-    {
-      "src": "logo512.png",
-      "type": "image/png",
-      "sizes": "512x512"
+      "platform": "wide",
+      "label": "Supervisor Dashboard - Tablet View"
     }
   ],
-  "start_url": ".",
-  "display": "standalone",
-  "theme_color": "#000000",
-  "background_color": "#ffffff"
+  "icons": [
+    {
+      "src": "/icon-72x72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-96x96.png",
+      "sizes": "96x96", 
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-128x128.png",
+      "sizes": "128x128",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-144x144.png",
+      "sizes": "144x144",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-152x152.png",
+      "sizes": "152x152",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-384x384.png",
+      "sizes": "384x384",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-maskable-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icon-maskable-512x512.png",
+      "sizes": "512x512", 
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "ऑपरेटर ड्यासबोर्ड",
+      "short_name": "ऑपरेटर",
+      "description": "Operator dashboard for production work",
+      "url": "/operator",
+      "icons": [
+        {
+          "src": "/shortcut-operator.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "सुपरभाइजर ड्यासबोर्ड", 
+      "short_name": "सुपरभाइजर",
+      "description": "Supervisor dashboard for line monitoring",
+      "url": "/supervisor",
+      "icons": [
+        {
+          "src": "/shortcut-supervisor.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "काम पूरा गर्नुहोस्",
+      "short_name": "काम पूरा",
+      "description": "Complete current work assignment",
+      "url": "/operator?action=complete",
+      "icons": [
+        {
+          "src": "/shortcut-complete.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
+      "name": "गुणस्तर रिपोर्ट",
+      "short_name": "गुणस्तर",
+      "description": "Report quality issues",
+      "url": "/operator?action=quality",
+      "icons": [
+        {
+          "src": "/shortcut-quality.png",
+          "sizes": "96x96",
+          "type": "image/png"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
+  "handle_links": "preferred",
+  "protocol_handlers": [
+    {
+      "protocol": "web+garment",
+      "url": "/handle-protocol?proto=%s"
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/import-data",
+      "accept": {
+        "application/json": [".json"],
+        "text/csv": [".csv"],
+        "application/vnd.ms-excel": [".xls", ".xlsx"]
+      }
+    }
+  ],
+  "share_target": {
+    "action": "/share-data",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "file",
+          "accept": ["application/json", "text/csv", "application/vnd.ms-excel"]
+        }
+      ]
+    }
+  },
+  "features": [
+    "offline-support",
+    "push-notifications", 
+    "background-sync",
+    "multi-language",
+    "flexible-sizing",
+    "real-time-updates"
+  ],
+  "custom": {
+    "supported_languages": ["ne", "en"],
+    "default_language": "ne",
+    "size_configurations": {
+      "standard-shirt": ["L", "XL", "2XL", "3XL"],
+      "numeric-sizes": ["20", "22", "24", "26", "28", "30", "32"],
+      "kids-sizes": ["M", "L", "XL", "2XL"],
+      "plus-sizes": ["4XL", "5XL", "6XL", "7XL"],
+      "free-size": ["FREE"],
+      "shoe-sizes": ["6", "7", "8", "9", "10", "11", "12"]
+    },
+    "machine_types": [
+      "overlock",
+      "flatlock", 
+      "single-needle",
+      "buttonhole",
+      "button-attach",
+      "iron",
+      "cutting",
+      "pressing"
+    ],
+    "notification_types": [
+      "work-assignment",
+      "quality-issue",
+      "efficiency-alert",
+      "break-reminder", 
+      "target-achievement"
+    ],
+    "update_check_interval": 300000,
+    "sync_interval": 60000,
+    "offline_retention_days": 30
+  }
 }

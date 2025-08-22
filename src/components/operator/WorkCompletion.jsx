@@ -1,497 +1,469 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
+import {
+  CheckCircle,
+  X,
+  AlertTriangle,
+  Clock,
+  DollarSign,
+  Package,
+  ArrowRight,
+  Users,
+  Target,
+} from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
-import { useNotifications } from "../../hooks/useNotifications";
 
-const WorkCompletion = ({ workData, onComplete, onCancel }) => {
-  const { user } = useAuth();
-  const { t, currentLanguage } = useLanguage();
-  const { showWorkNotification } = useNotifications();
+const WorkCompletion = ({ currentWork, onClose, onComplete }) => {
+  const { t, currentLanguage, formatNumber, getSizeLabel } = useLanguage();
 
-  const [completionData, setCompletionData] = useState({
-    completedPieces: workData?.totalPieces || 0,
+  const [formData, setFormData] = useState({
+    completedPieces: currentWork?.pieces || 0,
     defectivePieces: 0,
-    qualityStatus: "good",
+    qualityGood: true,
     qualityNotes: "",
     actualTimeSpent: 0,
-    reworkRequired: false,
   });
 
-  const [timeSpent, setTimeSpent] = useState(0);
-  const [showQualityForm, setShowQualityForm] = useState(false);
-  const [validationErrors, setValidationErrors] = useState({});
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Calculate actual time spent
   useEffect(() => {
-    if (workData?.startTime) {
-      const startTime = new Date(workData.startTime);
-      const now = new Date();
-      const minutes = Math.round((now - startTime) / (1000 * 60));
-      setTimeSpent(minutes);
-      setCompletionData((prev) => ({
-        ...prev,
-        actualTimeSpent: minutes,
-      }));
+    // Calculate actual time spent if work was started
+    if (currentWork?.startTime) {
+      const timeSpent = Math.round(
+        (new Date() - new Date(currentWork.startTime)) / (1000 * 60)
+      );
+      setFormData((prev) => ({ ...prev, actualTimeSpent: timeSpent }));
     }
-  }, [workData]);
+  }, [currentWork]);
 
-  const handleInputChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setCompletionData((prev) => ({
-      ...prev,
-      [name]:
-        type === "checkbox"
-          ? checked
-          : type === "number"
-          ? parseInt(value) || 0
-          : value,
-    }));
+  const handleInputChange = (field, value) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
 
-    // Clear validation errors
-    if (validationErrors[name]) {
-      setValidationErrors((prev) => ({
-        ...prev,
-        [name]: null,
-      }));
+    // Clear errors when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: null }));
     }
   };
 
   const validateForm = () => {
-    const errors = {};
+    const newErrors = {};
 
-    if (completionData.completedPieces <= 0) {
-      errors.completedPieces =
+    if (formData.completedPieces < 0) {
+      newErrors.completedPieces =
         currentLanguage === "np"
-          ? "पूरा भएको टुक्रा संख्या आवश्यक छ"
-          : "Completed pieces required";
+          ? "पूरा भएको टुक्रा ० भन्दा कम हुन सक्दैन"
+          : "Completed pieces cannot be negative";
     }
 
-    if (completionData.completedPieces > workData.totalPieces) {
-      errors.completedPieces =
+    if (formData.completedPieces > currentWork.pieces) {
+      newErrors.completedPieces =
         currentLanguage === "np"
-          ? "तोकिएको भन्दा बढी टुक्रा हुन सक्दैन"
-          : "Cannot exceed assigned pieces";
+          ? "पूरा भएको टुक्रा तोकिएको भन्दा बढी हुन सक्दैन"
+          : "Completed pieces cannot exceed assigned pieces";
     }
 
-    if (completionData.defectivePieces < 0) {
-      errors.defectivePieces =
+    if (formData.defectivePieces < 0) {
+      newErrors.defectivePieces =
         currentLanguage === "np"
-          ? "दोषयुक्त टुक्रा संख्या ०/माथि हुनुपर्छ"
-          : "Defective pieces must be 0 or more";
+          ? "दोषयुक्त टुक्रा ० भन्दा कम हुन सक्दैन"
+          : "Defective pieces cannot be negative";
     }
 
-    if (completionData.defectivePieces > completionData.completedPieces) {
-      errors.defectivePieces =
+    if (formData.defectivePieces > formData.completedPieces) {
+      newErrors.defectivePieces =
         currentLanguage === "np"
           ? "दोषयुक्त टुक्रा पूरा भएको भन्दा बढी हुन सक्दैन"
           : "Defective pieces cannot exceed completed pieces";
     }
 
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
 
-    if (!validateForm()) {
-      return;
+    setIsSubmitting(true);
+
+    try {
+      const completionData = {
+        ...formData,
+        bundleId: currentWork.id,
+        completedAt: new Date(),
+        qualityScore: formData.qualityGood
+          ? Math.round(
+              ((formData.completedPieces - formData.defectivePieces) /
+                formData.completedPieces) *
+                100
+            )
+          : 70,
+        earnings: formData.completedPieces * currentWork.rate,
+      };
+
+      // Simulate API call
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      onComplete(completionData);
+    } catch (error) {
+      console.error("Error completing work:", error);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    const finalData = {
-      ...completionData,
-      workId: workData.id,
-      operatorId: user.id,
-      completedBy: user.name,
-      completionTime: new Date().toISOString(),
-      totalEarnings:
-        (completionData.completedPieces - completionData.defectivePieces) *
-        workData.rate,
-      efficiency: Math.round(
-        (workData.estimatedTime / completionData.actualTimeSpent) * 100
-      ),
-    };
-
-    // Show success notification
-    await showWorkNotification({
-      bundleId: workData.bundleNumber,
-      article: workData.article,
-      status: "completed",
-    });
-
-    onComplete(finalData);
   };
 
-  const goodPieces =
-    completionData.completedPieces - completionData.defectivePieces;
-  const totalEarnings = goodPieces * workData.rate;
-  const defectPercentage =
-    completionData.completedPieces > 0
-      ? Math.round(
-          (completionData.defectivePieces / completionData.completedPieces) *
-            100
-        )
-      : 0;
+  const calculateEarnings = () => {
+    return (formData.completedPieces * currentWork.rate).toFixed(2);
+  };
+
+  const getQualityPercentage = () => {
+    if (formData.completedPieces === 0) return 100;
+    return Math.round(
+      ((formData.completedPieces - formData.defectivePieces) /
+        formData.completedPieces) *
+        100
+    );
+  };
+
+  if (!currentWork) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-2xl mx-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
         {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-4">
-          <div className="flex items-center space-x-3 mb-4">
-            <button
-              onClick={onCancel}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <svg
-                className="w-5 h-5 text-gray-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M15 19l-7-7 7-7"
-                />
-              </svg>
-            </button>
-            <div>
-              <h1 className="text-xl font-bold text-gray-800">
-                {currentLanguage === "np"
-                  ? "काम पूरा गर्नुहोस्"
-                  : "Complete Work"}
-              </h1>
-              <p className="text-sm text-gray-600">
-                {workData.article}# {workData.articleName}
-              </p>
-            </div>
-          </div>
-
-          {/* Work Summary */}
-          <div className="bg-blue-50 p-4 rounded-lg">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-gray-600">
-                  {currentLanguage === "np" ? "काम" : "Operation"}:
-                </span>
-                <span className="ml-2 font-medium">{workData.operation}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">
-                  {currentLanguage === "np" ? "मेसिन" : "Machine"}:
-                </span>
-                <span className="ml-2 font-medium">{workData.machine}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">
-                  {currentLanguage === "np" ? "रङ/साइज" : "Color/Size"}:
-                </span>
-                <span className="ml-2 font-medium">
-                  {workData.color} / {workData.size}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-600">
-                  {currentLanguage === "np" ? "समय" : "Time Spent"}:
-                </span>
-                <span className="ml-2 font-medium">
-                  {timeSpent} {currentLanguage === "np" ? "मिनेट" : "minutes"}
-                </span>
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+            <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
+            {t("completeWork")}
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
         </div>
 
-        {/* Completion Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Pieces Completion */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              {currentLanguage === "np" ? "काम विवरण" : "Work Details"}
-            </h2>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {currentLanguage === "np"
-                    ? "तोकिएको टुक्रा"
-                    : "Assigned Pieces"}
-                </label>
-                <input
-                  type="number"
-                  value={workData.totalPieces}
-                  disabled
-                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {currentLanguage === "np"
-                    ? "पूरा भएको टुक्रा"
-                    : "Completed Pieces"}{" "}
-                  *
-                </label>
-                <input
-                  type="number"
-                  name="completedPieces"
-                  value={completionData.completedPieces}
-                  onChange={handleInputChange}
-                  min="0"
-                  max={workData.totalPieces}
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                    validationErrors.completedPieces
-                      ? "border-red-300 bg-red-50"
-                      : "border-gray-300"
-                  }`}
-                  required
-                />
-                {validationErrors.completedPieces && (
-                  <p className="text-red-600 text-sm mt-1">
-                    {validationErrors.completedPieces}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {currentLanguage === "np"
-                    ? "दोषयुक्त टुक्रा"
-                    : "Defective Pieces"}
-                </label>
-                <input
-                  type="number"
-                  name="defectivePieces"
-                  value={completionData.defectivePieces}
-                  onChange={handleInputChange}
-                  min="0"
-                  max={completionData.completedPieces}
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 ${
-                    validationErrors.defectivePieces
-                      ? "border-red-300 bg-red-50"
-                      : "border-gray-300"
-                  }`}
-                />
-                {validationErrors.defectivePieces && (
-                  <p className="text-red-600 text-sm mt-1">
-                    {validationErrors.defectivePieces}
-                  </p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {currentLanguage === "np" ? "राम्रो टुक्रा" : "Good Pieces"}
-                </label>
-                <input
-                  type="number"
-                  value={goodPieces}
-                  disabled
-                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 font-semibold text-green-600"
-                />
-              </div>
+        <div className="p-4 space-y-4">
+          {/* Work Info */}
+          <div className="bg-blue-50 rounded-lg p-3">
+            <div className="text-sm font-medium text-blue-800 mb-2">
+              ✅ {currentWork.article}# {currentWork.articleName}
+            </div>
+            <div className="text-sm text-blue-700">
+              {t(currentWork.operation)} ({t(currentWork.machine)})
+            </div>
+            <div className="text-xs text-blue-600 mt-1">
+              {t("bundle")}: #{currentWork.id} | {t("color")}:{" "}
+              {currentWork.color} |{t("size")}:{" "}
+              {getSizeLabel(currentWork.article, currentWork.size)}
             </div>
           </div>
 
-          {/* Quality Assessment */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              {currentLanguage === "np"
-                ? "गुणस्तर मूल्याङ्कन"
-                : "Quality Assessment"}
-            </h2>
+          {/* Completion Form */}
+          <div className="space-y-4">
+            {/* Work Details */}
+            <div className="bg-gray-50 rounded-lg p-3">
+              <h3 className="font-medium text-gray-800 mb-3 flex items-center">
+                <Package className="w-4 h-4 mr-2" />
+                📝 {t("workStatus")}
+              </h3>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {currentLanguage === "np"
-                    ? "गुणस्तरको स्थिति"
-                    : "Quality Status"}
-                </label>
-                <div className="flex space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="qualityStatus"
-                      value="good"
-                      checked={completionData.qualityStatus === "good"}
-                      onChange={handleInputChange}
-                      className="mr-2"
-                    />
-                    <span className="text-green-600">
-                      ✅ {currentLanguage === "np" ? "राम्रो" : "Good"}
-                    </span>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <label className="block text-gray-600 mb-1">
+                    {t("assigned")} {t("pieces")}
                   </label>
-                  <label className="flex items-center">
-                    <input
-                      type="radio"
-                      name="qualityStatus"
-                      value="issues"
-                      checked={completionData.qualityStatus === "issues"}
-                      onChange={handleInputChange}
-                      className="mr-2"
-                    />
-                    <span className="text-orange-600">
-                      ⚠️ {currentLanguage === "np" ? "समस्या छ" : "Has Issues"}
-                    </span>
+                  <div className="font-medium text-lg">
+                    {formatNumber(currentWork.pieces)}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-gray-600 mb-1">
+                    {t("rate")} / {t("pieces")}
                   </label>
+                  <div className="font-medium text-lg">
+                    रु. {currentWork.rate}
+                  </div>
                 </div>
               </div>
+            </div>
 
-              {completionData.qualityStatus === "issues" && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {currentLanguage === "np"
-                      ? "गुणस्तर टिप्पणी"
-                      : "Quality Notes"}
-                  </label>
-                  <textarea
-                    name="qualityNotes"
-                    value={completionData.qualityNotes}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder={
-                      currentLanguage === "np"
-                        ? "समस्याको विवरण लेख्नुहोस्..."
-                        : "Describe the quality issues..."
-                    }
-                  />
-                </div>
+            {/* Completed Pieces */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t("completedPieces")}:
+              </label>
+              <input
+                type="number"
+                min="0"
+                max={currentWork.pieces}
+                value={formData.completedPieces}
+                onChange={(e) =>
+                  handleInputChange(
+                    "completedPieces",
+                    parseInt(e.target.value) || 0
+                  )
+                }
+                className={`w-full p-3 border rounded-lg text-center text-lg font-medium ${
+                  errors.completedPieces
+                    ? "border-red-300 bg-red-50"
+                    : "border-gray-300 focus:border-blue-500"
+                } focus:ring-2 focus:ring-blue-200`}
+                placeholder="30"
+              />
+              {errors.completedPieces && (
+                <p className="mt-1 text-sm text-red-600 flex items-center">
+                  <AlertTriangle className="w-4 h-4 mr-1" />
+                  {errors.completedPieces}
+                </p>
               )}
+            </div>
 
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  name="reworkRequired"
-                  checked={completionData.reworkRequired}
-                  onChange={handleInputChange}
-                  className="mr-2"
-                />
-                <label className="text-sm text-gray-700">
-                  {currentLanguage === "np"
-                    ? "पुनः काम आवश्यक छ"
-                    : "Rework Required"}
+            {/* Defective Pieces */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t("defective")} {t("pieces")}:
+              </label>
+              <input
+                type="number"
+                min="0"
+                max={formData.completedPieces}
+                value={formData.defectivePieces}
+                onChange={(e) =>
+                  handleInputChange(
+                    "defectivePieces",
+                    parseInt(e.target.value) || 0
+                  )
+                }
+                className={`w-full p-3 border rounded-lg text-center text-lg font-medium ${
+                  errors.defectivePieces
+                    ? "border-red-300 bg-red-50"
+                    : "border-gray-300 focus:border-blue-500"
+                } focus:ring-2 focus:ring-blue-200`}
+                placeholder="0"
+              />
+              {errors.defectivePieces && (
+                <p className="mt-1 text-sm text-red-600 flex items-center">
+                  <AlertTriangle className="w-4 h-4 mr-1" />
+                  {errors.defectivePieces}
+                </p>
+              )}
+            </div>
+
+            {/* Quality Assessment */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t("quality")}:
+              </label>
+              <div className="space-y-2">
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="quality"
+                    checked={formData.qualityGood}
+                    onChange={() => handleInputChange("qualityGood", true)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm">✅ {t("qualityGood")}</span>
                 </label>
+                <label className="flex items-center">
+                  <input
+                    type="radio"
+                    name="quality"
+                    checked={!formData.qualityGood}
+                    onChange={() => handleInputChange("qualityGood", false)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm">⚠️ {t("qualityBad")}</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Quality Notes (if issues) */}
+            {!formData.qualityGood && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {t("qualityNotes")}:
+                </label>
+                <textarea
+                  value={formData.qualityNotes}
+                  onChange={(e) =>
+                    handleInputChange("qualityNotes", e.target.value)
+                  }
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                  rows={3}
+                  placeholder={
+                    currentLanguage === "np"
+                      ? "समस्याको विवरण लेख्नुहोस्..."
+                      : "Describe the quality issues..."
+                  }
+                />
+              </div>
+            )}
+
+            {/* Time Spent */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {t("actualTimeSpent")} ({t("minutes")}):
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={formData.actualTimeSpent}
+                onChange={(e) =>
+                  handleInputChange(
+                    "actualTimeSpent",
+                    parseInt(e.target.value) || 0
+                  )
+                }
+                className="w-full p-3 border border-gray-300 rounded-lg text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="45"
+              />
+            </div>
+          </div>
+
+          {/* Earnings Calculation */}
+          <div className="bg-green-50 rounded-lg p-4">
+            <h3 className="font-medium text-green-800 mb-3 flex items-center">
+              <DollarSign className="w-4 h-4 mr-2" />
+              💰 {t("earnings")} {t("calculation")}
+            </h3>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-green-700">{t("rate")}:</span>
+                <span className="font-medium">
+                  रु. {currentWork.rate} {t("ratePerPiece")}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-green-700">{t("completedPieces")}:</span>
+                <span className="font-medium">
+                  {formatNumber(formData.completedPieces)} {t("pieces")}
+                </span>
+              </div>
+              <div className="border-t border-green-200 pt-2 flex justify-between">
+                <span className="font-medium text-green-800">
+                  {t("totalEarnings")}:
+                </span>
+                <span className="font-bold text-lg text-green-800">
+                  रु. {calculateEarnings()}
+                </span>
+              </div>
+
+              {/* Quality Score */}
+              <div className="flex justify-between">
+                <span className="text-green-700">{t("qualityScore")}:</span>
+                <span className="font-medium">
+                  {formatNumber(getQualityPercentage())}%
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Earnings Summary */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              {currentLanguage === "np" ? "कमाईको हिसाब" : "Earnings Summary"}
-            </h2>
+          {/* Next Operation Info */}
+          {currentWork.nextOperation && (
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h3 className="font-medium text-blue-800 mb-3 flex items-center">
+                <ArrowRight className="w-4 h-4 mr-2" />
+                🔄 {t("nextOperation")}
+              </h3>
 
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+              <div className="text-sm space-y-2">
                 <div>
-                  <span className="text-gray-600">
+                  <span className="text-blue-700">{t("operation")}:</span>
+                  <span className="ml-2 font-medium">
+                    {t(currentWork.nextOperation)} ({t(currentWork.nextMachine)}
+                    )
+                  </span>
+                </div>
+                <div>
+                  <span className="text-blue-700">{t("sendToNext")}:</span>
+                  <span className="ml-2 font-medium">
                     {currentLanguage === "np"
-                      ? "दर प्रति टुक्रा"
-                      : "Rate per piece"}
-                    :
-                  </span>
-                  <span className="ml-2 font-semibold">
-                    रु. {workData.rate}
+                      ? `${t(currentWork.nextMachine)} स्टेसन`
+                      : `${t(currentWork.nextMachine)} Station`}
                   </span>
                 </div>
-                <div>
-                  <span className="text-gray-600">
-                    {currentLanguage === "np" ? "राम्रो टुक्रा" : "Good pieces"}
-                    :
-                  </span>
-                  <span className="ml-2 font-semibold">{goodPieces}</span>
-                </div>
-                {defectPercentage > 0 && (
-                  <div className="col-span-2">
-                    <span className="text-orange-600">
-                      {currentLanguage === "np" ? "दोष दर" : "Defect rate"}:
-                    </span>
-                    <span className="ml-2 font-semibold">
-                      {defectPercentage}%
+                {currentWork.nextOperator && (
+                  <div>
+                    <span className="text-blue-700">{t("nextOperator")}:</span>
+                    <span className="ml-2 font-medium">
+                      {currentWork.nextOperator}
                     </span>
                   </div>
                 )}
               </div>
-
-              <div className="border-t border-green-200 pt-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold text-gray-700">
-                    {currentLanguage === "np" ? "जम्मा कमाई" : "Total Earnings"}
-                    :
-                  </span>
-                  <span className="text-2xl font-bold text-green-600">
-                    रु. {totalEarnings.toFixed(2)}
-                  </span>
-                </div>
-              </div>
             </div>
-          </div>
+          )}
 
-          {/* Next Step Info */}
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              {currentLanguage === "np" ? "अर्को चरण" : "Next Step"}
-            </h2>
-
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="bg-blue-100 p-2 rounded-lg">
-                  <svg
-                    className="w-5 h-5 text-blue-600"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M13 7l5 5-5 5M6 12h12"
-                    />
-                  </svg>
+          {/* Summary */}
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-medium text-gray-800 mb-3">
+              📊 {t("summary")}
+            </h3>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <div className="text-center p-2 bg-white rounded">
+                <div className="font-bold text-lg text-blue-600">
+                  {formatNumber(formData.completedPieces)}
                 </div>
-                <div>
-                  <p className="font-medium text-gray-800">
-                    {currentLanguage === "np"
-                      ? "यो बन्डल अर्को स्टेसनमा जान्छ"
-                      : "This bundle will go to next station"}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "अर्को काम" : "Next operation"}:{" "}
-                    {workData.nextOperation || "माथिल्लो सिलाई"}
-                  </p>
-                  <p className="text-sm text-gray-600">
-                    {currentLanguage === "np" ? "अर्को मेसिन" : "Next machine"}:{" "}
-                    {workData.nextMachine || "फ्ल्यालक"}
-                  </p>
+                <div className="text-gray-600">{t("completed")}</div>
+              </div>
+              <div className="text-center p-2 bg-white rounded">
+                <div className="font-bold text-lg text-red-600">
+                  {formatNumber(formData.defectivePieces)}
                 </div>
+                <div className="text-gray-600">{t("defective")}</div>
+              </div>
+              <div className="text-center p-2 bg-white rounded">
+                <div className="font-bold text-lg text-green-600">
+                  {formatNumber(getQualityPercentage())}%
+                </div>
+                <div className="text-gray-600">{t("quality")}</div>
+              </div>
+              <div className="text-center p-2 bg-white rounded">
+                <div className="font-bold text-lg text-purple-600">
+                  {formatNumber(formData.actualTimeSpent)}
+                </div>
+                <div className="text-gray-600">{t("minutes")}</div>
               </div>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex space-x-4">
+          <div className="flex space-x-3 pt-4">
             <button
-              type="button"
-              onClick={onCancel}
-              className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={onClose}
+              className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
             >
-              {currentLanguage === "np" ? "रद्द गर्नुहोस्" : "Cancel"}
+              {t("cancel")}
             </button>
             <button
-              type="submit"
-              className="flex-1 bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors"
+              onClick={handleSubmit}
+              disabled={isSubmitting || formData.completedPieces === 0}
+              className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center"
             >
-              {currentLanguage === "np"
-                ? "पूरा गरेर पठाउनुहोस्"
-                : "Complete & Send"}
+              {isSubmitting ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  {t("processing")}
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {t("sendToNext")}
+                </>
+              )}
             </button>
           </div>
-        </form>
+
+          {/* Help Text */}
+          <div className="text-xs text-gray-500 text-center">
+            {currentLanguage === "np"
+              ? "काम पूरा गरेपछि यो अर्को चरणमा स्वचालित रूपमा पठाइनेछ"
+              : "Work will be automatically sent to next stage after completion"}
+          </div>
+        </div>
       </div>
     </div>
   );

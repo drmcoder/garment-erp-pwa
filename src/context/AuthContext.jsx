@@ -1,186 +1,168 @@
-import React, { createContext, useContext, useReducer, useEffect } from "react";
-import { DEMO_USERS } from "../config/firebase";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 const AuthContext = createContext();
 
-// Auth Actions
-const AUTH_ACTIONS = {
-  LOGIN_START: "LOGIN_START",
-  LOGIN_SUCCESS: "LOGIN_SUCCESS",
-  LOGIN_FAILURE: "LOGIN_FAILURE",
-  LOGOUT: "LOGOUT",
-  CLEAR_ERROR: "CLEAR_ERROR",
+// Demo users for quick testing
+const DEMO_USERS = {
+  // Operators
+  "ram.singh": {
+    id: "op1",
+    username: "ram.singh",
+    password: "password123",
+    name: "राम सिंह",
+    role: "operator",
+    machine: "overlock",
+    station: "overlock-1",
+  },
+  "sita.devi": {
+    id: "op2",
+    username: "sita.devi",
+    password: "password123",
+    name: "सीता देवी",
+    role: "operator",
+    machine: "flatlock",
+    station: "flatlock-1",
+  },
+  "hari.bahadur": {
+    id: "op3",
+    username: "hari.bahadur",
+    password: "password123",
+    name: "हरि बहादुर",
+    role: "operator",
+    machine: "singleNeedle",
+    station: "single-needle-1",
+  },
+
+  // Supervisors
+  supervisor: {
+    id: "sup1",
+    username: "supervisor",
+    password: "super123",
+    name: "श्याम पोखरेल",
+    role: "supervisor",
+    department: "production",
+  },
+
+  // Management
+  management: {
+    id: "mgmt1",
+    username: "management",
+    password: "mgmt123",
+    name: "Management User",
+    role: "management",
+  },
 };
 
-// Initial State
-const initialState = {
-  user: null,
-  userRole: null,
-  isAuthenticated: false,
-  isLoading: false,
-  error: null,
-  loginAttempts: 0,
-};
-
-// Auth Reducer
-const authReducer = (state, action) => {
-  switch (action.type) {
-    case AUTH_ACTIONS.LOGIN_START:
-      return {
-        ...state,
-        isLoading: true,
-        error: null,
-      };
-
-    case AUTH_ACTIONS.LOGIN_SUCCESS:
-      return {
-        ...state,
-        user: action.payload.user,
-        userRole: action.payload.user.role,
-        isAuthenticated: true,
-        isLoading: false,
-        error: null,
-        loginAttempts: 0,
-      };
-
-    case AUTH_ACTIONS.LOGIN_FAILURE:
-      return {
-        ...state,
-        user: null,
-        userRole: null,
-        isAuthenticated: false,
-        isLoading: false,
-        error: action.payload.error,
-        loginAttempts: state.loginAttempts + 1,
-      };
-
-    case AUTH_ACTIONS.LOGOUT:
-      return {
-        ...initialState,
-      };
-
-    case AUTH_ACTIONS.CLEAR_ERROR:
-      return {
-        ...state,
-        error: null,
-      };
-
-    default:
-      return state;
-  }
-};
-
-// Auth Provider Component
 export const AuthProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(authReducer, initialState);
+  const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
 
-  // Demo login function (replace with Firebase later)
-  const login = async (credentials) => {
-    dispatch({ type: AUTH_ACTIONS.LOGIN_START });
-
-    try {
-      const { username, password, rememberMe = false } = credentials;
-
-      // Check demo users
-      const allUsers = [
-        ...DEMO_USERS.OPERATORS,
-        ...DEMO_USERS.SUPERVISORS,
-        ...DEMO_USERS.MANAGEMENT,
-      ];
-
-      const user = allUsers.find(
-        (u) => u.username === username && u.password === password
-      );
-
-      if (user) {
-        // Store in localStorage if remember me
-        if (rememberMe) {
-          localStorage.setItem("garment-erp-user", JSON.stringify(user));
-        }
-
-        dispatch({
-          type: AUTH_ACTIONS.LOGIN_SUCCESS,
-          payload: { user },
-        });
-
-        return { success: true, user };
-      } else {
-        throw new Error("गलत प्रयोगकर्ता नाम वा पासवर्ड");
-      }
-    } catch (error) {
-      dispatch({
-        type: AUTH_ACTIONS.LOGIN_FAILURE,
-        payload: { error: error.message },
-      });
-      return { success: false, error: error.message };
-    }
-  };
-
-  // Logout function
-  const logout = () => {
-    localStorage.removeItem("garment-erp-user");
-    dispatch({ type: AUTH_ACTIONS.LOGOUT });
-  };
-
-  // Clear error
-  const clearError = () => {
-    dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
-  };
-
-  // Get user display info
-  const getUserDisplayInfo = () => {
-    if (!state.user) return null;
-
-    return {
-      name: state.user.name,
-      role: state.user.role,
-      machine: state.user.machine || null,
-      station: state.user.station || null,
-      initials: state.user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-        .substring(0, 2),
-    };
-  };
-
-  // Check for saved user on app start
+  // Check for existing session on mount
   useEffect(() => {
     const savedUser = localStorage.getItem("garment-erp-user");
     if (savedUser) {
       try {
-        const user = JSON.parse(savedUser);
-        dispatch({
-          type: AUTH_ACTIONS.LOGIN_SUCCESS,
-          payload: { user },
-        });
+        setUser(JSON.parse(savedUser));
       } catch (error) {
+        console.error("Error parsing saved user:", error);
         localStorage.removeItem("garment-erp-user");
       }
     }
+    setIsInitializing(false);
   }, []);
 
-  const value = {
-    // State
-    user: state.user,
-    userRole: state.userRole,
-    isAuthenticated: state.isAuthenticated,
-    isLoading: state.isLoading,
-    error: state.error,
-    loginAttempts: state.loginAttempts,
+  const login = async (username, password, role = "operator") => {
+    setIsLoading(true);
 
-    // Actions
+    try {
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // Check demo users
+      const user = DEMO_USERS[username];
+
+      if (!user || user.password !== password || user.role !== role) {
+        throw new Error("Invalid credentials");
+      }
+
+      // Remove password from user object
+      const { password: _, ...userWithoutPassword } = user;
+
+      setUser(userWithoutPassword);
+      localStorage.setItem(
+        "garment-erp-user",
+        JSON.stringify(userWithoutPassword)
+      );
+
+      return userWithoutPassword;
+    } catch (error) {
+      console.error("Login error:", error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = () => {
+    setUser(null);
+    localStorage.removeItem("garment-erp-user");
+  };
+
+  const getUserDisplayInfo = () => {
+    if (!user) return null;
+
+    return {
+      name: user.name || user.username,
+      role: user.role,
+      machine: user.machine,
+      station: user.station,
+      department: user.department,
+    };
+  };
+
+  const hasPermission = (permission) => {
+    if (!user) return false;
+
+    // Simple role-based permissions
+    const permissions = {
+      operator: ["view_work", "complete_work", "report_quality"],
+      supervisor: [
+        "view_work",
+        "complete_work",
+        "report_quality",
+        "assign_work",
+        "view_analytics",
+      ],
+      management: [
+        "view_work",
+        "complete_work",
+        "report_quality",
+        "assign_work",
+        "view_analytics",
+        "manage_users",
+        "view_reports",
+      ],
+    };
+
+    return permissions[user.role]?.includes(permission) || false;
+  };
+
+  const value = {
+    user,
+    isAuthenticated: !!user,
+    isLoading,
+    isInitializing,
+    userRole: user?.role,
     login,
     logout,
-    clearError,
     getUserDisplayInfo,
+    hasPermission,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
-// Custom hook to use auth context
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
