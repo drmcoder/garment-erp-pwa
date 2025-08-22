@@ -666,7 +666,7 @@ const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
   const [currentLanguage, setCurrentLanguage] = useState(() => {
-    return localStorage.getItem('garment-erp-language') || 'np';
+    return localStorage.getItem('garment-erp-language') || 'en';
   });
 
   useEffect(() => {
