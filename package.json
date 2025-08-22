@@ -1,8 +1,8 @@
 {
-  "name": "garment-erp-pwa",
+  "name": "garment-erp-nepal",
   "version": "1.0.0",
   "private": true,
-  "description": "Garment ERP Production Management PWA with Nepali Language Support",
+  "description": "गारमेन्ट ERP - उत्पादन व्यवस्थापन | Complete Garment Manufacturing ERP with Nepali Language Support",
   "dependencies": {
     "@tailwindcss/forms": "^0.5.10",
     "@tailwindcss/typography": "^0.5.16",
@@ -31,17 +31,28 @@
   },
   "scripts": {
     "start": "react-scripts start",
+    "dev": "react-scripts start",
     "build": "react-scripts build && npm run build-sw",
     "build-sw": "node scripts/build-sw.js",
-    "test": "react-scripts test",
+    "test": "react-scripts test --passWithNoTests",
     "eject": "react-scripts eject",
-    "netlify-dev": "netlify dev"
+    "netlify-dev": "netlify dev",
+    "deploy": "netlify deploy --prod",
+    "deploy-preview": "netlify deploy",
+    "analyze": "npx analyze-bundle",
+    "lint": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
+    "postbuild": "echo 'Build completed successfully!'",
+    "prebuild": "echo 'Starting build process...'"
   },
   "eslintConfig": {
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "rules": {
+      "no-unused-vars": "warn",
+      "no-console": "off"
+    }
   },
   "browserslist": {
     "production": [
@@ -55,5 +66,31 @@
       "last 1 safari version"
     ]
   },
-  "homepage": "."
+  "homepage": ".",
+  "keywords": [
+    "garment",
+    "erp", 
+    "manufacturing",
+    "nepal",
+    "nepali",
+    "production",
+    "management",
+    "pwa",
+    "react",
+    "firebase",
+    "textile",
+    "sewing",
+    "quality-control",
+    "real-time",
+    "multilingual"
+  ],
+  "author": {
+    "name": "Santosh Rijal",
+    "email": "santoshrijal41@gmail.com"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
 }
