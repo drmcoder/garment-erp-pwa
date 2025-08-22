@@ -2,9 +2,9 @@
 // Complete Operator Self-Assignment System with Smart Recommendations
 
 import React, { useState, useEffect, useContext } from "react";
-import { AuthContext } from "../../contexts/AuthContext";
-import { LanguageContext } from "../../contexts/LanguageContext";
-import { NotificationContext } from "../../contexts/NotificationContext";
+import { AuthContext } from "../../context/AuthContext";
+import { LanguageContext } from "../../context/LanguageContext";
+import { NotificationContext } from "../../context/NotificationContext";
 
 const SelfAssignmentSystem = () => {
   const { user } = useContext(AuthContext);

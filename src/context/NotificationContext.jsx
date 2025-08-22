@@ -3,7 +3,7 @@ import { useLanguage } from './LanguageContext';
 import { NotificationService } from "../services/firebase-services";
 import { useAuth } from "./AuthContext";
 
-const NotificationContext = createContext();
+export const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
   const { t, currentLanguage } = useLanguage();

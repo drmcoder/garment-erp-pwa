@@ -662,7 +662,7 @@ export const sizeUtils = {
 };
 
 // Language Context
-const LanguageContext = createContext();
+export const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
   const [currentLanguage, setCurrentLanguage] = useState(() => {

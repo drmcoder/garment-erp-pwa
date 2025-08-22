@@ -1,0 +1,928 @@
+// src/components/supervisor/WorkAssignment.jsx
+// Drag & drop work assignment interface for supervisors
+
+import React, { useState, useContext, useEffect } from 'react';
+import { AuthContext } from '../../context/AuthContext';
+import { LanguageContext } from '../../context/LanguageContext';
+import { NotificationContext } from '../../context/NotificationContext';
+
+const WorkAssignment = () => {
+  const { user } = useContext(AuthContext);
+  const { isNepali, formatCurrency } = useContext(LanguageContext);
+  const { showNotification } = useContext(NotificationContext);
+  
+  const [availableBundles, setAvailableBundles] = useState([]);
+  const [operators, setOperators] = useState([]);
+  const [draggedBundle, setDraggedBundle] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [selectedBundle, setSelectedBundle] = useState(null);
+  const [selectedOperator, setSelectedOperator] = useState(null);
+  const [filter, setFilter] = useState({
+    machineType: 'all',
+    priority: 'all',
+    status: 'pending'
+  });
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [showBulkAssign, setShowBulkAssign] = useState(false);
+
+  useEffect(() => {
+    loadAvailableBundles();
+    loadOperators();
+    loadAssignmentHistory();
+  }, [filter]);
+
+  const loadAvailableBundles = async () => {
+    setLoading(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      const mockBundles = [
+        {
+          id: 'bundle_001',
+          articleNumber: '8085',
+          articleName: isNepali ? 'नीलो टी-शर्ट' : 'Blue T-Shirt',
+          color: 'नीलो-१',
+          size: 'XL',
+          pieces: 30,
+          operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
+          machineType: isNepali ? 'ओभरलक' : 'Overlock',
+          rate: 2.50,
+          estimatedTime: 25,
+          priority: isNepali ? 'उच्च' : 'High',
+          status: 'pending',
+          lotNumber: 'LOT-2025-001',
+          createdAt: new Date(Date.now() - 3600000).toISOString(),
+          deadline: new Date(Date.now() + 86400000).toISOString()
+        },
+        {
+          id: 'bundle_002',
+          articleNumber: '2233',
+          articleName: isNepali ? 'हरियो पोलो' : 'Green Polo',
+          color: 'हरियो-२',
+          size: '2XL',
+          pieces: 28,
+          operation: isNepali ? 'साइड सिम' : 'Side Seam',
+          machineType: isNepali ? 'ओभरलक' : 'Overlock',
+          rate: 2.80,
+          estimatedTime: 22,
+          priority: isNepali ? 'सामान्य' : 'Normal',
+          status: 'pending',
+          lotNumber: 'LOT-2025-002',
+          createdAt: new Date(Date.now() - 1800000).toISOString(),
+          deadline: new Date(Date.now() + 172800000).toISOString()
+        },
+        {
+          id: 'bundle_003',
+          articleNumber: '6635',
+          articleName: isNepali ? 'सेतो शर्ट' : 'White Shirt',
+          color: 'सेतो',
+          size: 'L',
+          pieces: 40,
+          operation: isNepali ? 'हेम फोल्ड' : 'Hem Fold',
+          machineType: isNepali ? 'फ्ल्यालक' : 'Flatlock',
+          rate: 2.20,
+          estimatedTime: 35,
+          priority: isNepali ? 'कम' : 'Low',
+          status: 'pending',
+          lotNumber: 'LOT-2025-003',
+          createdAt: new Date(Date.now() - 900000).toISOString(),
+          deadline: new Date(Date.now() + 259200000).toISOString()
+        },
+        {
+          id: 'bundle_004',
+          articleNumber: '7799',
+          articleName: isNepali ? 'कालो जैकेट' : 'Black Jacket',
+          color: 'कालो',
+          size: 'XL',
+          pieces: 20,
+          operation: isNepali ? 'जिप लगाउने' : 'Zipper Attach',
+          machineType: isNepali ? 'एकल सुई' : 'Single Needle',
+          rate: 5.00,
+          estimatedTime: 45,
+          priority: isNepali ? 'उच्च' : 'High',
+          status: 'pending',
+          lotNumber: 'LOT-2025-004',
+          createdAt: new Date(Date.now() - 450000).toISOString(),
+          deadline: new Date(Date.now() + 86400000).toISOString()
+        }
+      ];
+
+      // Apply filters
+      let filteredBundles = mockBundles;
+      
+      if (filter.machineType !== 'all') {
+        filteredBundles = filteredBundles.filter(bundle => 
+          bundle.machineType === filter.machineType
+        );
+      }
+      
+      if (filter.priority !== 'all') {
+        filteredBundles = filteredBundles.filter(bundle => 
+          bundle.priority === filter.priority
+        );
+      }
+
+      if (filter.status !== 'all') {
+        filteredBundles = filteredBundles.filter(bundle => 
+          bundle.status === filter.status
+        );
+      }
+
+      // Sort by priority and deadline
+      filteredBundles.sort((a, b) => {
+        const priorityOrder = { 'उच्च': 3, 'High': 3, 'सामान्य': 2, 'Normal': 2, 'कम': 1, 'Low': 1 };
+        const aPriority = priorityOrder[a.priority] || 2;
+        const bPriority = priorityOrder[b.priority] || 2;
+        
+        if (aPriority !== bPriority) {
+          return bPriority - aPriority; // Higher priority first
+        }
+        
+        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime(); // Earlier deadline first
+      });
+
+      setAvailableBundles(filteredBundles);
+
+    } catch (error) {
+      showNotification(
+        isNepali ? 'बन्डल लोड गर्न समस्या भयो' : 'Failed to load bundles',
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadOperators = async () => {
+    try {
+      // Mock operators data
+      const mockOperators = [
+        {
+          id: 'op_001',
+          name: isNepali ? 'राम सिंह' : 'Ram Singh',
+          speciality: 'overlock',
+          specialityNepali: 'ओभरलक',
+          station: 'overlock_01',
+          status: 'available',
+          efficiency: 92,
+          qualityScore: 96,
+          currentWorkload: 0,
+          maxWorkload: 3,
+          skills: ['shoulder_join', 'side_seam', 'armhole'],
+          todayPieces: 85,
+          estimatedFinishTime: null
+        },
+        {
+          id: 'op_002',
+          name: isNepali ? 'सीता देवी' : 'Sita Devi',
+          speciality: 'flatlock',
+          specialityNepali: 'फ्ल्यालक',
+          station: 'flatlock_01',
+          status: 'working',
+          efficiency: 88,
+          qualityScore: 94,
+          currentWorkload: 1,
+          maxWorkload: 2,
+          skills: ['hem_fold', 'neckline', 'binding'],
+          todayPieces: 72,
+          estimatedFinishTime: new Date(Date.now() + 1800000).toISOString()
+        },
+        {
+          id: 'op_003',
+          name: isNepali ? 'हरि बहादुर' : 'Hari Bahadur',
+          speciality: 'single_needle',
+          specialityNepali: 'एकल सुई',
+          station: 'single_needle_01',
+          status: 'working',
+          efficiency: 90,
+          qualityScore: 98,
+          currentWorkload: 2,
+          maxWorkload: 3,
+          skills: ['placket', 'buttonhole', 'top_stitch'],
+          todayPieces: 95,
+          estimatedFinishTime: new Date(Date.now() + 3600000).toISOString()
+        },
+        {
+          id: 'op_004',
+          name: isNepali ? 'मिना तामाङ' : 'Mina Tamang',
+          speciality: 'overlock',
+          specialityNepali: 'ओभरलक',
+          station: 'overlock_02',
+          status: 'available',
+          efficiency: 78,
+          qualityScore: 92,
+          currentWorkload: 0,
+          maxWorkload: 2,
+          skills: ['side_seam', 'hem_fold'],
+          todayPieces: 58,
+          estimatedFinishTime: null
+        },
+        {
+          id: 'op_005',
+          name: isNepali ? 'कुमार गुरुङ' : 'Kumar Gurung',
+          speciality: 'buttonhole',
+          specialityNepali: 'बटनहोल',
+          station: 'buttonhole_01',
+          status: 'break',
+          efficiency: 85,
+          qualityScore: 95,
+          currentWorkload: 1,
+          maxWorkload: 2,
+          skills: ['buttonhole', 'button_attach'],
+          todayPieces: 45,
+          estimatedFinishTime: new Date(Date.now() + 900000).toISOString()
+        }
+      ];
+
+      setOperators(mockOperators);
+
+    } catch (error) {
+      console.error('Failed to load operators:', error);
+    }
+  };
+
+  const loadAssignmentHistory = async () => {
+    try {
+      // Mock assignment history
+      const mockHistory = [
+        {
+          id: 'assign_001',
+          bundleId: 'bundle_100',
+          operatorId: 'op_001',
+          operatorName: isNepali ? 'राम सिंह' : 'Ram Singh',
+          articleNumber: '8085',
+          operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
+          assignedAt: new Date(Date.now() - 1800000).toISOString(),
+          assignedBy: user?.id || 'supervisor_01',
+          status: 'completed'
+        },
+        {
+          id: 'assign_002',
+          bundleId: 'bundle_101',
+          operatorId: 'op_002',
+          operatorName: isNepali ? 'सीता देवी' : 'Sita Devi',
+          articleNumber: '2233',
+          operation: isNepali ? 'हेम फोल्ड' : 'Hem Fold',
+          assignedAt: new Date(Date.now() - 3600000).toISOString(),
+          assignedBy: user?.id || 'supervisor_01',
+          status: 'in_progress'
+        }
+      ];
+
+      setAssignmentHistory(mockHistory);
+    } catch (error) {
+      console.error('Failed to load assignment history:', error);
+    }
+  };
+
+  const handleDragStart = (e, bundle) => {
+    setDraggedBundle(bundle);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = async (e, operator) => {
+    e.preventDefault();
+    
+    if (!draggedBundle || !operator) {
+      return;
+    }
+
+    // Check if operator can handle this work
+    if (!canOperatorHandleWork(operator, draggedBundle)) {
+      showNotification(
+        isNepali 
+          ? `${operator.name} यो काम गर्न सक्दैन - मेसिन मिल्दैन`
+          : `${operator.name} cannot handle this work - machine mismatch`,
+        'error'
+      );
+      setDraggedBundle(null);
+      return;
+    }
+
+    // Check workload
+    if (operator.currentWorkload >= operator.maxWorkload) {
+      showNotification(
+        isNepali 
+          ? `${operator.name} को कामको बोझ भरिएको छ`
+          : `${operator.name} is at maximum workload`,
+        'warning'
+      );
+      setDraggedBundle(null);
+      return;
+    }
+
+    await assignWorkToOperator(draggedBundle, operator);
+    setDraggedBundle(null);
+  };
+
+  const canOperatorHandleWork = (operator, bundle) => {
+    // Check machine compatibility
+    const machineMatches = {
+      'overlock': ['ओभरलक', 'Overlock'],
+      'flatlock': ['फ्ल्यालक', 'Flatlock'],
+      'single_needle': ['एकल सुई', 'Single Needle'],
+      'buttonhole': ['बटनहोल', 'Buttonhole']
+    };
+
+    return machineMatches[operator.speciality]?.includes(bundle.machineType) || false;
+  };
+
+  const assignWorkToOperator = async (bundle, operator) => {
+    setLoading(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Update operator workload
+      setOperators(prev => prev.map(op => 
+        op.id === operator.id 
+          ? { ...op, currentWorkload: op.currentWorkload + 1, status: 'working' }
+          : op
+      ));
+
+      // Remove bundle from available list
+      setAvailableBundles(prev => prev.filter(b => b.id !== bundle.id));
+
+      // Add to assignment history
+      const newAssignment = {
+        id: `assign_${Date.now()}`,
+        bundleId: bundle.id,
+        operatorId: operator.id,
+        operatorName: operator.name,
+        articleNumber: bundle.articleNumber,
+        operation: bundle.operation,
+        assignedAt: new Date().toISOString(),
+        assignedBy: user?.id || 'supervisor_01',
+        status: 'assigned'
+      };
+
+      setAssignmentHistory(prev => [newAssignment, ...prev]);
+
+      showNotification(
+        isNepali 
+          ? `${bundle.articleNumber} ${operator.name} लाई तोकियो`
+          : `${bundle.articleNumber} assigned to ${operator.name}`,
+        'success'
+      );
+
+    } catch (error) {
+      showNotification(
+        isNepali ? 'काम असाइन गर्न समस्या भयो' : 'Failed to assign work',
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualAssign = async () => {
+    if (!selectedBundle || !selectedOperator) {
+      showNotification(
+        isNepali ? 'बन्डल र ऑपरेटर छनोट गर्नुहोस्' : 'Please select bundle and operator',
+        'warning'
+      );
+      return;
+    }
+
+    await assignWorkToOperator(selectedBundle, selectedOperator);
+    setSelectedBundle(null);
+    setSelectedOperator(null);
+  };
+
+  const handleBulkAssign = async (assignments) => {
+    setLoading(true);
+    try {
+      for (const assignment of assignments) {
+        await assignWorkToOperator(assignment.bundle, assignment.operator);
+        await new Promise(resolve => setTimeout(resolve, 200)); // Small delay between assignments
+      }
+
+      showNotification(
+        isNepali 
+          ? `${assignments.length} काम सफलतापूर्वक असाइन गरियो`
+          : `${assignments.length} work items assigned successfully`,
+        'success'
+      );
+
+      setShowBulkAssign(false);
+    } catch (error) {
+      showNotification(
+        isNepali ? 'बल्क असाइनमेन्ट असफल भयो' : 'Bulk assignment failed',
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateSmartAssignments = () => {
+    const assignments = [];
+    const availableOps = operators.filter(op => 
+      op.status !== 'break' && op.currentWorkload < op.maxWorkload
+    );
+
+    availableBundles.forEach(bundle => {
+      // Find best operator for this bundle
+      const compatibleOps = availableOps.filter(op => canOperatorHandleWork(op, bundle));
+      
+      if (compatibleOps.length > 0) {
+        // Sort by efficiency and current workload
+        const bestOp = compatibleOps.sort((a, b) => {
+          const aScore = a.efficiency - (a.currentWorkload * 10);
+          const bScore = b.efficiency - (b.currentWorkload * 10);
+          return bScore - aScore;
+        })[0];
+
+        assignments.push({ bundle, operator: bestOp });
+        
+        // Update temporary workload for next assignment
+        bestOp.currentWorkload += 1;
+      }
+    });
+
+    return assignments;
+  };
+
+  const getOperatorStatusColor = (status) => {
+    const colors = {
+      'available': 'bg-green-100 text-green-800 border-green-200',
+      'working': 'bg-blue-100 text-blue-800 border-blue-200',
+      'break': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'busy': 'bg-red-100 text-red-800 border-red-200'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  const getOperatorStatusText = (status) => {
+    const texts = {
+      'available': isNepali ? 'उपलब्ध' : 'Available',
+      'working': isNepali ? 'काम गर्दै' : 'Working',
+      'break': isNepali ? 'विश्राम' : 'Break',
+      'busy': isNepali ? 'व्यस्त' : 'Busy'
+    };
+    return texts[status] || status;
+  };
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      'उच्च': 'bg-red-100 text-red-800 border-red-200',
+      'High': 'bg-red-100 text-red-800 border-red-200',
+      'सामान्य': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'Normal': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'कम': 'bg-green-100 text-green-800 border-green-200',
+      'Low': 'bg-green-100 text-green-800 border-green-200'
+    };
+    return colors[priority] || 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+
+  const formatTime = (isoString) => {
+    if (!isoString) return '';
+    return new Date(isoString).toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+  };
+
+  const SmartAssignModal = ({ show, onClose, onAssign }) => {
+    const [smartAssignments, setSmartAssignments] = useState([]);
+    
+    useEffect(() => {
+      if (show) {
+        setSmartAssignments(generateSmartAssignments());
+      }
+    }, [show]);
+
+    if (!show) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg p-6 max-w-4xl w-full mx-4 max-h-[80vh] overflow-y-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold">
+              {isNepali ? '🤖 स्मार्ट असाइनमेन्ट' : '🤖 Smart Assignment'}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              ✕
+            </button>
+          </div>
+          
+          {smartAssignments.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {isNepali ? 'कुनै उपयुक्त असाइनमेन्ट फेला परेन' : 'No suitable assignments found'}
+            </div>
+          ) : (
+            <>
+              <div className="mb-4">
+                <p className="text-sm text-gray-600">
+                  {isNepali 
+                    ? `${smartAssignments.length} वटा स्मार्ट असाइनमेन्ट सुझाव दिइएको छ`
+                    : `${smartAssignments.length} smart assignments suggested`}
+                </p>
+              </div>
+              
+              <div className="space-y-3 mb-6">
+                {smartAssignments.map((assignment, index) => (
+                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="bg-blue-100 px-3 py-1 rounded text-sm font-medium">
+                          {assignment.bundle.articleNumber}
+                        </div>
+                        <div className="text-sm text-gray-600">
+                          {assignment.bundle.operation} ({assignment.bundle.pieces} {isNepali ? 'पिस' : 'pcs'})
+                        </div>
+                        <div className="text-lg">→</div>
+                        <div className="bg-green-100 px-3 py-1 rounded text-sm font-medium">
+                          {assignment.operator.name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {assignment.operator.efficiency}% {isNepali ? 'दक्षता' : 'efficiency'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
+                >
+                  {isNepali ? 'रद्द गर्नुहोस्' : 'Cancel'}
+                </button>
+                <button
+                  onClick={() => onAssign(smartAssignments)}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700"
+                >
+                  {isNepali ? 'सबै असाइन गर्नुहोस्' : 'Assign All'}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="flex justify-between items-center mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {isNepali ? '🎯 काम असाइनमेन्ट' : '🎯 Work Assignment'}
+            </h1>
+            <p className="text-gray-600 mt-1">
+              {isNepali ? 'ड्र्याग एण्ड ड्रप वा म्यानुअल असाइनमेन्ट' : 'Drag & drop or manual assignment'}
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setShowBulkAssign(true)}
+              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
+            >
+              {isNepali ? '🤖 स्मार्ट असाइन' : '🤖 Smart Assign'}
+            </button>
+            <button
+              onClick={loadAvailableBundles}
+              disabled={loading}
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+            >
+              {loading ? '🔄' : '↻'} {isNepali ? 'रिफ्रेस' : 'Refresh'}
+            </button>
+          </div>
+        </div>
+
+        {/* Statistics */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="bg-blue-50 p-4 rounded-lg">
+            <div className="text-blue-600 text-sm">{isNepali ? 'उपलब्ध काम:' : 'Available Work:'}</div>
+            <div className="text-blue-800 text-xl font-bold">{availableBundles.length}</div>
+          </div>
+          <div className="bg-green-50 p-4 rounded-lg">
+            <div className="text-green-600 text-sm">{isNepali ? 'उपलब्ध ऑपरेटर:' : 'Available Operators:'}</div>
+            <div className="text-green-800 text-xl font-bold">
+              {operators.filter(op => op.status === 'available').length}
+            </div>
+          </div>
+          <div className="bg-yellow-50 p-4 rounded-lg">
+            <div className="text-yellow-600 text-sm">{isNepali ? 'काम गर्दै:' : 'Working:'}</div>
+            <div className="text-yellow-800 text-xl font-bold">
+              {operators.filter(op => op.status === 'working').length}
+            </div>
+          </div>
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <div className="text-purple-600 text-sm">{isNepali ? 'आजको टोटल:' : 'Today Total:'}</div>
+            <div className="text-purple-800 text-xl font-bold">
+              {operators.reduce((sum, op) => sum + op.todayPieces, 0)}
+            </div>
+          </div>
+          <div className="bg-orange-50 p-4 rounded-lg">
+            <div className="text-orange-600 text-sm">{isNepali ? 'औसत दक्षता:' : 'Avg Efficiency:'}</div>
+            <div className="text-orange-800 text-xl font-bold">
+              {operators.length > 0 ? Math.round(operators.reduce((sum, op) => sum + op.efficiency, 0) / operators.length) : 0}%
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="bg-white rounded-lg shadow-sm border p-4">
+        <div className="flex flex-wrap items-center space-x-4">
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">
+              {isNepali ? 'मेसिन:' : 'Machine:'}
+            </label>
+            <select
+              value={filter.machineType}
+              onChange={(e) => setFilter(prev => ({ ...prev, machineType: e.target.value }))}
+              className="border rounded px-3 py-1 text-sm"
+            >
+              <option value="all">{isNepali ? 'सबै' : 'All'}</option>
+              <option value="ओभरलक">Overlock</option>
+              <option value="फ्ल्यालक">Flatlock</option>
+              <option value="एकल सुई">Single Needle</option>
+            </select>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">
+              {isNepali ? 'प्राथमिकता:' : 'Priority:'}
+            </label>
+            <select
+              value={filter.priority}
+              onChange={(e) => setFilter(prev => ({ ...prev, priority: e.target.value }))}
+              className="border rounded px-3 py-1 text-sm"
+            >
+              <option value="all">{isNepali ? 'सबै' : 'All'}</option>
+              <option value={isNepali ? 'उच्च' : 'High'}>{isNepali ? 'उच्च' : 'High'}</option>
+              <option value={isNepali ? 'सामान्य' : 'Normal'}>{isNepali ? 'सामान्य' : 'Normal'}</option>
+              <option value={isNepali ? 'कम' : 'Low'}>{isNepali ? 'कम' : 'Low'}</option>
+            </select>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <label className="text-sm font-medium text-gray-700">
+              {isNepali ? 'स्थिति:' : 'Status:'}
+            </label>
+            <select
+              value={filter.status}
+              onChange={(e) => setFilter(prev => ({ ...prev, status: e.target.value }))}
+              className="border rounded px-3 py-1 text-sm"
+            >
+              <option value="pending">{isNepali ? 'पेन्डिङ' : 'Pending'}</option>
+              <option value="all">{isNepali ? 'सबै' : 'All'}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Available Work Bundles */}
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-4 border-b">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {isNepali ? '📦 उपलब्ध काम' : '📦 Available Work'}
+            </h2>
+            <p className="text-sm text-gray-600">
+              {isNepali ? 'ड्र्याग गरेर ऑपरेटरमा ड्रप गर्नुहोस्' : 'Drag bundles to operators'}
+            </p>
+          </div>
+          
+          <div className="p-4 max-h-96 overflow-y-auto">
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : availableBundles.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                {isNepali ? 'कुनै काम उपलब्ध छैन' : 'No work available'}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {availableBundles.map((bundle) => (
+                  <div
+                    key={bundle.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, bundle)}
+                    onClick={() => setSelectedBundle(bundle)}
+                    className={`p-4 border rounded-lg cursor-grab hover:shadow-md transition-shadow
+                      ${selectedBundle?.id === bundle.id ? 'ring-2 ring-blue-500 border-blue-300' : ''}
+                      ${draggedBundle?.id === bundle.id ? 'opacity-50' : ''}`}
+                  >
+                    <div className="flex justify-between items-start mb-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
+                          {bundle.articleNumber}
+                        </span>
+                        <span className={`px-2 py-1 rounded text-xs border ${getPriorityColor(bundle.priority)}`}>
+                          {bundle.priority}
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-600">{formatCurrency(bundle.rate)}/pc</div>
+                        <div className="text-xs text-gray-500">~{bundle.estimatedTime}min</div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-sm text-gray-900 font-medium mb-1">
+                      {bundle.articleName}
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-xs text-gray-600">
+                      <span>{bundle.operation}</span>
+                      <span>{bundle.pieces} {isNepali ? 'पिस' : 'pcs'}</span>
+                    </div>
+                    
+                    <div className="flex justify-between items-center text-xs text-gray-500 mt-2">
+                      <span>{bundle.machineType}</span>
+                      <span>{bundle.color} - {bundle.size}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Operators */}
+        <div className="bg-white rounded-lg shadow-sm border">
+          <div className="p-4 border-b">
+            <h2 className="text-lg font-semibold text-gray-900">
+              {isNepali ? '👥 ऑपरेटर' : '👥 Operators'}
+            </h2>
+            <p className="text-sm text-gray-600">
+              {isNepali ? 'यहाँ काम ड्रप गर्नुहोस्' : 'Drop work here'}
+            </p>
+          </div>
+          
+          <div className="p-4 max-h-96 overflow-y-auto">
+            <div className="space-y-3">
+              {operators.map((operator) => (
+                <div
+                  key={operator.id}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, operator)}
+                  onClick={() => setSelectedOperator(operator)}
+                  className={`p-4 border rounded-lg transition-all
+                    ${selectedOperator?.id === operator.id ? 'ring-2 ring-green-500 border-green-300' : ''}
+                    ${draggedBundle && canOperatorHandleWork(operator, draggedBundle) 
+                      ? 'border-green-300 bg-green-50' 
+                      : draggedBundle 
+                        ? 'border-red-300 bg-red-50' 
+                        : 'hover:border-gray-300'}`}
+                >
+                  <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium text-gray-900">{operator.name}</span>
+                      <span className={`px-2 py-1 rounded text-xs border ${getOperatorStatusColor(operator.status)}`}>
+                        {getOperatorStatusText(operator.status)}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm text-gray-600">
+                        {operator.currentWorkload}/{operator.maxWorkload}
+                      </div>
+                      <div className="text-xs text-gray-500">workload</div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
+                    <span>{isNepali ? operator.specialityNepali : operator.speciality}</span>
+                    <span>{operator.station}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center text-xs text-gray-500">
+                    <div className="flex space-x-4">
+                      <span>{operator.efficiency}% {isNepali ? 'दक्षता' : 'efficiency'}</span>
+                      <span>{operator.qualityScore}% {isNepali ? 'गुणस्तर' : 'quality'}</span>
+                    </div>
+                    <span>{operator.todayPieces} {isNepali ? 'आज' : 'today'}</span>
+                  </div>
+                  
+                  {operator.estimatedFinishTime && (
+                    <div className="text-xs text-blue-600 mt-1">
+                      {isNepali ? 'समाप्त हुने समय:' : 'Est. finish:'} {formatTime(operator.estimatedFinishTime)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Manual Assignment */}
+      <div className="bg-white rounded-lg shadow-sm border p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          {isNepali ? '✋ म्यानुअल असाइनमेन्ट' : '✋ Manual Assignment'}
+        </h3>
+        
+        <div className="flex items-end space-x-4">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {isNepali ? 'चुनिएको बन्डल:' : 'Selected Bundle:'}
+            </label>
+            <div className="p-2 border rounded-md bg-gray-50 text-sm">
+              {selectedBundle 
+                ? `${selectedBundle.articleNumber} - ${selectedBundle.operation}`
+                : (isNepali ? 'बन्डल छनोट गर्नुहोस्' : 'Select a bundle')
+              }
+            </div>
+          </div>
+          
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {isNepali ? 'चुनिएको ऑपरेटर:' : 'Selected Operator:'}
+            </label>
+            <div className="p-2 border rounded-md bg-gray-50 text-sm">
+              {selectedOperator 
+                ? `${selectedOperator.name} (${isNepali ? selectedOperator.specialityNepali : selectedOperator.speciality})`
+                : (isNepali ? 'ऑपरेटर छनोट गर्नुहोस्' : 'Select an operator')
+              }
+            </div>
+          </div>
+          
+          <button
+            onClick={handleManualAssign}
+            disabled={!selectedBundle || !selectedOperator || loading}
+            className="bg-green-600 text-white px-6 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? '🔄' : '✓'} {isNepali ? 'असाइन गर्नुहोस्' : 'Assign'}
+          </button>
+        </div>
+      </div>
+
+      {/* Assignment History */}
+      <div className="bg-white rounded-lg shadow-sm border">
+        <div className="p-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {isNepali ? '📋 असाइनमेन्ट इतिहास' : '📋 Assignment History'}
+          </h3>
+        </div>
+        
+        <div className="p-4">
+          {assignmentHistory.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {isNepali ? 'कुनै इतिहास छैन' : 'No history available'}
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {assignmentHistory.slice(0, 5).map((assignment) => (
+                <div key={assignment.id} className="flex justify-between items-center py-2 border-b last:border-b-0">
+                  <div className="flex items-center space-x-4">
+                    <span className="bg-gray-100 px-2 py-1 rounded text-sm font-medium">
+                      {assignment.articleNumber}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      {assignment.operation}
+                    </span>
+                    <span className="text-sm text-gray-600">→</span>
+                    <span className="text-sm font-medium">
+                      {assignment.operatorName}
+                    </span>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-gray-500">
+                      {formatTime(assignment.assignedAt)}
+                    </div>
+                    <div className={`text-xs px-2 py-1 rounded ${
+                      assignment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      assignment.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {assignment.status === 'completed' ? (isNepali ? 'पूरा' : 'Done') :
+                       assignment.status === 'in_progress' ? (isNepali ? 'प्रगति' : 'Progress') :
+                       (isNepali ? 'नयाँ' : 'New')}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Smart Assignment Modal */}
+      <SmartAssignModal
+        show={showBulkAssign}
+        onClose={() => setShowBulkAssign(false)}
+        onAssign={handleBulkAssign}
+      />
+    </div>
+  );
+};
+
+export default WorkAssignment;
