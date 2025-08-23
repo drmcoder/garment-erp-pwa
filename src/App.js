@@ -12,6 +12,7 @@ import { SystemProvider, useSystem } from "./context/SystemContext";
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
+import WorkCreation from "./components/supervisor/WorkCreation";
 import SystemSettings from "./components/admin/SystemSettings";
 
 // Login Component
@@ -508,6 +509,8 @@ const AppContent = () => {
     // Supervisor views
     if (user.role === "supervisor") {
       switch (currentView) {
+        case "work-creation":
+          return <WorkCreation />;
         case "work-assignment":
           return <WorkAssignment />;
         case "dashboard":
@@ -613,6 +616,16 @@ const AppContent = () => {
                 }`}
               >
                 📊 Dashboard
+              </button>
+              <button
+                onClick={() => setCurrentView("work-creation")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  currentView === "work-creation"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                ➕ Create Work
               </button>
               <button
                 onClick={() => setCurrentView("work-assignment")}
