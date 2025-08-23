@@ -2,6 +2,36 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { AdvancedWIPParser } from '../../utils/advancedWIPParser';
 
+// Helper function to parse CSV text
+const parseCSVText = (csvText) => {
+  const lines = csvText.split('\n').filter(line => line.trim());
+  return lines.map(line => {
+    const cells = [];
+    let current = '';
+    let inQuotes = false;
+    let i = 0;
+    
+    while (i < line.length) {
+      const char = line[i];
+      
+      if (char === '"' && (i === 0 || line[i-1] === ',')) {
+        inQuotes = true;
+      } else if (char === '"' && inQuotes && (i === line.length - 1 || line[i+1] === ',')) {
+        inQuotes = false;
+      } else if (char === ',' && !inQuotes) {
+        cells.push(current.trim());
+        current = '';
+      } else if (char !== '"' || inQuotes) {
+        current += char;
+      }
+      i++;
+    }
+    
+    cells.push(current.trim());
+    return cells;
+  });
+};
+
 const GoogleSheetsParser = () => {
   const { currentLanguage } = useLanguage();
   const [testUrls] = useState([
@@ -37,7 +67,7 @@ const GoogleSheetsParser = () => {
       console.log(`CSV data fetched (${csvText.length} characters)`);
       
       // Parse CSV to array
-      const csvData = this.parseCSVText(csvText);
+      const csvData = parseCSVText(csvText);
       console.log(`Parsed ${csvData.length} rows, ${csvData[0]?.length} columns`);
       
       // Use advanced parser
@@ -67,34 +97,6 @@ const GoogleSheetsParser = () => {
     }
   };
 
-  const parseCSVText = (csvText) => {
-    const lines = csvText.split('\n').filter(line => line.trim());
-    return lines.map(line => {
-      const cells = [];
-      let current = '';
-      let inQuotes = false;
-      let i = 0;
-      
-      while (i < line.length) {
-        const char = line[i];
-        
-        if (char === '"' && (i === 0 || line[i-1] === ',')) {
-          inQuotes = true;
-        } else if (char === '"' && inQuotes && (i === line.length - 1 || line[i+1] === ',')) {
-          inQuotes = false;
-        } else if (char === ',' && !inQuotes) {
-          cells.push(current.trim());
-          current = '';
-        } else if (char !== '"' || inQuotes) {
-          current += char;
-        }
-        i++;
-      }
-      
-      cells.push(current.trim());
-      return cells;
-    });
-  };
 
   const testAllUrls = async () => {
     setIsProcessing(true);

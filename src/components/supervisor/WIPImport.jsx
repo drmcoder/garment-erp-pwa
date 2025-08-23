@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { WIPDataParser, parseWIPData } from '../../utils/wipDataParser';
 import { AdvancedWIPParser } from '../../utils/advancedWIPParser';
 import { LayerBasedBundleGenerator } from '../../utils/layerBasedBundleGenerator';
+import WIPUploadProgress from './WIPUploadProgress';
+import WIPErrorConsole from './WIPErrorConsole';
+import WIPProgressManager from '../../utils/wipProgressManager';
 
 const WIPImport = ({ onImport, onCancel }) => {
   const { currentLanguage } = useLanguage();
@@ -27,6 +30,49 @@ const WIPImport = ({ onImport, onCancel }) => {
   const [processTemplate, setProcessTemplate] = useState('');
   const [customProcess, setCustomProcess] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Progress and Error Management
+  const [progressManager] = useState(() => new WIPProgressManager());
+  const [showProgress, setShowProgress] = useState(false);
+  const [showErrorConsole, setShowErrorConsole] = useState(false);
+  const [progressState, setProgressState] = useState({
+    stages: [],
+    logs: [],
+    errors: [],
+    warnings: [],
+    currentStage: -1,
+    progress: 0,
+    isComplete: false,
+    totalSteps: 0,
+    completedSteps: 0
+  });
+  const [debugInfo, setDebugInfo] = useState({});
+  const [sourceData, setSourceData] = useState(null);
+
+  // Initialize progress manager event listeners
+  useEffect(() => {
+    const updateProgressState = () => {
+      setProgressState(progressManager.getState());
+    };
+
+    progressManager.on('progressUpdated', updateProgressState);
+    progressManager.on('logAdded', updateProgressState);
+    progressManager.on('stageStarted', updateProgressState);
+    progressManager.on('stageCompleted', updateProgressState);
+    progressManager.on('stageFailed', updateProgressState);
+    progressManager.on('completed', (data) => {
+      updateProgressState();
+      
+      if (!data.success && progressManager.errors.length > 0) {
+        setShowErrorConsole(true);
+      }
+    });
+
+    return () => {
+      // Cleanup event listeners if needed
+      progressManager.callbacks = {};
+    };
+  }, [progressManager]);
   const [currentView, setCurrentView] = useState('import'); // 'import' or 'template-manager'
   const [templateManager, setTemplateManager] = useState({
     name: '',
@@ -206,37 +252,115 @@ const WIPImport = ({ onImport, onCancel }) => {
   const parseExcelFile = async () => {
     if (!excelFile) return;
     
+    // Initialize progress
+    progressManager.reset();
+    const stages = [
+      { name: currentLanguage === 'np' ? 'फाइल पढ्दै' : 'Reading file', weight: 1, steps: 1 },
+      { name: currentLanguage === 'np' ? 'डेटा पार्सिङ' : 'Parsing data', weight: 2, steps: 1 },
+      { name: currentLanguage === 'np' ? 'वैधता जाँच' : 'Validation', weight: 1, steps: 1 },
+      { name: currentLanguage === 'np' ? 'अन्तिमीकरण' : 'Finalization', weight: 1, steps: 1 }
+    ];
+    
+    progressManager.initializeStages(stages);
+    setShowProgress(true);
     setIsProcessing(true);
+
+    // Set source data for debugging
+    setSourceData({
+      type: 'Excel File',
+      name: excelFile.name,
+      size: `${Math.round(excelFile.size / 1024)} KB`,
+      lastModified: new Date(excelFile.lastModified).toISOString()
+    });
+
     try {
-      // Read file content
+      // Stage 1: Read file content
+      await progressManager.executeStage(0, async (updateProgress, log) => {
+        log('Starting file read operation');
+        updateProgress(50, 'Reading file content...');
+        
+        const fileContent = await readFileContent(excelFile);
+        
+        updateProgress(100, 'File content loaded successfully');
+        return fileContent;
+      });
+
       const fileContent = await readFileContent(excelFile);
       
-      // Parse using the enhanced WIP parser
-      const parsedResult = await parseWIPData(fileContent, 'auto');
-      
-      // Validate parsed data
-      const parser = new WIPDataParser();
-      const validation = parser.validateParsedData(parsedResult);
-      const stats = parser.generateStats(parsedResult);
-      
-      if (validation.errors.length > 0) {
-        throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
-      }
-      
-      // Show warnings if any
-      if (validation.warnings.length > 0) {
-        console.warn('Parsing warnings:', validation.warnings);
-      }
-      
-      setExcelData({
-        ...parsedResult,
-        stats: stats,
-        validation: validation
+      // Stage 2: Parse data
+      const parsedResult = await progressManager.executeStage(1, async (updateProgress, log) => {
+        log('Initializing WIP parser');
+        updateProgress(25, 'Detecting data format...');
+        
+        const result = await parseWIPData(fileContent, 'auto');
+        
+        updateProgress(75, 'Data structure identified');
+        log(`Found ${result.colors?.length || 0} colors in data`);
+        updateProgress(100, 'Parsing completed');
+        
+        return result;
       });
+
+      // Stage 3: Validation
+      const { validation, stats } = await progressManager.executeStage(2, async (updateProgress, log) => {
+        log('Starting data validation');
+        updateProgress(30, 'Validating data structure...');
+        
+        const parser = new WIPDataParser();
+        const validation = parser.validateParsedData(parsedResult);
+        
+        updateProgress(70, 'Generating statistics...');
+        const stats = parser.generateStats(parsedResult);
+        
+        updateProgress(100, 'Validation completed');
+        
+        // Add warnings to progress manager
+        validation.warnings.forEach(warning => {
+          progressManager.addWarning(warning);
+        });
+
+        // Add errors to progress manager
+        if (validation.errors.length > 0) {
+          validation.errors.forEach(error => {
+            progressManager.addError(error);
+          });
+          throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+        }
+
+        return { validation, stats };
+      });
+
+      // Stage 4: Finalization
+      await progressManager.executeStage(3, async (updateProgress, log) => {
+        log('Finalizing parsed data');
+        updateProgress(50, 'Preparing data for display...');
+        
+        setExcelData({
+          ...parsedResult,
+          stats: stats,
+          validation: validation
+        });
+
+        updateProgress(100, 'Excel data ready for use');
+      });
+
+      progressManager.complete(true);
       
     } catch (error) {
-      console.error('Error parsing Excel file:', error);
-      alert(`${currentLanguage === 'np' ? 'Excel फाइल पार्स गर्नमा त्रुटि' : 'Error parsing Excel file'}: ${error.message}`);
+      progressManager.addError(`Excel parsing failed: ${error.message}`, {
+        fileName: excelFile.name,
+        fileSize: excelFile.size,
+        error: error.stack
+      });
+      
+      setDebugInfo({
+        fileName: excelFile.name,
+        fileSize: excelFile.size,
+        parseError: error.message,
+        timestamp: new Date().toISOString()
+      });
+      
+      progressManager.complete(false);
     } finally {
       setIsProcessing(false);
     }
@@ -297,64 +421,153 @@ const WIPImport = ({ onImport, onCancel }) => {
   const parseGoogleSheets = async () => {
     if (!sheetsUrl) return;
     
+    // Initialize progress for Google Sheets
+    progressManager.reset();
+    const stages = [
+      { name: currentLanguage === 'np' ? 'URL प्रक्रिया' : 'URL Processing', weight: 1, steps: 1 },
+      { name: currentLanguage === 'np' ? 'डेटा डाउनलोड' : 'Data Download', weight: 2, steps: 1 },
+      { name: currentLanguage === 'np' ? 'CSV पार्सिङ' : 'CSV Parsing', weight: 2, steps: 1 },
+      { name: currentLanguage === 'np' ? 'डेटा रूपान्तरण' : 'Data Conversion', weight: 1, steps: 1 }
+    ];
+    
+    progressManager.initializeStages(stages);
+    setShowProgress(true);
     setIsProcessing(true);
+
+    // Set source data for debugging
+    setSourceData({
+      type: 'Google Sheets',
+      url: sheetsUrl,
+      timestamp: new Date().toISOString()
+    });
+    
     try {
-      // Extract Google Sheets CSV URL
-      const csvUrl = convertToCSVUrl(sheetsUrl);
-      
-      // Fetch data from Google Sheets
-      const response = await fetch(csvUrl, {
-        mode: 'cors',
-        headers: {
-          'Accept': 'text/csv'
-        }
+      // Stage 1: Process URL
+      const csvUrl = await progressManager.executeStage(0, async (updateProgress, log) => {
+        log('Processing Google Sheets URL');
+        updateProgress(50, 'Converting URL to CSV format...');
+        
+        const csvUrl = convertToCSVUrl(sheetsUrl);
+        
+        updateProgress(100, 'URL processed successfully');
+        log(`CSV URL: ${csvUrl}`);
+        return csvUrl;
       });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch data: ${response.status}`);
-      }
-      
-      const csvText = await response.text();
-      const csvData = csvText.split('\n').map(line => 
-        line.split(',').map(cell => cell.replace(/^"|"$/g, '').trim())
-      ).filter(row => row.some(cell => cell.length > 0));
-      
-      // Parse using advanced parser
-      const advancedParser = new AdvancedWIPParser();
-      const parsedResult = await advancedParser.parseWIPData(csvData);
-      
-      // Validate
-      const validation = parsedResult.validation;
-      
-      if (validation.errors.length > 0) {
-        throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
-      }
-      
-      // Convert to manual data format with enhanced metadata
-      const convertedData = {
-        lotNumber: parsedResult.metadata.lotNumber || parsedResult.metadata.lot || 'AUTO-' + Date.now().toString().slice(-6),
-        articles: parsedResult.metadata.articles || (parsedResult.metadata.article ? [parsedResult.metadata.article] : ['AUTO']),
-        fabricType: parsedResult.metadata.fabric || 'Cotton',
-        fabricWeight: parsedResult.metadata.weight || '180 GSM',
-        colors: parsedResult.colors.map(color => ({
-          name: color.name,
-          layers: color.layers || Math.ceil(color.total / 25),
-          pieces: color.pieces,
-          piecesPerLayer: color.piecesPerLayer || Math.round(color.total / (color.layers || 1))
-        })),
-        consumptionRate: parsedResult.metadata.consumption || 0.25,
-        buyer: parsedResult.metadata.buyer || 'Google Sheets Import',
-        orderNumber: parsedResult.metadata.order || 'GS-' + Date.now().toString().slice(-6),
-        style: parsedResult.metadata.style || parsedResult.metadata.article || 'Imported Style',
-        cuttingDate: parsedResult.metadata.cuttingDate || new Date().toISOString().split('T')[0]
-      };
-      
-      setManualData(convertedData);
-      setImportMethod('manual');
+
+      // Stage 2: Download data
+      const csvData = await progressManager.executeStage(1, async (updateProgress, log) => {
+        log('Starting data download from Google Sheets');
+        updateProgress(30, 'Fetching data...');
+        
+        const response = await fetch(csvUrl, {
+          mode: 'cors',
+          headers: {
+            'Accept': 'text/csv'
+          }
+        });
+        
+        updateProgress(60, 'Processing response...');
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
+        }
+        
+        const csvText = await response.text();
+        
+        updateProgress(90, 'Converting to structured data...');
+        
+        const csvData = csvText.split('\n').map(line => 
+          line.split(',').map(cell => cell.replace(/^"|"$/g, '').trim())
+        ).filter(row => row.some(cell => cell.length > 0));
+        
+        updateProgress(100, `Downloaded ${csvData.length} rows`);
+        log(`Successfully downloaded ${csvData.length} rows of data`);
+        return csvData;
+      });
+
+      // Stage 3: Parse CSV data
+      const parsedResult = await progressManager.executeStage(2, async (updateProgress, log) => {
+        log('Starting advanced WIP parsing');
+        updateProgress(25, 'Initializing parser...');
+        
+        const advancedParser = new AdvancedWIPParser();
+        
+        updateProgress(50, 'Analyzing data structure...');
+        
+        const parsedResult = await advancedParser.parseWIPData(csvData);
+        
+        updateProgress(75, 'Validating parsed data...');
+        
+        const validation = parsedResult.validation;
+        
+        // Add warnings to progress manager
+        if (validation.warnings.length > 0) {
+          validation.warnings.forEach(warning => {
+            progressManager.addWarning(warning);
+          });
+        }
+
+        // Add errors to progress manager
+        if (validation.errors.length > 0) {
+          validation.errors.forEach(error => {
+            progressManager.addError(error);
+          });
+          throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+        }
+
+        updateProgress(100, 'Parsing completed successfully');
+        log(`Found ${parsedResult.colors.length} colors, ${parsedResult.colors.reduce((sum, c) => sum + c.total, 0)} total pieces`);
+        
+        return parsedResult;
+      });
+
+      // Stage 4: Convert to manual data format
+      await progressManager.executeStage(3, async (updateProgress, log) => {
+        log('Converting to manual data format');
+        updateProgress(50, 'Structuring data...');
+        
+        const convertedData = {
+          lotNumber: parsedResult.metadata.lotNumber || parsedResult.metadata.lot || 'GS-' + Date.now().toString().slice(-6),
+          articles: parsedResult.metadata.articles || (parsedResult.metadata.article ? [parsedResult.metadata.article] : ['AUTO']),
+          fabricType: parsedResult.metadata.fabric || 'Cotton',
+          fabricWeight: parsedResult.metadata.weight || '180 GSM',
+          colors: parsedResult.colors.map(color => ({
+            name: color.name,
+            layers: color.layers || Math.ceil(color.total / 25),
+            pieces: color.pieces,
+            piecesPerLayer: color.piecesPerLayer || Math.round(color.total / (color.layers || 1))
+          })),
+          consumptionRate: parsedResult.metadata.consumption || 0.25,
+          buyer: parsedResult.metadata.buyer || 'Google Sheets Import',
+          orderNumber: parsedResult.metadata.order || 'GS-' + Date.now().toString().slice(-6),
+          style: parsedResult.metadata.style || parsedResult.metadata.article || 'Imported Style',
+          cuttingDate: parsedResult.metadata.cuttingDate || new Date().toISOString().split('T')[0]
+        };
+        
+        updateProgress(80, 'Setting up data...');
+        
+        setManualData(convertedData);
+        setImportMethod('manual');
+        
+        updateProgress(100, 'Data ready for review');
+        log('Successfully converted Google Sheets data');
+      });
+
+      progressManager.complete(true);
       
     } catch (error) {
-      console.error('Error parsing Google Sheets:', error);
-      alert(`${currentLanguage === 'np' ? 'Google Sheets पार्स गर्नमा त्रुटि' : 'Error parsing Google Sheets'}: ${error.message}`);
+      progressManager.addError(`Google Sheets parsing failed: ${error.message}`, {
+        url: sheetsUrl,
+        error: error.stack
+      });
+      
+      setDebugInfo({
+        sheetsUrl: sheetsUrl,
+        parseError: error.message,
+        timestamp: new Date().toISOString()
+      });
+      
+      progressManager.complete(false);
     } finally {
       setIsProcessing(false);
     }
@@ -436,65 +649,172 @@ const WIPImport = ({ onImport, onCancel }) => {
     return bundles;
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!processTemplate) {
-      alert('प्रक्रिया टेम्प्लेट छान्नुहोस्');
+      alert(currentLanguage === 'np' ? 'प्रक्रिया टेम्प्लेट छान्नुहोस्' : 'Please select a process template');
       return;
     }
 
+    // Initialize progress for WIP import
+    progressManager.reset();
+    const stages = [
+      { name: currentLanguage === 'np' ? 'डेटा तयारी' : 'Data Preparation', weight: 1, steps: 1 },
+      { name: currentLanguage === 'np' ? 'बन्डल सिर्जना' : 'Bundle Generation', weight: 3, steps: 1 },
+      { name: currentLanguage === 'np' ? 'वर्कफ्लो निर्माण' : 'Workflow Creation', weight: 2, steps: 1 },
+      { name: currentLanguage === 'np' ? 'अन्तिमीकरण' : 'Finalization', weight: 1, steps: 1 }
+    ];
+    
+    progressManager.initializeStages(stages);
+    setShowProgress(true);
+    setIsProcessing(true);
+
+    // Set source data for final debugging
+    setSourceData({
+      type: 'Manual WIP Import',
+      lotNumber: manualData.lotNumber,
+      totalColors: manualData.colors.length,
+      totalPieces: manualData.colors.reduce((total, color) => 
+        total + Object.values(color.pieces).reduce((sum, p) => sum + p, 0), 0
+      ),
+      processTemplate: processTemplate
+    });
+
     try {
-      // Use layer-based bundle generator for proper bundle creation
-      const bundleGenerator = new LayerBasedBundleGenerator();
-      
-      // Prepare WIP data in the correct format for the generator
-      const wipDataForGenerator = {
-        lotNumber: manualData.lotNumber,
-        articles: manualData.articles,
-        colors: manualData.colors.map(color => ({
-          name: color.name,
-          layers: color.layers || Math.ceil(Object.values(color.pieces).reduce((sum, p) => sum + p, 0) / 25),
-          pieces: color.pieces,
-          total: Object.values(color.pieces).reduce((sum, p) => sum + p, 0)
-        })),
-        cuttingDate: manualData.cuttingDate,
-        cutter: 'Manual Import'
-      };
+      // Stage 1: Data preparation
+      const wipDataForGenerator = await progressManager.executeStage(0, async (updateProgress, log) => {
+        log('Preparing WIP data for bundle generation');
+        updateProgress(25, 'Validating input data...');
+        
+        if (!manualData.lotNumber) {
+          throw new Error('Lot number is required');
+        }
+        
+        if (manualData.colors.length === 0) {
+          throw new Error('At least one color is required');
+        }
 
-      // Determine garment type from process template
-      let garmentType = 'tshirt'; // default
-      if (processTemplate.includes('polo')) {
-        garmentType = 'polo';
-      }
+        updateProgress(50, 'Formatting data structure...');
+        
+        const wipDataForGenerator = {
+          lotNumber: manualData.lotNumber,
+          articles: manualData.articles,
+          colors: manualData.colors.map(color => ({
+            name: color.name,
+            layers: color.layers || Math.ceil(Object.values(color.pieces).reduce((sum, p) => sum + p, 0) / 25),
+            pieces: color.pieces,
+            total: Object.values(color.pieces).reduce((sum, p) => sum + p, 0)
+          })),
+          cuttingDate: manualData.cuttingDate,
+          cutter: 'Manual Import'
+        };
 
-      // Generate bundles using the layer-based approach
-      const bundleResult = bundleGenerator.generateLayerBasedBundles(wipDataForGenerator, {
-        garmentType: garmentType,
-        maxBundleSize: 30,
-        minBundleSize: 15,
-        bundleNamingFormat: '{lot}-{article}-{color}-{size}-{sequence}'
+        updateProgress(100, 'Data preparation completed');
+        log(`Prepared data for ${wipDataForGenerator.colors.length} colors`);
+        return wipDataForGenerator;
       });
 
-      const wipData = {
-        lotNumber: manualData.lotNumber,
-        articles: manualData.articles,
-        fabricType: manualData.fabricType,
-        fabricWeight: manualData.fabricWeight,
-        colors: manualData.colors,
-        consumptionRate: manualData.consumptionRate,
-        processTemplate: processTemplate,
-        bundles: bundleResult.bundles,
-        workflowBundles: bundleGenerator.createProductionWorkflow(bundleResult.bundles),
-        bundleSummary: bundleResult.summary,
-        bundleMetadata: bundleResult.metadata,
-        createdAt: new Date().toISOString(),
-        totalPieces: bundleResult.summary.totalGarments,
-        bundleGenerationMethod: 'layer_based'
-      };
+      // Stage 2: Bundle generation
+      const bundleResult = await progressManager.executeStage(1, async (updateProgress, log) => {
+        log('Starting bundle generation');
+        updateProgress(20, 'Initializing bundle generator...');
+        
+        const bundleGenerator = new LayerBasedBundleGenerator();
+        
+        updateProgress(40, 'Determining garment type...');
+        
+        // Determine garment type from process template
+        let garmentType = 'tshirt'; // default
+        if (processTemplate.includes('polo')) {
+          garmentType = 'polo';
+        }
+        
+        log(`Garment type identified: ${garmentType}`);
+        updateProgress(60, 'Generating layer-based bundles...');
 
-      onImport(wipData);
+        const bundleResult = bundleGenerator.generateLayerBasedBundles(wipDataForGenerator, {
+          garmentType: garmentType,
+          maxBundleSize: 30,
+          minBundleSize: 15,
+          bundleNamingFormat: '{lot}-{article}-{color}-{size}-{sequence}'
+        });
+
+        updateProgress(100, `Generated ${bundleResult.bundles.length} bundles`);
+        log(`Successfully generated ${bundleResult.bundles.length} bundles for ${bundleResult.summary.totalGarments} garments`);
+        
+        return bundleResult;
+      });
+
+      // Stage 3: Workflow creation
+      const workflowBundles = await progressManager.executeStage(2, async (updateProgress, log) => {
+        log('Creating production workflow');
+        updateProgress(30, 'Mapping process template to bundles...');
+        
+        const bundleGenerator = new LayerBasedBundleGenerator();
+        
+        updateProgress(70, 'Building workflow structure...');
+        
+        const workflowBundles = bundleGenerator.createProductionWorkflow(bundleResult.bundles);
+        
+        updateProgress(100, 'Workflow creation completed');
+        log(`Created workflow with ${Object.keys(workflowBundles).length} process stages`);
+        
+        return workflowBundles;
+      });
+
+      // Stage 4: Finalization
+      await progressManager.executeStage(3, async (updateProgress, log) => {
+        log('Finalizing WIP import');
+        updateProgress(30, 'Assembling final data structure...');
+        
+        const wipData = {
+          lotNumber: manualData.lotNumber,
+          articles: manualData.articles,
+          fabricType: manualData.fabricType,
+          fabricWeight: manualData.fabricWeight,
+          colors: manualData.colors,
+          consumptionRate: manualData.consumptionRate,
+          processTemplate: processTemplate,
+          bundles: bundleResult.bundles,
+          workflowBundles: workflowBundles,
+          bundleSummary: bundleResult.summary,
+          bundleMetadata: bundleResult.metadata,
+          createdAt: new Date().toISOString(),
+          totalPieces: bundleResult.summary.totalGarments,
+          bundleGenerationMethod: 'layer_based'
+        };
+
+        updateProgress(70, 'Validating final data...');
+        
+        if (!wipData.bundles || wipData.bundles.length === 0) {
+          throw new Error('No bundles were generated');
+        }
+
+        updateProgress(100, 'WIP import ready');
+        log(`WIP import completed successfully with ${wipData.totalPieces} total pieces`);
+        
+        // Call the onImport callback
+        onImport(wipData);
+      });
+
+      progressManager.complete(true);
+      
     } catch (error) {
-      console.error('Bundle generation failed:', error);
-      alert('बन्डल सिर्जना असफल भयो: ' + error.message);
+      progressManager.addError(`WIP import failed: ${error.message}`, {
+        lotNumber: manualData.lotNumber,
+        processTemplate: processTemplate,
+        error: error.stack
+      });
+      
+      setDebugInfo({
+        lotNumber: manualData.lotNumber,
+        processTemplate: processTemplate,
+        importError: error.message,
+        timestamp: new Date().toISOString()
+      });
+      
+      progressManager.complete(false);
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -716,12 +1036,24 @@ const WIPImport = ({ onImport, onCancel }) => {
                 {currentLanguage === 'np' ? 'Google Sheets वा म्यानुअल एन्ट्री' : 'Google Sheets or Manual Entry'}
               </p>
             </div>
-            <button
-              onClick={() => setCurrentView('template-manager')}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-            >
-              {currentLanguage === 'np' ? 'टेम्प्लेट प्रबन्धक' : 'Template Manager'}
-            </button>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentView('template-manager')}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              >
+                {currentLanguage === 'np' ? 'टेम्प्लेट प्रबन्धक' : 'Template Manager'}
+              </button>
+              
+              {process.env.NODE_ENV === 'development' && (
+                <button
+                  onClick={() => setShowErrorConsole(true)}
+                  className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+                  title={currentLanguage === 'np' ? 'डिबग कन्सोल' : 'Debug Console'}
+                >
+                  🐛
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Import Method Selection */}
@@ -1312,6 +1644,77 @@ const WIPImport = ({ onImport, onCancel }) => {
        </div>
      </div>
    </div>
+   
+   {/* Progress and Error Handling UI */}
+   <WIPUploadProgress
+     isVisible={showProgress}
+     onClose={() => setShowProgress(false)}
+     onRetry={() => {
+       setShowProgress(false);
+       setShowErrorConsole(false);
+       // Retry based on the current import method
+       if (importMethod === 'excel' && excelFile) {
+         parseExcelFile();
+       } else if (importMethod === 'sheets' && sheetsUrl) {
+         parseGoogleSheets();
+       } else if (importMethod === 'manual') {
+         handleSubmit();
+       }
+     }}
+     stages={progressState.stages}
+     errors={progressState.errors}
+     warnings={progressState.warnings}
+     logs={progressState.logs}
+     currentStage={progressState.currentStage}
+     progress={progressState.progress}
+     isComplete={progressState.isComplete}
+     totalSteps={progressState.totalSteps}
+     completedSteps={progressState.completedSteps}
+   />
+
+   <WIPErrorConsole
+     isVisible={showErrorConsole}
+     onClose={() => setShowErrorConsole(false)}
+     errors={progressState.errors}
+     warnings={progressState.warnings}
+     debugInfo={debugInfo}
+     sourceData={sourceData}
+     onRetry={() => {
+       setShowErrorConsole(false);
+       setShowProgress(false);
+       // Clear previous errors and retry
+       progressManager.reset();
+       if (importMethod === 'excel' && excelFile) {
+         parseExcelFile();
+       } else if (importMethod === 'sheets' && sheetsUrl) {
+         parseGoogleSheets();
+       } else if (importMethod === 'manual') {
+         handleSubmit();
+       }
+     }}
+     onIgnoreWarnings={() => {
+       // Clear warnings and proceed
+       progressManager.warnings = [];
+       setShowErrorConsole(false);
+       
+       if (progressState.errors.length === 0) {
+         // If only warnings, try to proceed
+         if (importMethod === 'manual') {
+           handleSubmit();
+         }
+       }
+     }}
+     onDownloadLogs={() => {
+       const logs = progressManager.exportLogs('json');
+       const blob = new Blob([logs], { type: 'application/json' });
+       const url = URL.createObjectURL(blob);
+       const a = document.createElement('a');
+       a.href = url;
+       a.download = `wip-import-logs-${new Date().toISOString().slice(0, 19)}.json`;
+       a.click();
+       URL.revokeObjectURL(url);
+     }}
+   />
    </div>
  );
 };
