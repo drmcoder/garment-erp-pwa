@@ -1,7 +1,7 @@
 # netlify.toml - Place this file in your root directory
 [build]
   publish = "build"
-  command = "npm ci && npm run build"
+  command = "npm ci && npm run build && echo 'Build completed successfully'"
 
 [build.environment]
   NODE_VERSION = "18"
