@@ -23,11 +23,14 @@ const BundleManager = ({ bundles, onWorkItemsCreated, onCancel }) => {
     try {
       const allWorkItems = [];
 
-      console.log('Processing bundles with template:', {
-        template: template,
-        bundleCount: bundles.length,
-        bundles: bundles
-      });
+      console.log('Processing bundles with template:');
+      console.log('- Template ID:', template.id);
+      console.log('- Template Name:', template.name);
+      console.log('- Template Type:', template.articleType);
+      console.log('- Template Articles:', template.articleNumbers);
+      console.log('- Template Operations:', template.operations.length);
+      console.log('- Bundle Count:', bundles.length);
+      console.log('- Bundle Articles:', bundles.map(b => b.articleNumber));
 
       bundles.forEach(bundle => {
         // Check if template is applicable to this bundle's article
@@ -38,11 +41,18 @@ const BundleManager = ({ bundles, onWorkItemsCreated, onCancel }) => {
                            template.id === 'universal-garment-template'; // Force universal template to work
 
         // Debug logging
-        console.log('Bundle compatibility check:', {
-          bundleArticle: bundle.articleNumber,
-          templateArticles: template.articleNumbers,
-          templateType: template.articleType,
-          isApplicable: isApplicable
+        console.log('Bundle compatibility check:');
+        console.log('- Bundle Article:', bundle.articleNumber);
+        console.log('- Template Articles:', template.articleNumbers);
+        console.log('- Template Type:', template.articleType);
+        console.log('- Template ID:', template.id);
+        console.log('- Is Applicable:', isApplicable);
+        console.log('- Bundle Details:', {
+          id: bundle.id,
+          bundleId: bundle.bundleId,
+          articleNumber: bundle.articleNumber,
+          color: bundle.color,
+          size: bundle.size
         });
 
         if (isApplicable) {
@@ -107,7 +117,13 @@ const BundleManager = ({ bundles, onWorkItemsCreated, onCancel }) => {
             templateType: template.articleType,
             templateArticles: template.articleNumbers,
             bundleArticles: bundles.map(b => b.articleNumber),
-            template: template
+            bundleDetails: bundles.map(b => ({ 
+              id: b.bundleId || b.id, 
+              article: b.articleNumber,
+              color: b.color,
+              size: b.size 
+            })),
+            templateOperations: template.operations?.length || 0
           }
         }, ERROR_TYPES.USER, ERROR_SEVERITY.MEDIUM);
       } else {

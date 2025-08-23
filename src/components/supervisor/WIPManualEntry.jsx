@@ -27,6 +27,7 @@ const WIPManualEntry = ({ onImport, onCancel }) => {
     fabricName: '',
     fabricWidth: '',
     fabricStore: '',
+    rollCount: 1, // Number of rolls to create
     
     // Articles and Styles
     parsedStyles: [
@@ -99,6 +100,36 @@ const WIPManualEntry = ({ onImport, onCancel }) => {
           ratios: ratios
         }
       }
+    }));
+  };
+
+  // Initialize rolls array when moving to step 3
+  const initializeRolls = () => {
+    if (wipData.rolls.length === 0) {
+      const initialRolls = Array.from({ length: wipData.rollCount }, (_, index) => ({
+        id: Date.now() + index,
+        rollNumber: index + 1,
+        colorName: '',
+        layerCount: 0,
+        markedWeight: 0,
+        actualWeight: 0,
+        pieces: 0
+      }));
+      
+      setWipData(prev => ({
+        ...prev,
+        rolls: initialRolls
+      }));
+    }
+  };
+
+  // Update roll data
+  const updateRoll = (rollIndex, field, value) => {
+    setWipData(prev => ({
+      ...prev,
+      rolls: prev.rolls.map((roll, index) => 
+        index === rollIndex ? { ...roll, [field]: value } : roll
+      )
     }));
   };
 
@@ -203,12 +234,13 @@ const WIPManualEntry = ({ onImport, onCancel }) => {
   const canProceedFromStep = (step) => {
     switch (step) {
       case 1:
-        return wipData.lotNumber && wipData.fabricName;
+        return wipData.lotNumber && wipData.fabricName && wipData.rollCount > 0;
       case 2:
         return wipData.parsedStyles.every(style => style.articleNumber && style.styleName) &&
                Object.keys(wipData.articleSizes).length > 0;
       case 3:
-        return wipData.rolls.length > 0;
+        return wipData.rolls.length > 0 && 
+               wipData.rolls.every(roll => roll.colorName && roll.layerCount > 0);
       default:
         return true;
     }
@@ -395,7 +427,32 @@ const WIPManualEntry = ({ onImport, onCancel }) => {
                   />
                 </div>
                 
-                <div className="md:col-span-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    {currentLanguage === 'np' ? 'रोलको संख्या' : 'Number of Rolls'} *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={wipData.rollCount}
+                    onChange={(e) => {
+                      const count = parseInt(e.target.value) || 1;
+                      setWipData(prev => ({ ...prev, rollCount: count }));
+                    }}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="4"
+                    required
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    {currentLanguage === 'np' 
+                      ? 'कति रोल कपडा काटिने (१-२०)'
+                      : 'How many rolls of fabric to cut (1-20)'
+                    }
+                  </p>
+                </div>
+                
+                <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     {currentLanguage === 'np' ? 'कपडा स्टोर' : 'Fabric Store'}
                   </label>
@@ -534,133 +591,140 @@ const WIPManualEntry = ({ onImport, onCancel }) => {
           {/* Step 3: Roll Data */}
           {currentStep === 3 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {currentLanguage === 'np' ? 'रोल डेटा' : 'Roll Data'}
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  {currentLanguage === 'np' ? 'रोल डेटा' : 'Roll Data'}
+                </h2>
+                <div className="text-sm text-gray-600">
+                  {currentLanguage === 'np' 
+                    ? `${wipData.rollCount} रोल भर्नुहोस्` 
+                    : `Fill details for ${wipData.rollCount} rolls`
+                  }
+                </div>
+              </div>
+
+              {/* Initialize rolls when entering step 3 */}
+              {wipData.rolls.length === 0 && initializeRolls()}
               
-              {/* Add Roll Form */}
-              <div className="border border-gray-200 rounded-lg p-6 bg-blue-50">
+              {/* Roll Forms */}
+              <div className="grid grid-cols-1 gap-6">
+                {wipData.rolls.map((roll, index) => (
+                  <div key={roll.id} className="border border-gray-200 rounded-lg p-6 bg-white">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-medium text-gray-800 flex items-center">
+                        <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                          {roll.rollNumber}
+                        </div>
+                        {currentLanguage === 'np' ? `रोल ${roll.rollNumber}` : `Roll ${roll.rollNumber}`}
+                      </h3>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {currentLanguage === 'np' ? 'रङको नाम' : 'Color Name'} *
+                        </label>
+                        <input
+                          type="text"
+                          value={roll.colorName}
+                          onChange={(e) => updateRoll(index, 'colorName', e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder={currentLanguage === 'np' ? 'नीलो-१' : 'Blue-1'}
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {currentLanguage === 'np' ? 'लेयर संख्या' : 'Layer Count'} *
+                        </label>
+                        <input
+                          type="number"
+                          min="1"
+                          value={roll.layerCount || ''}
+                          onChange={(e) => updateRoll(index, 'layerCount', parseInt(e.target.value) || 0)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="23"
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {currentLanguage === 'np' ? 'मार्क तौल (kg)' : 'Marked Weight (kg)'}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={roll.markedWeight || ''}
+                          onChange={(e) => updateRoll(index, 'markedWeight', parseFloat(e.target.value) || 0)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="8.5"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          {currentLanguage === 'np' ? 'वास्तविक तौल (kg)' : 'Actual Weight (kg)'}
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          value={roll.actualWeight || ''}
+                          onChange={(e) => updateRoll(index, 'actualWeight', parseFloat(e.target.value) || 0)}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="8.2"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Roll Summary */}
+                    {roll.layerCount > 0 && (
+                      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                        <div className="text-sm text-gray-600">
+                          {currentLanguage === 'np' ? 'कुल टुक्राहरू:' : 'Total pieces from this roll:'}
+                          <span className="font-bold text-gray-800 ml-2">
+                            {Object.values(wipData.articleSizes).reduce((total, config) => {
+                              const ratios = config.ratios.split(':').map(r => parseInt(r.trim()) || 0);
+                              return total + (ratios.reduce((sum, ratio) => sum + ratio, 0) * roll.layerCount);
+                            }, 0)}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Summary */}
+              <div className="bg-blue-50 rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-800 mb-4">
-                  {currentLanguage === 'np' ? 'नयाँ रोल थप्नुहोस्' : 'Add New Roll'}
+                  {currentLanguage === 'np' ? 'संक्षेप' : 'Summary'}
                 </h3>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {currentLanguage === 'np' ? 'रोल नम्बर' : 'Roll Number'}
-                    </label>
-                    <input
-                      type="number"
-                      value={currentRoll.rollNumber}
-                      onChange={(e) => setCurrentRoll(prev => ({ ...prev, rollNumber: parseInt(e.target.value) }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">{wipData.rolls.length}</div>
+                    <div className="text-sm text-gray-600">{currentLanguage === 'np' ? 'रोल' : 'Rolls'}</div>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {currentLanguage === 'np' ? 'रङको नाम' : 'Color Name'} *
-                    </label>
-                    <input
-                      type="text"
-                      value={currentRoll.colorName}
-                      onChange={(e) => setCurrentRoll(prev => ({ ...prev, colorName: e.target.value }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="नीलो-1"
-                    />
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {wipData.rolls.reduce((sum, roll) => sum + (roll.layerCount || 0), 0)}
+                    </div>
+                    <div className="text-sm text-gray-600">{currentLanguage === 'np' ? 'कुल लेयर' : 'Total Layers'}</div>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {currentLanguage === 'np' ? 'लेयर संख्या' : 'Layer Count'} *
-                    </label>
-                    <input
-                      type="number"
-                      value={currentRoll.layerCount}
-                      onChange={(e) => setCurrentRoll(prev => ({ ...prev, layerCount: parseInt(e.target.value) }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="35"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {currentLanguage === 'np' ? 'मार्क तौल (kg)' : 'Marked Weight (kg)'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={currentRoll.markedWeight}
-                      onChange={(e) => setCurrentRoll(prev => ({ ...prev, markedWeight: parseFloat(e.target.value) }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="8.5"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {currentLanguage === 'np' ? 'वास्तविक तौल (kg)' : 'Actual Weight (kg)'}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      value={currentRoll.actualWeight}
-                      onChange={(e) => setCurrentRoll(prev => ({ ...prev, actualWeight: parseFloat(e.target.value) }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      placeholder="8.2"
-                    />
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {wipData.rolls.reduce((sum, roll) => sum + (roll.actualWeight || 0), 0).toFixed(1)}kg
+                    </div>
+                    <div className="text-sm text-gray-600">{currentLanguage === 'np' ? 'कुल तौल' : 'Total Weight'}</div>
                   </div>
                 </div>
-                
-                <button
-                  onClick={addRoll}
-                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
-                >
-                  {currentLanguage === 'np' ? 'रोल थप्नुहोस्' : 'Add Roll'}
-                </button>
               </div>
-              
-              {/* Rolls List */}
-              {wipData.rolls.length > 0 && (
-                <div>
-                  <h3 className="text-lg font-medium text-gray-800 mb-4">
-                    {currentLanguage === 'np' ? 'थपिएका रोलहरू' : 'Added Rolls'} ({wipData.rolls.length})
-                  </h3>
-                  
-                  <div className="space-y-3">
-                    {wipData.rolls.map((roll) => (
-                      <div key={roll.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg bg-white">
-                        <div className="flex items-center space-x-6">
-                          <div className="w-12 h-12 bg-blue-500 text-white rounded-full flex items-center justify-center font-bold">
-                            {roll.rollNumber}
-                          </div>
-                          
-                          <div>
-                            <div className="font-medium text-gray-900">{roll.colorName}</div>
-                            <div className="text-sm text-gray-600">
-                              {roll.layerCount} {currentLanguage === 'np' ? 'लेयर' : 'layers'} • {roll.pieces} {currentLanguage === 'np' ? 'टुक्रा' : 'pieces'}
-                            </div>
-                          </div>
-                          
-                          <div className="text-sm text-gray-600">
-                            <div>{currentLanguage === 'np' ? 'मार्क:' : 'Marked:'} {roll.markedWeight}kg</div>
-                            <div>{currentLanguage === 'np' ? 'वास्तविक:' : 'Actual:'} {roll.actualWeight}kg</div>
-                          </div>
-                        </div>
-                        
-                        <button
-                          onClick={() => removeRoll(roll.id)}
-                          className="text-red-600 hover:text-red-800 p-2"
-                        >
-                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 

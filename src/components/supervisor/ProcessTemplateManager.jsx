@@ -21,7 +21,7 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
       id: 'polo-tshirt-template',
       name: currentLanguage === 'np' ? 'पोलो टी-शर्ट प्रसंस्करण' : 'Polo T-Shirt Process',
       articleType: 'polo-tshirt',
-      articleNumbers: ['8082', '8085', '8086'],
+      articleNumbers: ['77', '8082', '8085', '8086'],
       operations: [
         {
           id: 1,
