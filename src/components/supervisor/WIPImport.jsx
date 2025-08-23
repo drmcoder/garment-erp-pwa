@@ -904,6 +904,7 @@ const WIPImport = ({ onImport, onCancel }) => {
        </div>
      </div>
    </div>
+   </div>
  );
 };
 

@@ -515,7 +515,14 @@ const AppContent = () => {
         case "work-assignment":
           return <WorkAssignment />;
         case "wip-import":
-          return <WIPImport />;
+          return <WIPImport 
+            onImport={(wipData) => {
+              console.log('WIP Import completed:', wipData);
+              // Handle the imported WIP data here
+              setCurrentView('dashboard');
+            }}
+            onCancel={() => setCurrentView('dashboard')}
+          />;
         case "dashboard":
         default:
           return <SupervisorDashboard />;
