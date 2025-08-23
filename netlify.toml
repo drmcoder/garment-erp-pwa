@@ -6,6 +6,7 @@
 [build.environment]
   NODE_VERSION = "18"
   REACT_APP_ENVIRONMENT = "production"
+  CI = "false"
 
 # Headers for PWA support
 [[headers]]
