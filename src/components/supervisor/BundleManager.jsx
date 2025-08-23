@@ -3,7 +3,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 import ProcessTemplateManager from './ProcessTemplateManager';
 
-const BundleManager = ({ bundles, onWorkItemsCreated, onCancel }) => {
+const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
   const { currentLanguage } = useLanguage();
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   
@@ -33,8 +33,8 @@ const BundleManager = ({ bundles, onWorkItemsCreated, onCancel }) => {
       console.log('- Bundle Articles:', bundles.map(b => b.articleNumber));
 
       bundles.forEach(bundle => {
-        // Check if template is applicable to this bundle's article
-        const isApplicable = template.articleNumbers?.includes(bundle.articleNumber) || 
+        // Check if template is applicable based on garment category or universal templates
+        const isApplicable = template.articleType === wipData?.garmentCategory || 
                            template.articleType === 'universal' ||
                            template.articleNumbers === null ||
                            !template.articleNumbers ||
@@ -43,9 +43,11 @@ const BundleManager = ({ bundles, onWorkItemsCreated, onCancel }) => {
         // Debug logging
         console.log('Bundle compatibility check:');
         console.log('- Bundle Article:', bundle.articleNumber);
-        console.log('- Template Articles:', template.articleNumbers);
+        console.log('- WIP Garment Category:', wipData?.garmentCategory);
         console.log('- Template Type:', template.articleType);
         console.log('- Template ID:', template.id);
+        console.log('- Category Match:', template.articleType === wipData?.garmentCategory);
+        console.log('- Is Universal:', template.articleType === 'universal');
         console.log('- Is Applicable:', isApplicable);
         console.log('- Bundle Details:', {
           id: bundle.id,

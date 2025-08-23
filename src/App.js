@@ -16,6 +16,7 @@ import WorkAssignment from "./components/supervisor/WorkAssignment";
 import WIPImportSimplified from "./components/supervisor/WIPImportSimplified";
 import SystemSettings from "./components/admin/SystemSettings";
 import UserManagement from "./components/admin/UserManagement";
+import TemplateBuilder from "./components/supervisor/TemplateBuilder";
 
 // Login Component
 const LoginScreen = () => {
@@ -674,6 +675,18 @@ const AppContent = () => {
           return <WorkAssignment />;
         case "user-management":
           return <UserManagement />;
+        case "template-builder":
+          return <TemplateBuilder 
+            onTemplateCreated={(template) => {
+              console.log('Template created:', template);
+              // Save to localStorage or database
+              const savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+              savedTemplates.push(template);
+              localStorage.setItem('customTemplates', JSON.stringify(savedTemplates));
+              setCurrentView('dashboard');
+            }}
+            onCancel={() => setCurrentView('dashboard')}
+          />;
         case "dashboard":
         default:
           return <SupervisorDashboard />;
@@ -807,6 +820,16 @@ const AppContent = () => {
                 }`}
               >
                 👥 Users
+              </button>
+              <button
+                onClick={() => setCurrentView("template-builder")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  currentView === "template-builder"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                🛠️ Templates
               </button>
             </nav>
           </div>

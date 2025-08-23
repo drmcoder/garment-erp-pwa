@@ -21,7 +21,7 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
       id: 'polo-tshirt-template',
       name: currentLanguage === 'np' ? 'पोलो टी-शर्ट प्रसंस्करण' : 'Polo T-Shirt Process',
       articleType: 'polo-tshirt',
-      articleNumbers: ['77', '8082', '8085', '8086'],
+      articleNumbers: null, // Universal for all polo/t-shirt style garments
       operations: [
         {
           id: 1,
@@ -162,7 +162,7 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
       id: 'cargo-pants-template',
       name: currentLanguage === 'np' ? 'कार्गो प्यान्ट प्रसंस्करण' : 'Cargo Pants Process',
       articleType: 'cargo-pants',
-      articleNumbers: ['8087', '8088'],
+      articleNumbers: null, // Universal for all trouser/bottom garments
       operations: [
         {
           id: 1,
@@ -322,11 +322,142 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
       totalOperations: 4,
       estimatedTotalTime: 9.0,
       createdAt: new Date()
+    },
+    {
+      id: 'plazo-template',
+      name: currentLanguage === 'np' ? 'प्लाजो प्रसंस्करण' : 'Plazo Process',
+      articleType: 'plazo',
+      articleNumbers: null, // Universal for all plazo garments
+      operations: [
+        {
+          id: 1,
+          name: currentLanguage === 'np' ? 'काटना' : 'Cutting',
+          nameEn: 'Cutting',
+          nameNp: 'काटना',
+          machineType: 'cutting',
+          estimatedTimePerPiece: 0.8,
+          rate: 1.2,
+          skillLevel: 'medium',
+          sequence: 1,
+          dependencies: [],
+          icon: '✂️'
+        },
+        {
+          id: 2,
+          name: currentLanguage === 'np' ? 'कम्मर बन्ड तयारी' : 'Waistband Preparation',
+          nameEn: 'Waistband Preparation',
+          nameNp: 'कम्मर बन्ड तयारी',
+          machineType: 'singleNeedle',
+          estimatedTimePerPiece: 2.0,
+          rate: 3.0,
+          skillLevel: 'high',
+          sequence: 2,
+          dependencies: [1],
+          icon: '📏'
+        },
+        {
+          id: 3,
+          name: currentLanguage === 'np' ? 'छेउ सिलाई' : 'Side Seam',
+          nameEn: 'Side Seam',
+          nameNp: 'छेउ सिलाई',
+          machineType: 'overlock',
+          estimatedTimePerPiece: 3.5,
+          rate: 4.0,
+          skillLevel: 'medium',
+          sequence: 3,
+          dependencies: [2],
+          icon: '🧵'
+        },
+        {
+          id: 4,
+          name: currentLanguage === 'np' ? 'क्रच सिलाई' : 'Crotch Seam',
+          nameEn: 'Crotch Seam',
+          nameNp: 'क्रच सिलाई',
+          machineType: 'overlock',
+          estimatedTimePerPiece: 4.0,
+          rate: 5.0,
+          skillLevel: 'high',
+          sequence: 4,
+          dependencies: [3],
+          icon: '✂️'
+        },
+        {
+          id: 5,
+          name: currentLanguage === 'np' ? 'हेमिंग/किनारा' : 'Hemming',
+          nameEn: 'Hemming',
+          nameNp: 'हेमिंग/किनारा',
+          machineType: 'singleNeedle',
+          estimatedTimePerPiece: 2.5,
+          rate: 3.5,
+          skillLevel: 'medium',
+          sequence: 5,
+          dependencies: [4],
+          icon: '📐'
+        },
+        {
+          id: 6,
+          name: currentLanguage === 'np' ? 'नाडा/ड्रस्ट्रिङ' : 'Drawstring',
+          nameEn: 'Drawstring',
+          nameNp: 'नाडा/ड्रस्ट्रिङ',
+          machineType: 'manual',
+          estimatedTimePerPiece: 1.5,
+          rate: 2.0,
+          skillLevel: 'easy',
+          sequence: 6,
+          dependencies: [5],
+          icon: '🪢'
+        },
+        {
+          id: 7,
+          name: currentLanguage === 'np' ? 'गुणस्तर जाँच' : 'Quality Check',
+          nameEn: 'Quality Check',
+          nameNp: 'गुणस्तर जाँच',
+          machineType: 'manual',
+          estimatedTimePerPiece: 1.0,
+          rate: 1.5,
+          skillLevel: 'high',
+          sequence: 7,
+          dependencies: [6],
+          icon: '✅'
+        }
+      ],
+      totalOperations: 7,
+      estimatedTotalTime: 15.3,
+      createdAt: new Date()
     }
   ];
 
   useEffect(() => {
-    setTemplates(defaultTemplates);
+    // Load custom templates from localStorage and combine with defaults
+    const loadTemplates = () => {
+      try {
+        const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+        console.log('Loading custom templates:', customTemplates);
+        
+        // Combine default templates with custom templates
+        const combinedTemplates = [...defaultTemplates, ...customTemplates];
+        setTemplates(combinedTemplates);
+        
+        addError({
+          message: `Loaded ${customTemplates.length} custom templates`,
+          component: 'ProcessTemplateManager',
+          action: 'Load Templates'
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+        
+      } catch (error) {
+        console.error('Error loading custom templates:', error);
+        setTemplates(defaultTemplates);
+        
+        addError({
+          message: 'Failed to load custom templates, using defaults only',
+          component: 'ProcessTemplateManager',
+          action: 'Load Templates',
+          data: { error: error.message }
+        }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.MEDIUM);
+      }
+    };
+
+    loadTemplates();
   }, [currentLanguage]);
 
   const getMachineTypeColor = (machineType) => {

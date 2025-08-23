@@ -68,6 +68,7 @@ const WIPImportSimplified = ({ onImport, onCancel }) => {
       {currentView === 'bundle' && bundles.length > 0 && (
         <BundleManager
           bundles={bundles}
+          wipData={wipData}
           onWorkItemsCreated={handleWorkItemsCreated}
           onCancel={() => setCurrentView('process')}
         />
