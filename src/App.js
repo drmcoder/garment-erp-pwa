@@ -9,7 +9,6 @@ import {
   useNotifications,
 } from "./context/NotificationContext";
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
-import DatePickerDemo from "./components/common/DatePickerDemo";
 import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
 
 // Login Component
@@ -493,8 +492,6 @@ const AppContent = () => {
       switch (currentView) {
         case "self-assignment":
           return <SelfAssignmentSystem />;
-        case "date-picker":
-          return <DatePickerDemo />;
         case "dashboard":
         default:
           return <OperatorDashboard onNavigate={setCurrentView} />;
@@ -540,16 +537,6 @@ const AppContent = () => {
                 }`}
               >
                 🎯 Choose Work
-              </button>
-              <button
-                onClick={() => setCurrentView("date-picker")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  currentView === "date-picker"
-                    ? "border-indigo-500 text-indigo-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                📅 Nepali Dates
               </button>
             </nav>
           </div>

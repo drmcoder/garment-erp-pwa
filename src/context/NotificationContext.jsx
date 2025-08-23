@@ -107,6 +107,44 @@ export const NotificationProvider = ({ children }) => {
     setUnreadCount(0);
   };
 
+  const getUnreadCount = () => {
+    return unreadCount;
+  };
+
+  const showNotification = (message, type = 'info') => {
+    addNotification({
+      title: type === 'error' ? (currentLanguage === 'np' ? 'त्रुटि' : 'Error') :
+             type === 'success' ? (currentLanguage === 'np' ? 'सफल' : 'Success') :
+             type === 'warning' ? (currentLanguage === 'np' ? 'चेतावनी' : 'Warning') :
+             (currentLanguage === 'np' ? 'जानकारी' : 'Information'),
+      message: message,
+      type: type,
+      priority: type === 'error' ? 'high' : type === 'warning' ? 'medium' : 'low'
+    });
+  };
+
+  const sendWorkAssigned = (articleNumber, operation) => {
+    addNotification({
+      title: currentLanguage === 'np' ? 'नयाँ काम असाइन भयो' : 'New Work Assigned',
+      message: currentLanguage === 'np' 
+        ? `आर्टिकल ${articleNumber} - ${operation} तपाईंलाई असाइन गरियो`
+        : `Article ${articleNumber} - ${operation} has been assigned to you`,
+      type: 'work',
+      priority: 'high'
+    });
+  };
+
+  const sendWorkCompleted = (articleNumber, operation, pieces, earnings) => {
+    addNotification({
+      title: currentLanguage === 'np' ? 'काम सम्पन्न भयो' : 'Work Completed',
+      message: currentLanguage === 'np' 
+        ? `आर्टिकल ${articleNumber} - ${operation} सम्पन्न। ${pieces} टुक्रा, ${earnings} कमाई`
+        : `Article ${articleNumber} - ${operation} completed. ${pieces} pieces, ${earnings} earnings`,
+      type: 'completion',
+      priority: 'medium'
+    });
+  };
+
   // Request notification permission on mount
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -118,10 +156,14 @@ export const NotificationProvider = ({ children }) => {
     notifications,
     unreadCount,
     addNotification,
+    showNotification,
+    sendWorkAssigned,
+    sendWorkCompleted,
     markAsRead,
     markAllAsRead,
     removeNotification,
-    clearAllNotifications
+    clearAllNotifications,
+    getUnreadCount
   };
 
   return (

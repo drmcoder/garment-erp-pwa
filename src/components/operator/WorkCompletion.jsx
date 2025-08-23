@@ -1,25 +1,27 @@
 // src/components/operator/WorkCompletion.jsx
 // Complete work completion flow with piece counting and handoffs
 
-import React, { useState, useContext, useEffect } from 'react';
-import { AuthContext } from '../../contexts/AuthContext';
-import { LanguageContext } from '../../contexts/LanguageContext';
-import { NotificationContext } from '../../contexts/NotificationContext';
+import React, { useState, useContext, useEffect } from "react";
+import { AuthContext } from "../../contexts/AuthContext";
+import { LanguageContext } from "../../contexts/LanguageContext";
+import { NotificationContext } from "../../contexts/NotificationContext";
 
 const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
   const { user } = useContext(AuthContext);
-  const { t, isNepali, formatNumber, formatCurrency } = useContext(LanguageContext);
-  const { showNotification, sendWorkCompleted } = useContext(NotificationContext);
-  
+  const { t, isNepali, formatNumber, formatCurrency } =
+    useContext(LanguageContext);
+  const { showNotification, sendWorkCompleted } =
+    useContext(NotificationContext);
+
   const [bundleData, setBundleData] = useState(null);
   const [completionData, setCompletionData] = useState({
     piecesCompleted: 0,
     defectivePieces: 0,
     qualityScore: 100,
     timeSpent: 0,
-    startTime: '',
-    endTime: '',
-    notes: ''
+    startTime: "",
+    endTime: "",
+    notes: "",
   });
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(1); // 1: Input, 2: Review, 3: Handoff
@@ -34,39 +36,40 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
     setLoading(true);
     try {
       // Simulate API call to get bundle data
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
       // Mock bundle data - in real app, fetch from API
       const mockBundle = {
         id: bundleId,
-        articleNumber: '8085',
-        articleName: isNepali ? 'नीलो टी-शर्ट' : 'Blue T-Shirt',
-        color: 'नीलो-१',
-        size: 'XL',
+        articleNumber: "8085",
+        articleName: isNepali ? "नीलो टी-शर्ट" : "Blue T-Shirt",
+        color: "नीलो-१",
+        size: "XL",
         pieces: 30,
-        operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
-        machineType: isNepali ? 'ओभरलक' : 'Overlock',
-        rate: 2.50,
+        operation: isNepali ? "काँध जोड्ने" : "Shoulder Join",
+        machineType: isNepali ? "ओभरलक" : "Overlock",
+        rate: 2.5,
         assignedAt: new Date(Date.now() - 3600000).toISOString(),
-        priority: isNepali ? 'सामान्य' : 'Normal',
-        nextOperation: isNepali ? 'साइड सिम' : 'Side Seam',
-        nextMachine: isNepali ? 'ओभरलक' : 'Overlock',
-        nextOperator: isNepali ? 'सीता देवी' : 'Sita Devi'
+        priority: isNepali ? "सामान्य" : "Normal",
+        nextOperation: isNepali ? "साइड सिम" : "Side Seam",
+        nextMachine: isNepali ? "ओभरलक" : "Overlock",
+        nextOperator: isNepali ? "सीता देवी" : "Sita Devi",
       };
 
       setBundleData(mockBundle);
-      
+
       // Set initial completion data
-      setCompletionData(prev => ({
+      setCompletionData((prev) => ({
         ...prev,
         piecesCompleted: mockBundle.pieces,
-        startTime: new Date().toTimeString().slice(0, 5)
+        startTime: new Date().toTimeString().slice(0, 5),
       }));
-
     } catch (error) {
       showNotification(
-        isNepali ? 'बन्डल डेटा लोड गर्न समस्या भयो' : 'Failed to load bundle data',
-        'error'
+        isNepali
+          ? "बन्डल डेटा लोड गर्न समस्या भयो"
+          : "Failed to load bundle data",
+        "error"
       );
     } finally {
       setLoading(false);
@@ -74,30 +77,35 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
   };
 
   const handleInputChange = (field, value) => {
-    setCompletionData(prev => ({
+    setCompletionData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
 
     // Auto-calculate quality score based on defects
-    if (field === 'defectivePieces' || field === 'piecesCompleted') {
-      const pieces = field === 'piecesCompleted' ? value : completionData.piecesCompleted;
-      const defects = field === 'defectivePieces' ? value : completionData.defectivePieces;
-      
+    if (field === "defectivePieces" || field === "piecesCompleted") {
+      const pieces =
+        field === "piecesCompleted" ? value : completionData.piecesCompleted;
+      const defects =
+        field === "defectivePieces" ? value : completionData.defectivePieces;
+
       if (pieces > 0) {
-        const qualityScore = Math.max(0, Math.round(((pieces - defects) / pieces) * 100));
-        setCompletionData(prev => ({ ...prev, qualityScore }));
+        const qualityScore = Math.max(
+          0,
+          Math.round(((pieces - defects) / pieces) * 100)
+        );
+        setCompletionData((prev) => ({ ...prev, qualityScore }));
       }
     }
 
     // Auto-calculate time spent
-    if (field === 'endTime' && completionData.startTime) {
+    if (field === "endTime" && completionData.startTime) {
       const start = new Date(`2000-01-01T${completionData.startTime}:00`);
       const end = new Date(`2000-01-01T${value}:00`);
       const timeSpent = Math.round((end - start) / (1000 * 60)); // minutes
-      
+
       if (timeSpent > 0) {
-        setCompletionData(prev => ({ ...prev, timeSpent }));
+        setCompletionData((prev) => ({ ...prev, timeSpent }));
       }
     }
   };
@@ -106,23 +114,39 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
     const errors = [];
 
     if (completionData.piecesCompleted <= 0) {
-      errors.push(isNepali ? 'पूरा भएको टुक्राको संख्या आवश्यक छ' : 'Completed pieces required');
+      errors.push(
+        isNepali
+          ? "पूरा भएको टुक्राको संख्या आवश्यक छ"
+          : "Completed pieces required"
+      );
     }
 
     if (completionData.piecesCompleted > bundleData.pieces) {
-      errors.push(isNepali ? 'पूरा भएको टुक्रा तोकिएको भन्दा बढी हुन सक्दैन' : 'Completed pieces cannot exceed assigned pieces');
+      errors.push(
+        isNepali
+          ? "पूरा भएको टुक्रा तोकिएको भन्दा बढी हुन सक्दैन"
+          : "Completed pieces cannot exceed assigned pieces"
+      );
     }
 
     if (completionData.defectivePieces < 0) {
-      errors.push(isNepali ? 'दोषयुक्त टुक्रा ० भन्दा कम हुन सक्दैन' : 'Defective pieces cannot be negative');
+      errors.push(
+        isNepali
+          ? "दोषयुक्त टुक्रा ० भन्दा कम हुन सक्दैन"
+          : "Defective pieces cannot be negative"
+      );
     }
 
     if (completionData.defectivePieces > completionData.piecesCompleted) {
-      errors.push(isNepali ? 'दोषयुक्त टुक्रा पूरा भएको भन्दा बढी हुन सक्दैन' : 'Defective pieces cannot exceed completed pieces');
+      errors.push(
+        isNepali
+          ? "दोषयुक्त टुक्रा पूरा भएको भन्दा बढी हुन सक्दैन"
+          : "Defective pieces cannot exceed completed pieces"
+      );
     }
 
     if (!completionData.endTime) {
-      errors.push(isNepali ? 'समाप्ति समय आवश्यक छ' : 'End time required');
+      errors.push(isNepali ? "समाप्ति समय आवश्यक छ" : "End time required");
     }
 
     return errors;
@@ -131,7 +155,7 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
   const handleNext = () => {
     const errors = validateCompletion();
     if (errors.length > 0) {
-      errors.forEach(error => showNotification(error, 'error'));
+      errors.forEach((error) => showNotification(error, "error"));
       return;
     }
     setStep(2);
@@ -140,45 +164,45 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const validPieces = completionData.piecesCompleted - completionData.defectivePieces;
+      const validPieces =
+        completionData.piecesCompleted - completionData.defectivePieces;
       const earnings = validPieces * bundleData.rate;
 
       // Simulate API call to complete work
-      const response = await fetch('/api/bundles/complete', {
-        method: 'POST',
+      const response = await fetch("/api/bundles/complete", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('garmentErpToken')}`
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("garmentErpToken")}`,
         },
         body: JSON.stringify({
           bundleId: bundleData.id,
           ...completionData,
           validPieces,
-          earnings
-        })
+          earnings,
+        }),
       });
 
       if (response.ok) {
         // Send completion notification
         sendWorkCompleted(bundleData.articleNumber, earnings);
-        
+
         showNotification(
-          isNepali 
+          isNepali
             ? `काम सम्पन्न! कमाई: ${formatCurrency(earnings)}`
             : `Work completed! Earnings: ${formatCurrency(earnings)}`,
-          'success'
+          "success"
         );
 
         // Proceed to handoff step
         setStep(3);
       } else {
-        throw new Error('Failed to complete work');
+        throw new Error("Failed to complete work");
       }
-
     } catch (error) {
       showNotification(
-        isNepali ? 'काम सम्पन्न गर्न समस्या भयो' : 'Failed to complete work',
-        'error'
+        isNepali ? "काम सम्पन्न गर्न समस्या भयो" : "Failed to complete work",
+        "error"
       );
     } finally {
       setLoading(false);
@@ -189,28 +213,29 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
     setLoading(true);
     try {
       // Simulate handoff to next operator
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
       showNotification(
-        isNepali 
+        isNepali
           ? `बन्डल ${bundleData.nextOperator} लाई पठाइयो`
           : `Bundle sent to ${bundleData.nextOperator}`,
-        'success'
+        "success"
       );
 
       // Call parent completion handler
       if (onWorkCompleted) {
         onWorkCompleted({
           bundleId: bundleData.id,
-          earnings: (completionData.piecesCompleted - completionData.defectivePieces) * bundleData.rate,
-          completionData
+          earnings:
+            (completionData.piecesCompleted - completionData.defectivePieces) *
+            bundleData.rate,
+          completionData,
         });
       }
-
     } catch (error) {
       showNotification(
-        isNepali ? 'हस्तान्तरण गर्न समस्या भयो' : 'Failed to handoff work',
-        'error'
+        isNepali ? "हस्तान्तरण गर्न समस्या भयो" : "Failed to handoff work",
+        "error"
       );
     } finally {
       setLoading(false);
@@ -218,7 +243,8 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
   };
 
   const calculateEarnings = () => {
-    const validPieces = completionData.piecesCompleted - completionData.defectivePieces;
+    const validPieces =
+      completionData.piecesCompleted - completionData.defectivePieces;
     return validPieces * (bundleData?.rate || 0);
   };
 
@@ -232,7 +258,7 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mr-3"></div>
-        <span>{isNepali ? 'लोड गर्दै...' : 'Loading...'}</span>
+        <span>{isNepali ? "लोड गर्दै..." : "Loading..."}</span>
       </div>
     );
   }
@@ -242,13 +268,13 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
       <div className="text-center p-8">
         <div className="text-6xl mb-4">📭</div>
         <h3 className="text-lg font-medium text-gray-900 mb-2">
-          {isNepali ? 'बन्डल फेला परेन' : 'Bundle not found'}
+          {isNepali ? "बन्डल फेला परेन" : "Bundle not found"}
         </h3>
         <button
           onClick={onCancel}
           className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
         >
-          {isNepali ? 'पछाडि जानुहोस्' : 'Go Back'}
+          {isNepali ? "पछाडि जानुहोस्" : "Go Back"}
         </button>
       </div>
     );
@@ -261,21 +287,33 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {isNepali ? 'काम पूरा गर्नुहोस्' : 'Complete Work'}
+              {isNepali ? "काम पूरा गर्नुहोस्" : "Complete Work"}
             </h1>
             <p className="text-gray-600 mt-1">
               {bundleData.articleName} - {bundleData.operation}
             </p>
           </div>
           <div className="flex items-center space-x-2">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              step === 1 ? 'bg-blue-100 text-blue-800' :
-              step === 2 ? 'bg-yellow-100 text-yellow-800' :
-              'bg-green-100 text-green-800'
-            }`}>
-              {step === 1 ? (isNepali ? 'डेटा इनपुट' : 'Input Data') :
-               step === 2 ? (isNepali ? 'समीक्षा' : 'Review') :
-               (isNepali ? 'हस्तान्तरण' : 'Handoff')}
+            <span
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                step === 1
+                  ? "bg-blue-100 text-blue-800"
+                  : step === 2
+                  ? "bg-yellow-100 text-yellow-800"
+                  : "bg-green-100 text-green-800"
+              }`}
+            >
+              {step === 1
+                ? isNepali
+                  ? "डेटा इनपुट"
+                  : "Input Data"
+                : step === 2
+                ? isNepali
+                  ? "समीक्षा"
+                  : "Review"
+                : isNepali
+                ? "हस्तान्तरण"
+                : "Handoff"}
             </span>
           </div>
         </div>
@@ -284,24 +322,38 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
       {/* Bundle Information */}
       <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
         <h3 className="text-lg font-semibold mb-4">
-          {isNepali ? 'बन्डल जानकारी' : 'Bundle Information'}
+          {isNepali ? "बन्डल जानकारी" : "Bundle Information"}
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <span className="text-gray-500 text-sm">{isNepali ? 'लेख:' : 'Article:'}</span>
+            <span className="text-gray-500 text-sm">
+              {isNepali ? "लेख:" : "Article:"}
+            </span>
             <div className="font-medium">#{bundleData.articleNumber}</div>
           </div>
           <div>
-            <span className="text-gray-500 text-sm">{isNepali ? 'रङ/साइज:' : 'Color/Size:'}</span>
-            <div className="font-medium">{bundleData.color} / {bundleData.size}</div>
+            <span className="text-gray-500 text-sm">
+              {isNepali ? "रङ/साइज:" : "Color/Size:"}
+            </span>
+            <div className="font-medium">
+              {bundleData.color} / {bundleData.size}
+            </div>
           </div>
           <div>
-            <span className="text-gray-500 text-sm">{isNepali ? 'तोकिएको:' : 'Assigned:'}</span>
-            <div className="font-medium">{formatNumber(bundleData.pieces)} {isNepali ? 'टुक्रा' : 'pieces'}</div>
+            <span className="text-gray-500 text-sm">
+              {isNepali ? "तोकिएको:" : "Assigned:"}
+            </span>
+            <div className="font-medium">
+              {formatNumber(bundleData.pieces)} {isNepali ? "टुक्रा" : "pieces"}
+            </div>
           </div>
           <div>
-            <span className="text-gray-500 text-sm">{isNepali ? 'दर:' : 'Rate:'}</span>
-            <div className="font-medium">{formatCurrency(bundleData.rate)}/{isNepali ? 'टुक्रा' : 'pc'}</div>
+            <span className="text-gray-500 text-sm">
+              {isNepali ? "दर:" : "Rate:"}
+            </span>
+            <div className="font-medium">
+              {formatCurrency(bundleData.rate)}/{isNepali ? "टुक्रा" : "pc"}
+            </div>
           </div>
         </div>
       </div>
@@ -310,43 +362,53 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
       {step === 1 && (
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <h3 className="text-lg font-semibold mb-4">
-            {isNepali ? 'काम पूरा गर्नुहोस्' : 'Complete Work Details'}
+            {isNepali ? "काम पूरा गर्नुहोस्" : "Complete Work Details"}
           </h3>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Left Column */}
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  {isNepali ? 'पूरा भएको टुक्रा:' : 'Completed Pieces:'}
+                  {isNepali ? "पूरा भएको टुक्रा:" : "Completed Pieces:"}
                 </label>
                 <input
                   type="number"
                   min="0"
                   max={bundleData.pieces}
                   value={completionData.piecesCompleted}
-                  onChange={(e) => handleInputChange('piecesCompleted', parseInt(e.target.value) || 0)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "piecesCompleted",
+                      parseInt(e.target.value) || 0
+                    )
+                  }
                   className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500 text-lg"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  {isNepali ? 'दोषयुक्त टुक्रा:' : 'Defective Pieces:'}
+                  {isNepali ? "दोषयुक्त टुक्रा:" : "Defective Pieces:"}
                 </label>
                 <input
                   type="number"
                   min="0"
                   max={completionData.piecesCompleted}
                   value={completionData.defectivePieces}
-                  onChange={(e) => handleInputChange('defectivePieces', parseInt(e.target.value) || 0)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      "defectivePieces",
+                      parseInt(e.target.value) || 0
+                    )
+                  }
                   className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  {isNepali ? 'गुणस्तर स्कोर:' : 'Quality Score:'}
+                  {isNepali ? "गुणस्तर स्कोर:" : "Quality Score:"}
                 </label>
                 <div className="flex items-center space-x-2">
                   <input
@@ -354,10 +416,17 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
                     min="0"
                     max="100"
                     value={completionData.qualityScore}
-                    onChange={(e) => handleInputChange('qualityScore', parseInt(e.target.value))}
+                    onChange={(e) =>
+                      handleInputChange(
+                        "qualityScore",
+                        parseInt(e.target.value)
+                      )
+                    }
                     className="flex-1"
                   />
-                  <span className="text-lg font-semibold w-12">{completionData.qualityScore}%</span>
+                  <span className="text-lg font-semibold w-12">
+                    {completionData.qualityScore}%
+                  </span>
                 </div>
               </div>
             </div>
@@ -366,38 +435,40 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  {isNepali ? 'सुरु समय:' : 'Start Time:'}
+                  {isNepali ? "सुरु समय:" : "Start Time:"}
                 </label>
                 <input
                   type="time"
                   value={completionData.startTime}
-                  onChange={(e) => handleInputChange('startTime', e.target.value)}
+                  onChange={(e) =>
+                    handleInputChange("startTime", e.target.value)
+                  }
                   className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  {isNepali ? 'समाप्ति समय:' : 'End Time:'}
+                  {isNepali ? "समाप्ति समय:" : "End Time:"}
                 </label>
                 <input
                   type="time"
                   value={completionData.endTime}
-                  onChange={(e) => handleInputChange('endTime', e.target.value)}
+                  onChange={(e) => handleInputChange("endTime", e.target.value)}
                   className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  {isNepali ? 'टिप्पणी:' : 'Notes:'}
+                  {isNepali ? "टिप्पणी:" : "Notes:"}
                 </label>
                 <textarea
                   value={completionData.notes}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
+                  onChange={(e) => handleInputChange("notes", e.target.value)}
                   rows="3"
                   className="w-full p-3 border rounded-md focus:ring-2 focus:ring-blue-500"
-                  placeholder={isNepali ? 'कुनै टिप्पणी...' : 'Any notes...'}
+                  placeholder={isNepali ? "कुनै टिप्पणी..." : "Any notes..."}
                 />
               </div>
             </div>
@@ -406,25 +477,36 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
           {/* Summary Cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
             <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-green-600 text-sm">{isNepali ? 'राम्रो टुक्रा:' : 'Good Pieces:'}</div>
+              <div className="text-green-600 text-sm">
+                {isNepali ? "राम्रो टुक्रा:" : "Good Pieces:"}
+              </div>
               <div className="text-green-800 text-xl font-bold">
-                {formatNumber(completionData.piecesCompleted - completionData.defectivePieces)}
+                {formatNumber(
+                  completionData.piecesCompleted -
+                    completionData.defectivePieces
+                )}
               </div>
             </div>
             <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-blue-600 text-sm">{isNepali ? 'कमाई:' : 'Earnings:'}</div>
+              <div className="text-blue-600 text-sm">
+                {isNepali ? "कमाई:" : "Earnings:"}
+              </div>
               <div className="text-blue-800 text-xl font-bold">
                 {formatCurrency(calculateEarnings())}
               </div>
             </div>
             <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="text-purple-600 text-sm">{isNepali ? 'समय:' : 'Time:'}</div>
+              <div className="text-purple-600 text-sm">
+                {isNepali ? "समय:" : "Time:"}
+              </div>
               <div className="text-purple-800 text-xl font-bold">
-                {completionData.timeSpent} {isNepali ? 'मिनेट' : 'min'}
+                {completionData.timeSpent} {isNepali ? "मिनेट" : "min"}
               </div>
             </div>
             <div className="bg-orange-50 p-4 rounded-lg">
-              <div className="text-orange-600 text-sm">{isNepali ? 'दक्षता:' : 'Efficiency:'}</div>
+              <div className="text-orange-600 text-sm">
+                {isNepali ? "दक्षता:" : "Efficiency:"}
+              </div>
               <div className="text-orange-800 text-xl font-bold">
                 {calculateEfficiency()}%
               </div>
@@ -436,13 +518,13 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
               onClick={onCancel}
               className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
             >
-              {isNepali ? 'रद्द गर्नुहोस्' : 'Cancel'}
+              {isNepali ? "रद्द गर्नुहोस्" : "Cancel"}
             </button>
             <button
               onClick={handleNext}
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
             >
-              {isNepali ? 'अर्को चरण' : 'Next Step'}
+              {isNepali ? "अर्को चरण" : "Next Step"}
             </button>
           </div>
         </div>
@@ -452,40 +534,69 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
       {step === 2 && (
         <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
           <h3 className="text-lg font-semibold mb-4">
-            {isNepali ? 'समीक्षा र पुष्टि' : 'Review & Confirm'}
+            {isNepali ? "समीक्षा र पुष्टि" : "Review & Confirm"}
           </h3>
-          
+
           <div className="bg-gray-50 rounded-lg p-6 mb-6">
-            <h4 className="font-medium mb-4">{isNepali ? 'काम सारांश:' : 'Work Summary:'}</h4>
+            <h4 className="font-medium mb-4">
+              {isNepali ? "काम सारांश:" : "Work Summary:"}
+            </h4>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <span className="text-gray-600">{isNepali ? 'पूरा भएको टुक्रा:' : 'Completed Pieces:'}</span>
-                <span className="float-right font-medium">{formatNumber(completionData.piecesCompleted)}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">{isNepali ? 'दोषयुक्त टुक्रा:' : 'Defective Pieces:'}</span>
-                <span className="float-right font-medium">{formatNumber(completionData.defectivePieces)}</span>
-              </div>
-              <div>
-                <span className="text-gray-600">{isNepali ? 'राम्रो टुक्रा:' : 'Good Pieces:'}</span>
-                <span className="float-right font-medium text-green-600">
-                  {formatNumber(completionData.piecesCompleted - completionData.defectivePieces)}
+                <span className="text-gray-600">
+                  {isNepali ? "पूरा भएको टुक्रा:" : "Completed Pieces:"}
+                </span>
+                <span className="float-right font-medium">
+                  {formatNumber(completionData.piecesCompleted)}
                 </span>
               </div>
               <div>
-                <span className="text-gray-600">{isNepali ? 'गुणस्तर स्कोर:' : 'Quality Score:'}</span>
-                <span className="float-right font-medium">{completionData.qualityScore}%</span>
+                <span className="text-gray-600">
+                  {isNepali ? "दोषयुक्त टुक्रा:" : "Defective Pieces:"}
+                </span>
+                <span className="float-right font-medium">
+                  {formatNumber(completionData.defectivePieces)}
+                </span>
               </div>
               <div>
-                <span className="text-gray-600">{isNepali ? 'समय लाग्यो:' : 'Time Spent:'}</span>
-                <span className="float-right font-medium">{completionData.timeSpent} {isNepali ? 'मिनेट' : 'min'}</span>
+                <span className="text-gray-600">
+                  {isNepali ? "राम्रो टुक्रा:" : "Good Pieces:"}
+                </span>
+                <span className="float-right font-medium text-green-600">
+                  {formatNumber(
+                    completionData.piecesCompleted -
+                      completionData.defectivePieces
+                  )}
+                </span>
               </div>
               <div>
-                <span className="text-gray-600">{isNepali ? 'दक्षता:' : 'Efficiency:'}</span>
-                <span className="float-right font-medium">{calculateEfficiency()}%</span>
+                <span className="text-gray-600">
+                  {isNepali ? "गुणस्तर स्कोर:" : "Quality Score:"}
+                </span>
+                <span className="float-right font-medium">
+                  {completionData.qualityScore}%
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600">
+                  {isNepali ? "समय लाग्यो:" : "Time Spent:"}
+                </span>
+                <span className="float-right font-medium">
+                  {completionData.timeSpent} {isNepali ? "मिनेट" : "min"}
+                </span>
+              </div>
+              <div>
+                <span className="text-gray-600">
+                  {isNepali ? "दक्षता:" : "Efficiency:"}
+                </span>
+                <span className="float-right font-medium">
+                  {calculateEfficiency()}%
+                </span>
               </div>
               <div className="col-span-2 border-t pt-2">
-                <span className="text-gray-600 text-lg">{isNepali ? 'कुल कमाई:' : 'Total Earnings:'}</span>
+                <span className="text-gray-600 text-lg">
+                  {isNepali ? "कुल कमाई:" : "Total Earnings:"}
+                </span>
                 <span className="float-right font-bold text-lg text-green-600">
                   {formatCurrency(calculateEarnings())}
                 </span>
@@ -498,7 +609,7 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
               onClick={() => setStep(1)}
               className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
             >
-              {isNepali ? 'फेरि सम्पादन गर्नुहोस्' : 'Edit Again'}
+              {isNepali ? "फेरि सम्पादन गर्नुहोस्" : "Edit Again"}
             </button>
             <button
               onClick={handleSubmit}
@@ -508,10 +619,12 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
               {loading ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {isNepali ? 'सुरक्षित गर्दै...' : 'Saving...'}
+                  {isNepali ? "सुरक्षित गर्दै..." : "Saving..."}
                 </div>
+              ) : isNepali ? (
+                "काम पूरा गर्नुहोस्"
               ) : (
-                isNepali ? 'काम पूरा गर्नुहोस्' : 'Complete Work'
+                "Complete Work"
               )}
             </button>
           </div>
@@ -524,27 +637,45 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
           <div className="text-center mb-6">
             <div className="text-6xl mb-4">✅</div>
             <h3 className="text-xl font-semibold text-green-600 mb-2">
-              {isNepali ? 'काम सफलतापूर्वक सम्पन्न!' : 'Work Successfully Completed!'}
+              {isNepali
+                ? "काम सफलतापूर्वक सम्पन्न!"
+                : "Work Successfully Completed!"}
             </h3>
             <p className="text-gray-600">
-              {isNepali ? 'अब अर्को ऑपरेटरलाई हस्तान्तरण गर्नुहोस्' : 'Now handoff to next operator'}
+              {isNepali
+                ? "अब अर्को ऑपरेटरलाई हस्तान्तरण गर्नुहोस्"
+                : "Now handoff to next operator"}
             </p>
           </div>
 
           <div className="bg-blue-50 rounded-lg p-6 mb-6">
-            <h4 className="font-medium mb-4">{isNepali ? 'अर्को चरण:' : 'Next Step:'}</h4>
+            <h4 className="font-medium mb-4">
+              {isNepali ? "अर्को चरण:" : "Next Step:"}
+            </h4>
             <div className="space-y-2">
               <div>
-                <span className="text-gray-600">{isNepali ? 'अर्को काम:' : 'Next Operation:'}</span>
-                <span className="float-right font-medium">{bundleData.nextOperation}</span>
+                <span className="text-gray-600">
+                  {isNepali ? "अर्को काम:" : "Next Operation:"}
+                </span>
+                <span className="float-right font-medium">
+                  {bundleData.nextOperation}
+                </span>
               </div>
               <div>
-                <span className="text-gray-600">{isNepali ? 'मेसिन:' : 'Machine:'}</span>
-                <span className="float-right font-medium">{bundleData.nextMachine}</span>
+                <span className="text-gray-600">
+                  {isNepali ? "मेसिन:" : "Machine:"}
+                </span>
+                <span className="float-right font-medium">
+                  {bundleData.nextMachine}
+                </span>
               </div>
               <div>
-                <span className="text-gray-600">{isNepali ? 'ऑपरेटर:' : 'Operator:'}</span>
-                <span className="float-right font-medium">{bundleData.nextOperator}</span>
+                <span className="text-gray-600">
+                  {isNepali ? "ऑपरेटर:" : "Operator:"}
+                </span>
+                <span className="float-right font-medium">
+                  {bundleData.nextOperator}
+                </span>
               </div>
             </div>
           </div>
@@ -558,10 +689,12 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
               {loading ? (
                 <div className="flex items-center">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {isNepali ? 'पठाउँदै...' : 'Sending...'}
+                  {isNepali ? "पठाउँदै..." : "Sending..."}
                 </div>
+              ) : isNepali ? (
+                "🔄 अर्को ऑपरेटरलाई पठाउनुहोस्"
               ) : (
-                isNepali ? '🔄 अर्को ऑपरेटरलाई पठाउनुहोस्' : '🔄 Send to Next Operator'
+                "🔄 Send to Next Operator"
               )}
             </button>
           </div>

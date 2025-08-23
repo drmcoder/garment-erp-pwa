@@ -1,19 +1,20 @@
 // src/components/operator/WorkQueue.jsx
 // Complete work queue with full day visibility and management
 
-import React, { useState, useContext, useEffect } from 'react';
-import { AuthContext } from '../../contexts/AuthContext';
-import { LanguageContext } from '../../contexts/LanguageContext';
-import { NotificationContext } from '../../contexts/NotificationContext';
+import React, { useState, useContext, useEffect } from "react";
+import { AuthContext } from "../../contexts/AuthContext";
+import { LanguageContext } from "../../contexts/LanguageContext";
+import { NotificationContext } from "../../contexts/NotificationContext";
 
 const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
   const { user } = useContext(AuthContext);
-  const { t, isNepali, formatNumber, formatCurrency } = useContext(LanguageContext);
+  const { t, isNepali, formatNumber, formatCurrency } =
+    useContext(LanguageContext);
   const { showNotification } = useContext(NotificationContext);
-  
+
   const [workQueue, setWorkQueue] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState('all'); // all, pending, assigned, completed
+  const [filter, setFilter] = useState("all"); // all, pending, assigned, completed
   const [selectedWork, setSelectedWork] = useState(null);
   const [todayStats, setTodayStats] = useState({
     totalWork: 0,
@@ -22,13 +23,13 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
     totalPieces: 0,
     totalEarnings: 0,
     targetPieces: 120,
-    targetEarnings: 300
+    targetEarnings: 300,
   });
 
   useEffect(() => {
     loadWorkQueue();
     loadTodayStats();
-    
+
     // Set up auto-refresh every 30 seconds
     const interval = setInterval(() => {
       loadWorkQueue();
@@ -42,120 +43,138 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
     setLoading(true);
     try {
       // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-      
+      await new Promise((resolve) => setTimeout(resolve, 800));
+
       // Mock work queue data
       const mockQueue = [
         {
-          id: 'queue_001',
-          bundleId: 'bundle_001',
-          articleNumber: '8085',
-          articleName: isNepali ? 'नीलो टी-शर्ट' : 'Blue T-Shirt',
-          color: 'नीलो-१',
-          size: 'XL',
+          id: "queue_001",
+          bundleId: "bundle_001",
+          articleNumber: "8085",
+          articleName: isNepali ? "नीलो टी-शर्ट" : "Blue T-Shirt",
+          color: "नीलो-१",
+          size: "XL",
           pieces: 30,
-          operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
-          machineType: isNepali ? 'ओभरलक' : 'Overlock',
-          rate: 2.50,
+          operation: isNepali ? "काँध जोड्ने" : "Shoulder Join",
+          machineType: isNepali ? "ओभरलक" : "Overlock",
+          rate: 2.5,
           estimatedTime: 25,
-          priority: isNepali ? 'सामान्य' : 'Normal',
-          status: 'in_progress',
+          priority: isNepali ? "सामान्य" : "Normal",
+          status: "in_progress",
           assignedAt: new Date(Date.now() - 3600000).toISOString(),
           startedAt: new Date(Date.now() - 1800000).toISOString(),
           progress: 75,
           completedPieces: 22,
-          earnings: 55.00
+          earnings: 55.0,
         },
         {
-          id: 'queue_002',
-          bundleId: 'bundle_002',
-          articleNumber: '2233',
-          articleName: isNepali ? 'हरियो पोलो' : 'Green Polo',
-          color: 'हरियो-२',
-          size: '2XL',
+          id: "queue_002",
+          bundleId: "bundle_002",
+          articleNumber: "2233",
+          articleName: isNepali ? "हरियो पोलो" : "Green Polo",
+          color: "हरियो-२",
+          size: "2XL",
           pieces: 28,
-          operation: isNepali ? 'साइड सिम' : 'Side Seam',
-          machineType: isNepali ? 'ओभरलक' : 'Overlock',
-          rate: 2.80,
+          operation: isNepali ? "साइड सिम" : "Side Seam",
+          machineType: isNepali ? "ओभरलक" : "Overlock",
+          rate: 2.8,
           estimatedTime: 22,
-          priority: isNepali ? 'उच्च' : 'High',
-          status: 'assigned',
+          priority: isNepali ? "उच्च" : "High",
+          status: "assigned",
           assignedAt: new Date(Date.now() - 900000).toISOString(),
           progress: 0,
           completedPieces: 0,
-          earnings: 0
+          earnings: 0,
         },
         {
-          id: 'queue_003',
-          bundleId: 'bundle_003',
-          articleNumber: '6635',
-          articleName: isNepali ? 'सेतो शर्ट' : 'White Shirt',
-          color: 'सेतो',
-          size: 'L',
+          id: "queue_003",
+          bundleId: "bundle_003",
+          articleNumber: "6635",
+          articleName: isNepali ? "सेतो शर्ट" : "White Shirt",
+          color: "सेतो",
+          size: "L",
           pieces: 40,
-          operation: isNepali ? 'हेम फोल्ड' : 'Hem Fold',
-          machineType: isNepali ? 'फ्ल्यालक' : 'Flatlock',
-          rate: 2.20,
+          operation: isNepali ? "हेम फोल्ड" : "Hem Fold",
+          machineType: isNepali ? "फ्ल्यालक" : "Flatlock",
+          rate: 2.2,
           estimatedTime: 35,
-          priority: isNepali ? 'सामान्य' : 'Normal',
-          status: 'pending',
+          priority: isNepali ? "सामान्य" : "Normal",
+          status: "pending",
           assignedAt: new Date(Date.now() - 300000).toISOString(),
           progress: 0,
           completedPieces: 0,
-          earnings: 0
+          earnings: 0,
         },
         {
-          id: 'queue_004',
-          bundleId: 'bundle_004',
-          articleNumber: '8085',
-          articleName: isNepali ? 'नीलो टी-शर्ट' : 'Blue T-Shirt',
-          color: 'नीलो-२',
-          size: 'L',
+          id: "queue_004",
+          bundleId: "bundle_004",
+          articleNumber: "8085",
+          articleName: isNepali ? "नीलो टी-शर्ट" : "Blue T-Shirt",
+          color: "नीलो-२",
+          size: "L",
           pieces: 35,
-          operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
-          machineType: isNepali ? 'ओभरलक' : 'Overlock',
-          rate: 2.50,
+          operation: isNepali ? "काँध जोड्ने" : "Shoulder Join",
+          machineType: isNepali ? "ओभरलक" : "Overlock",
+          rate: 2.5,
           estimatedTime: 28,
-          priority: isNepali ? 'कम' : 'Low',
-          status: 'scheduled',
+          priority: isNepali ? "कम" : "Low",
+          status: "scheduled",
           scheduledAt: new Date(Date.now() + 3600000).toISOString(),
           progress: 0,
           completedPieces: 0,
-          earnings: 0
+          earnings: 0,
         },
         {
-          id: 'queue_005',
-          bundleId: 'bundle_005',
-          articleNumber: '7799',
-          articleName: isNepali ? 'कालो जैकेट' : 'Black Jacket',
-          color: 'कालो',
-          size: 'XL',
+          id: "queue_005",
+          bundleId: "bundle_005",
+          articleNumber: "7799",
+          articleName: isNepali ? "कालो जैकेट" : "Black Jacket",
+          color: "कालो",
+          size: "XL",
           pieces: 20,
-          operation: isNepali ? 'जिप लगाउने' : 'Zipper Attach',
-          machineType: isNepali ? 'एकल सुई' : 'Single Needle',
-          rate: 5.00,
+          operation: isNepali ? "जिप लगाउने" : "Zipper Attach",
+          machineType: isNepali ? "एकल सुई" : "Single Needle",
+          rate: 5.0,
           estimatedTime: 45,
-          priority: isNepali ? 'उच्च' : 'High',
-          status: 'scheduled',
+          priority: isNepali ? "उच्च" : "High",
+          status: "scheduled",
           scheduledAt: new Date(Date.now() + 7200000).toISOString(),
           progress: 0,
           completedPieces: 0,
-          earnings: 0
-        }
+          earnings: 0,
+        },
       ];
 
       // Apply filter
       let filteredQueue = mockQueue;
-      if (filter !== 'all') {
-        filteredQueue = mockQueue.filter(work => work.status === filter);
+      
+      // Filter by operator's machine speciality first
+      if (user && user.speciality) {
+        const machineMatches = {
+          'overlock': ['ओभरलक', 'Overlock'],
+          'flatlock': ['फ्ल्यालक', 'Flatlock'], 
+          'single_needle': ['एकल सुई', 'Single Needle'],
+          'buttonhole': ['बटनहोल', 'Buttonhole']
+        };
+        
+        const allowedMachineTypes = machineMatches[user.speciality] || [];
+        filteredQueue = mockQueue.filter(work => 
+          allowedMachineTypes.includes(work.machineType)
+        );
+      }
+      
+      // Then apply status filter
+      if (filter !== "all") {
+        filteredQueue = filteredQueue.filter((work) => work.status === filter);
       }
 
       setWorkQueue(filteredQueue);
-
     } catch (error) {
       showNotification(
-        isNepali ? 'कामको लाइन लोड गर्न समस्या भयो' : 'Failed to load work queue',
-        'error'
+        isNepali
+          ? "कामको लाइन लोड गर्न समस्या भयो"
+          : "Failed to load work queue",
+        "error"
       );
     } finally {
       setLoading(false);
@@ -165,71 +184,73 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
   const loadTodayStats = async () => {
     try {
       // Simulate API call for today's statistics
-      const completedWork = workQueue.filter(w => w.status === 'completed');
-      const pendingWork = workQueue.filter(w => w.status !== 'completed');
-      
+      const completedWork = workQueue.filter((w) => w.status === "completed");
+      const pendingWork = workQueue.filter((w) => w.status !== "completed");
+
       setTodayStats({
         totalWork: workQueue.length,
         completed: completedWork.length,
         pending: pendingWork.length,
-        totalPieces: completedWork.reduce((sum, w) => sum + w.completedPieces, 0),
+        totalPieces: completedWork.reduce(
+          (sum, w) => sum + w.completedPieces,
+          0
+        ),
         totalEarnings: completedWork.reduce((sum, w) => sum + w.earnings, 0),
         targetPieces: 120,
-        targetEarnings: 300
+        targetEarnings: 300,
       });
-
     } catch (error) {
-      console.error('Failed to load today stats:', error);
+      console.error("Failed to load today stats:", error);
     }
   };
 
   const getStatusColor = (status) => {
     const colors = {
-      'in_progress': 'bg-blue-100 text-blue-800',
-      'assigned': 'bg-yellow-100 text-yellow-800',
-      'pending': 'bg-gray-100 text-gray-800',
-      'scheduled': 'bg-purple-100 text-purple-800',
-      'completed': 'bg-green-100 text-green-800'
+      in_progress: "bg-blue-100 text-blue-800",
+      assigned: "bg-yellow-100 text-yellow-800",
+      pending: "bg-gray-100 text-gray-800",
+      scheduled: "bg-purple-100 text-purple-800",
+      completed: "bg-green-100 text-green-800",
     };
-    return colors[status] || 'bg-gray-100 text-gray-800';
+    return colors[status] || "bg-gray-100 text-gray-800";
   };
 
   const getStatusText = (status) => {
     const texts = {
-      'in_progress': isNepali ? 'चलिरहेको' : 'In Progress',
-      'assigned': isNepali ? 'तोकिएको' : 'Assigned',
-      'pending': isNepali ? 'पेन्डिङ' : 'Pending',
-      'scheduled': isNepali ? 'निर्धारित' : 'Scheduled',
-      'completed': isNepali ? 'सम्पन्न' : 'Completed'
+      in_progress: isNepali ? "चलिरहेको" : "In Progress",
+      assigned: isNepali ? "तोकिएको" : "Assigned",
+      pending: isNepali ? "पेन्डिङ" : "Pending",
+      scheduled: isNepali ? "निर्धारित" : "Scheduled",
+      completed: isNepali ? "सम्पन्न" : "Completed",
     };
     return texts[status] || status;
   };
 
   const getPriorityColor = (priority) => {
     const colors = {
-      'उच्च': 'text-red-600',
-      'High': 'text-red-600',
-      'सामान्य': 'text-yellow-600',
-      'Normal': 'text-yellow-600',
-      'कम': 'text-green-600',
-      'Low': 'text-green-600'
+      उच्च: "text-red-600",
+      High: "text-red-600",
+      सामान्य: "text-yellow-600",
+      Normal: "text-yellow-600",
+      कम: "text-green-600",
+      Low: "text-green-600",
     };
-    return colors[priority] || 'text-gray-600';
+    return colors[priority] || "text-gray-600";
   };
 
   const handleWorkAction = (work, action) => {
     switch (action) {
-      case 'start':
+      case "start":
         if (onWorkSelected) {
           onWorkSelected(work);
         }
         break;
-      case 'continue':
+      case "continue":
         if (onWorkSelected) {
           onWorkSelected(work);
         }
         break;
-      case 'view':
+      case "view":
         setSelectedWork(work);
         break;
       default:
@@ -238,23 +259,24 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
   };
 
   const formatTime = (isoString) => {
-    return new Date(isoString).toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
+    return new Date(isoString).toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
     });
   };
 
   const calculateRemainingTime = (work) => {
-    if (work.status === 'completed') return 0;
-    
-    const completedTime = (work.completedPieces / work.pieces) * work.estimatedTime;
+    if (work.status === "completed") return 0;
+
+    const completedTime =
+      (work.completedPieces / work.pieces) * work.estimatedTime;
     return Math.max(0, work.estimatedTime - completedTime);
   };
 
   const getTotalEstimatedTime = () => {
     return workQueue
-      .filter(w => w.status !== 'completed')
+      .filter((w) => w.status !== "completed")
       .reduce((sum, w) => sum + calculateRemainingTime(w), 0);
   };
 
@@ -265,10 +287,12 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {isNepali ? '📋 आजका कामहरू' : '📋 Today\'s Work Queue'}
+              {isNepali ? "📋 आजका कामहरू" : "📋 Today's Work Queue"}
             </h1>
             <p className="text-gray-600 mt-1">
-              {isNepali ? 'तपाईंको पूरा दिनको काम' : 'Your complete day\'s work schedule'}
+              {isNepali
+                ? "तपाईंको पूरा दिनको काम"
+                : "Your complete day's work schedule"}
             </p>
           </div>
           <button
@@ -276,40 +300,59 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
             disabled={loading}
             className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? '🔄' : '↻'} {isNepali ? 'रिफ्रेस' : 'Refresh'}
+            {loading ? "🔄" : "↻"} {isNepali ? "रिफ्रेस" : "Refresh"}
           </button>
         </div>
 
         {/* Today's Statistics */}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           <div className="bg-blue-50 p-4 rounded-lg">
-            <div className="text-blue-600 text-sm">{isNepali ? 'कुल काम:' : 'Total Work:'}</div>
-            <div className="text-blue-800 text-xl font-bold">{todayStats.totalWork}</div>
+            <div className="text-blue-600 text-sm">
+              {isNepali ? "कुल काम:" : "Total Work:"}
+            </div>
+            <div className="text-blue-800 text-xl font-bold">
+              {todayStats.totalWork}
+            </div>
           </div>
           <div className="bg-green-50 p-4 rounded-lg">
-            <div className="text-green-600 text-sm">{isNepali ? 'सम्पन्न:' : 'Completed:'}</div>
-            <div className="text-green-800 text-xl font-bold">{todayStats.completed}</div>
+            <div className="text-green-600 text-sm">
+              {isNepali ? "सम्पन्न:" : "Completed:"}
+            </div>
+            <div className="text-green-800 text-xl font-bold">
+              {todayStats.completed}
+            </div>
           </div>
           <div className="bg-yellow-50 p-4 rounded-lg">
-            <div className="text-yellow-600 text-sm">{isNepali ? 'बाँकी:' : 'Pending:'}</div>
-            <div className="text-yellow-800 text-xl font-bold">{todayStats.pending}</div>
+            <div className="text-yellow-600 text-sm">
+              {isNepali ? "बाँकी:" : "Pending:"}
+            </div>
+            <div className="text-yellow-800 text-xl font-bold">
+              {todayStats.pending}
+            </div>
           </div>
           <div className="bg-purple-50 p-4 rounded-lg">
-            <div className="text-purple-600 text-sm">{isNepali ? 'टुक्राहरू:' : 'Pieces:'}</div>
+            <div className="text-purple-600 text-sm">
+              {isNepali ? "टुक्राहरू:" : "Pieces:"}
+            </div>
             <div className="text-purple-800 text-xl font-bold">
-              {formatNumber(todayStats.totalPieces)}/{formatNumber(todayStats.targetPieces)}
+              {formatNumber(todayStats.totalPieces)}/
+              {formatNumber(todayStats.targetPieces)}
             </div>
           </div>
           <div className="bg-orange-50 p-4 rounded-lg">
-            <div className="text-orange-600 text-sm">{isNepali ? 'कमाई:' : 'Earnings:'}</div>
+            <div className="text-orange-600 text-sm">
+              {isNepali ? "कमाई:" : "Earnings:"}
+            </div>
             <div className="text-orange-800 text-xl font-bold">
               {formatCurrency(todayStats.totalEarnings)}
             </div>
           </div>
           <div className="bg-indigo-50 p-4 rounded-lg">
-            <div className="text-indigo-600 text-sm">{isNepali ? 'बाँकी समय:' : 'Time Left:'}</div>
+            <div className="text-indigo-600 text-sm">
+              {isNepali ? "बाँकी समय:" : "Time Left:"}
+            </div>
             <div className="text-indigo-800 text-xl font-bold">
-              {getTotalEstimatedTime()} {isNepali ? 'मिनेट' : 'min'}
+              {getTotalEstimatedTime()} {isNepali ? "मिनेट" : "min"}
             </div>
           </div>
         </div>
@@ -320,19 +363,40 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
         <div className="border-b">
           <nav className="flex space-x-8 px-6">
             {[
-              { key: 'all', label: isNepali ? 'सबै' : 'All', count: workQueue.length },
-              { key: 'in_progress', label: isNepali ? 'चलिरहेको' : 'In Progress', count: workQueue.filter(w => w.status === 'in_progress').length },
-              { key: 'assigned', label: isNepali ? 'तोकिएको' : 'Assigned', count: workQueue.filter(w => w.status === 'assigned').length },
-              { key: 'pending', label: isNepali ? 'पेन्डिङ' : 'Pending', count: workQueue.filter(w => w.status === 'pending').length },
-              { key: 'scheduled', label: isNepali ? 'निर्धारित' : 'Scheduled', count: workQueue.filter(w => w.status === 'scheduled').length }
-            ].map(tab => (
+              {
+                key: "all",
+                label: isNepali ? "सबै" : "All",
+                count: workQueue.length,
+              },
+              {
+                key: "in_progress",
+                label: isNepali ? "चलिरहेको" : "In Progress",
+                count: workQueue.filter((w) => w.status === "in_progress")
+                  .length,
+              },
+              {
+                key: "assigned",
+                label: isNepali ? "तोकिएको" : "Assigned",
+                count: workQueue.filter((w) => w.status === "assigned").length,
+              },
+              {
+                key: "pending",
+                label: isNepali ? "पेन्डिङ" : "Pending",
+                count: workQueue.filter((w) => w.status === "pending").length,
+              },
+              {
+                key: "scheduled",
+                label: isNepali ? "निर्धारित" : "Scheduled",
+                count: workQueue.filter((w) => w.status === "scheduled").length,
+              },
+            ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   filter === tab.key
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? "border-blue-500 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
                 {tab.label} ({tab.count})
@@ -346,33 +410,32 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
           {loading ? (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p>{isNepali ? 'लोड गर्दै...' : 'Loading work queue...'}</p>
+              <p>{isNepali ? "लोड गर्दै..." : "Loading work queue..."}</p>
             </div>
           ) : workQueue.length === 0 ? (
             <div className="text-center py-8">
               <div className="text-6xl mb-4">📭</div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {isNepali ? 'कुनै काम फेला परेन' : 'No work found'}
+                {isNepali ? "कुनै काम फेला परेन" : "No work found"}
               </h3>
               <p className="text-gray-500 mb-4">
-                {isNepali 
-                  ? 'यो फिल्टरमा कुनै काम छैन'
-                  : 'No work items match the selected filter'
-                }
+                {isNepali
+                  ? "यो फिल्टरमा कुनै काम छैन"
+                  : "No work items match the selected filter"}
               </p>
               {onSelfAssign && (
                 <button
                   onClick={onSelfAssign}
                   className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
                 >
-                  {isNepali ? '🎯 काम छनोट गर्नुहोस्' : '🎯 Choose Work'}
+                  {isNepali ? "🎯 काम छनोट गर्नुहोस्" : "🎯 Choose Work"}
                 </button>
               )}
             </div>
           ) : (
             <div className="space-y-4">
-              {workQueue.map(work => (
-                <div 
+              {workQueue.map((work) => (
+                <div
                   key={work.id}
                   className="border rounded-lg p-6 hover:shadow-md transition-shadow duration-200"
                 >
@@ -382,38 +445,70 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
                         <h3 className="text-lg font-semibold text-gray-900">
                           {work.articleName}
                         </h3>
-                        <span className="text-sm text-gray-500">#{work.articleNumber}</span>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(work.status)}`}>
+                        <span className="text-sm text-gray-500">
+                          #{work.articleNumber}
+                        </span>
+                        <span
+                          className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                            work.status
+                          )}`}
+                        >
                           {getStatusText(work.status)}
                         </span>
-                        <span className={`text-sm font-medium ${getPriorityColor(work.priority)}`}>
-                          {work.priority} {isNepali ? 'प्राथमिकता' : 'Priority'}
+                        <span
+                          className={`text-sm font-medium ${getPriorityColor(
+                            work.priority
+                          )}`}
+                        >
+                          {work.priority} {isNepali ? "प्राथमिकता" : "Priority"}
                         </span>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
                         <div>
-                          <span className="text-gray-500">{isNepali ? 'काम:' : 'Operation:'}</span>
+                          <span className="text-gray-500">
+                            {isNepali ? "काम:" : "Operation:"}
+                          </span>
                           <div className="font-medium">{work.operation}</div>
                         </div>
                         <div>
-                          <span className="text-gray-500">{isNepali ? 'रङ/साइज:' : 'Color/Size:'}</span>
-                          <div className="font-medium">{work.color} / {work.size}</div>
+                          <span className="text-gray-500">
+                            {isNepali ? "रङ/साइज:" : "Color/Size:"}
+                          </span>
+                          <div className="font-medium">
+                            {work.color} / {work.size}
+                          </div>
                         </div>
                         <div>
-                          <span className="text-gray-500">{isNepali ? 'टुक्राहरू:' : 'Pieces:'}</span>
-                          <div className="font-medium">{formatNumber(work.pieces)} {isNepali ? 'वटा' : 'pcs'}</div>
+                          <span className="text-gray-500">
+                            {isNepali ? "टुक्राहरू:" : "Pieces:"}
+                          </span>
+                          <div className="font-medium">
+                            {formatNumber(work.pieces)}{" "}
+                            {isNepali ? "वटा" : "pcs"}
+                          </div>
                         </div>
                         <div>
-                          <span className="text-gray-500">{isNepali ? 'दर:' : 'Rate:'}</span>
-                          <div className="font-medium">{formatCurrency(work.rate)}/{isNepali ? 'टुक्रा' : 'pc'}</div>
+                          <span className="text-gray-500">
+                            {isNepali ? "दर:" : "Rate:"}
+                          </span>
+                          <div className="font-medium">
+                            {formatCurrency(work.rate)}/
+                            {isNepali ? "टुक्रा" : "pc"}
+                          </div>
                         </div>
                         <div>
-                          <span className="text-gray-500">{isNepali ? 'समय:' : 'Time:'}</span>
-                          <div className="font-medium">{work.estimatedTime} {isNepali ? 'मिनेट' : 'min'}</div>
+                          <span className="text-gray-500">
+                            {isNepali ? "समय:" : "Time:"}
+                          </span>
+                          <div className="font-medium">
+                            {work.estimatedTime} {isNepali ? "मिनेट" : "min"}
+                          </div>
                         </div>
                         <div>
-                          <span className="text-gray-500">{isNepali ? 'कमाई:' : 'Earnings:'}</span>
+                          <span className="text-gray-500">
+                            {isNepali ? "कमाई:" : "Earnings:"}
+                          </span>
                           <div className="font-medium text-green-600">
                             {formatCurrency(work.pieces * work.rate)}
                           </div>
@@ -423,42 +518,46 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
 
                     {/* Action Buttons */}
                     <div className="ml-4 flex flex-col space-y-2">
-                      {work.status === 'in_progress' && (
+                      {work.status === "in_progress" && (
                         <button
-                          onClick={() => handleWorkAction(work, 'continue')}
+                          onClick={() => handleWorkAction(work, "continue")}
                           className="bg-blue-600 text-white px-4 py-2 rounded text-sm hover:bg-blue-700"
                         >
-                          {isNepali ? 'जारी राख्नुहोस्' : 'Continue'}
+                          {isNepali ? "जारी राख्नुहोस्" : "Continue"}
                         </button>
                       )}
-                      {work.status === 'assigned' && (
+                      {work.status === "assigned" && (
                         <button
-                          onClick={() => handleWorkAction(work, 'start')}
+                          onClick={() => handleWorkAction(work, "start")}
                           className="bg-green-600 text-white px-4 py-2 rounded text-sm hover:bg-green-700"
                         >
-                          {isNepali ? 'सुरु गर्नुहोस्' : 'Start Work'}
+                          {isNepali ? "सुरु गर्नुहोस्" : "Start Work"}
                         </button>
                       )}
-                      {(work.status === 'pending' || work.status === 'scheduled') && (
+                      {(work.status === "pending" ||
+                        work.status === "scheduled") && (
                         <button
-                          onClick={() => handleWorkAction(work, 'view')}
+                          onClick={() => handleWorkAction(work, "view")}
                           className="bg-gray-600 text-white px-4 py-2 rounded text-sm hover:bg-gray-700"
                         >
-                          {isNepali ? 'विवरण' : 'View Details'}
+                          {isNepali ? "विवरण" : "View Details"}
                         </button>
                       )}
                     </div>
                   </div>
 
                   {/* Progress Bar (for in-progress work) */}
-                  {work.status === 'in_progress' && (
+                  {work.status === "in_progress" && (
                     <div className="mb-4">
                       <div className="flex justify-between text-sm text-gray-600 mb-1">
-                        <span>{isNepali ? 'प्रगति:' : 'Progress:'}</span>
-                        <span>{work.completedPieces}/{work.pieces} ({work.progress}%)</span>
+                        <span>{isNepali ? "प्रगति:" : "Progress:"}</span>
+                        <span>
+                          {work.completedPieces}/{work.pieces} ({work.progress}
+                          %)
+                        </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div 
+                        <div
                           className="bg-blue-600 h-2 rounded-full transition-all duration-300"
                           style={{ width: `${work.progress}%` }}
                         ></div>
@@ -471,24 +570,29 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
                     <div>
                       {work.assignedAt && (
                         <span>
-                          {isNepali ? 'तोकिएको:' : 'Assigned:'} {formatTime(work.assignedAt)}
+                          {isNepali ? "तोकिएको:" : "Assigned:"}{" "}
+                          {formatTime(work.assignedAt)}
                         </span>
                       )}
                       {work.startedAt && (
                         <span className="ml-4">
-                          {isNepali ? 'सुरु:' : 'Started:'} {formatTime(work.startedAt)}
+                          {isNepali ? "सुरु:" : "Started:"}{" "}
+                          {formatTime(work.startedAt)}
                         </span>
                       )}
-                      {work.scheduledAt && work.status === 'scheduled' && (
+                      {work.scheduledAt && work.status === "scheduled" && (
                         <span>
-                          {isNepali ? 'निर्धारित:' : 'Scheduled:'} {formatTime(work.scheduledAt)}
+                          {isNepali ? "निर्धारित:" : "Scheduled:"}{" "}
+                          {formatTime(work.scheduledAt)}
                         </span>
                       )}
                     </div>
                     <div>
-                      {work.status === 'in_progress' && (
+                      {work.status === "in_progress" && (
                         <span className="text-blue-600">
-                          {isNepali ? 'बाँकी:' : 'Remaining:'} {calculateRemainingTime(work)} {isNepali ? 'मिनेट' : 'min'}
+                          {isNepali ? "बाँकी:" : "Remaining:"}{" "}
+                          {calculateRemainingTime(work)}{" "}
+                          {isNepali ? "मिनेट" : "min"}
                         </span>
                       )}
                     </div>
@@ -506,7 +610,7 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
           <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-96 overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">
-                {isNepali ? 'काम विवरण' : 'Work Details'}
+                {isNepali ? "काम विवरण" : "Work Details"}
               </h3>
               <button
                 onClick={() => setSelectedWork(null)}
@@ -515,49 +619,82 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
                 ✕
               </button>
             </div>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'लेख:' : 'Article:'}</span>
-                  <div className="font-medium">{selectedWork.articleName} (#{selectedWork.articleNumber})</div>
+                  <span className="text-gray-500">
+                    {isNepali ? "लेख:" : "Article:"}
+                  </span>
+                  <div className="font-medium">
+                    {selectedWork.articleName} (#{selectedWork.articleNumber})
+                  </div>
                 </div>
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'स्थिति:' : 'Status:'}</span>
-                  <div className={`inline-block px-2 py-1 rounded text-sm ${getStatusColor(selectedWork.status)}`}>
+                  <span className="text-gray-500">
+                    {isNepali ? "स्थिति:" : "Status:"}
+                  </span>
+                  <div
+                    className={`inline-block px-2 py-1 rounded text-sm ${getStatusColor(
+                      selectedWork.status
+                    )}`}
+                  >
                     {getStatusText(selectedWork.status)}
                   </div>
                 </div>
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'काम:' : 'Operation:'}</span>
+                  <span className="text-gray-500">
+                    {isNepali ? "काम:" : "Operation:"}
+                  </span>
                   <div className="font-medium">{selectedWork.operation}</div>
                 </div>
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'मेसिन:' : 'Machine:'}</span>
+                  <span className="text-gray-500">
+                    {isNepali ? "मेसिन:" : "Machine:"}
+                  </span>
                   <div className="font-medium">{selectedWork.machineType}</div>
                 </div>
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'रङ:' : 'Color:'}</span>
+                  <span className="text-gray-500">
+                    {isNepali ? "रङ:" : "Color:"}
+                  </span>
                   <div className="font-medium">{selectedWork.color}</div>
                 </div>
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'साइज:' : 'Size:'}</span>
+                  <span className="text-gray-500">
+                    {isNepali ? "साइज:" : "Size:"}
+                  </span>
                   <div className="font-medium">{selectedWork.size}</div>
                 </div>
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'टुक्राहरू:' : 'Pieces:'}</span>
-                  <div className="font-medium">{formatNumber(selectedWork.pieces)}</div>
+                  <span className="text-gray-500">
+                    {isNepali ? "टुक्राहरू:" : "Pieces:"}
+                  </span>
+                  <div className="font-medium">
+                    {formatNumber(selectedWork.pieces)}
+                  </div>
                 </div>
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'दर:' : 'Rate:'}</span>
-                  <div className="font-medium">{formatCurrency(selectedWork.rate)}</div>
+                  <span className="text-gray-500">
+                    {isNepali ? "दर:" : "Rate:"}
+                  </span>
+                  <div className="font-medium">
+                    {formatCurrency(selectedWork.rate)}
+                  </div>
                 </div>
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'अनुमानित समय:' : 'Estimated Time:'}</span>
-                  <div className="font-medium">{selectedWork.estimatedTime} {isNepali ? 'मिनेट' : 'minutes'}</div>
+                  <span className="text-gray-500">
+                    {isNepali ? "अनुमानित समय:" : "Estimated Time:"}
+                  </span>
+                  <div className="font-medium">
+                    {selectedWork.estimatedTime}{" "}
+                    {isNepali ? "मिनेट" : "minutes"}
+                  </div>
                 </div>
                 <div>
-                  <span className="text-gray-500">{isNepali ? 'कुल कमाई:' : 'Total Earnings:'}</span>
+                  <span className="text-gray-500">
+                    {isNepali ? "कुल कमाई:" : "Total Earnings:"}
+                  </span>
                   <div className="font-medium text-green-600">
                     {formatCurrency(selectedWork.pieces * selectedWork.rate)}
                   </div>
@@ -569,17 +706,17 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
                   onClick={() => setSelectedWork(null)}
                   className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
                 >
-                  {isNepali ? 'बन्द गर्नुहोस्' : 'Close'}
+                  {isNepali ? "बन्द गर्नुहोस्" : "Close"}
                 </button>
-                {selectedWork.status === 'assigned' && (
+                {selectedWork.status === "assigned" && (
                   <button
                     onClick={() => {
-                      handleWorkAction(selectedWork, 'start');
+                      handleWorkAction(selectedWork, "start");
                       setSelectedWork(null);
                     }}
                     className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                   >
-                    {isNepali ? 'काम सुरु गर्नुहोस्' : 'Start Work'}
+                    {isNepali ? "काम सुरु गर्नुहोस्" : "Start Work"}
                   </button>
                 )}
               </div>

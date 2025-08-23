@@ -9,7 +9,7 @@ import { NotificationContext } from '../../context/NotificationContext';
 const WorkAssignment = () => {
   const { user } = useContext(AuthContext);
   const { isNepali, formatCurrency } = useContext(LanguageContext);
-  const { showNotification } = useContext(NotificationContext);
+  const { showNotification, sendWorkCompleted } = useContext(NotificationContext);
   
   const [availableBundles, setAvailableBundles] = useState([]);
   const [operators, setOperators] = useState([]);
@@ -24,11 +24,13 @@ const WorkAssignment = () => {
   });
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [showBulkAssign, setShowBulkAssign] = useState(false);
+  const [activeWork, setActiveWork] = useState([]);
 
   useEffect(() => {
     loadAvailableBundles();
     loadOperators();
     loadAssignmentHistory();
+    loadActiveWork();
   }, [filter]);
 
   const loadAvailableBundles = async () => {
@@ -273,6 +275,115 @@ const WorkAssignment = () => {
       setAssignmentHistory(mockHistory);
     } catch (error) {
       console.error('Failed to load assignment history:', error);
+    }
+  };
+
+  const loadActiveWork = async () => {
+    try {
+      // Mock active work data
+      const mockActiveWork = [
+        {
+          id: 'active_001',
+          bundleId: 'bundle_active_001',
+          articleNumber: '8085',
+          articleName: isNepali ? 'नीलो टी-शर्ट' : 'Blue T-Shirt',
+          operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
+          operatorId: 'op_001',
+          operatorName: isNepali ? 'राम सिंह' : 'Ram Singh',
+          pieces: 30,
+          completedPieces: 25,
+          rate: 2.50,
+          startedAt: new Date(Date.now() - 3600000).toISOString(),
+          estimatedFinish: new Date(Date.now() + 1800000).toISOString(),
+          status: 'in_progress'
+        },
+        {
+          id: 'active_002',
+          bundleId: 'bundle_active_002',
+          articleNumber: '2233',
+          articleName: isNepali ? 'हरियो पोलो' : 'Green Polo',
+          operation: isNepali ? 'साइड सिम' : 'Side Seam',
+          operatorId: 'op_003',
+          operatorName: isNepali ? 'हरि बहादुर' : 'Hari Bahadur',
+          pieces: 28,
+          completedPieces: 28,
+          rate: 2.80,
+          startedAt: new Date(Date.now() - 5400000).toISOString(),
+          estimatedFinish: new Date(Date.now() - 300000).toISOString(),
+          status: 'ready_to_complete'
+        }
+      ];
+
+      setActiveWork(mockActiveWork);
+    } catch (error) {
+      console.error('Failed to load active work:', error);
+    }
+  };
+
+  const markWorkComplete = async (workItem) => {
+    setLoading(true);
+    try {
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const earnings = workItem.completedPieces * workItem.rate;
+
+      // Send completion notification
+      sendWorkCompleted(
+        workItem.articleNumber,
+        workItem.operation,
+        workItem.completedPieces,
+        formatCurrency(earnings)
+      );
+
+      // Update assignment history
+      const completedAssignment = {
+        id: `completed_${Date.now()}`,
+        bundleId: workItem.bundleId,
+        operatorId: workItem.operatorId,
+        operatorName: workItem.operatorName,
+        articleNumber: workItem.articleNumber,
+        operation: workItem.operation,
+        assignedAt: workItem.startedAt,
+        completedAt: new Date().toISOString(),
+        assignedBy: user?.id || 'supervisor_01',
+        status: 'completed',
+        pieces: workItem.pieces,
+        completedPieces: workItem.completedPieces,
+        earnings: earnings
+      };
+
+      setAssignmentHistory(prev => [completedAssignment, ...prev]);
+
+      // Remove from active work
+      setActiveWork(prev => prev.filter(w => w.id !== workItem.id));
+
+      // Update operator status
+      setOperators(prev => prev.map(op => 
+        op.id === workItem.operatorId 
+          ? { 
+              ...op, 
+              currentWorkload: Math.max(0, op.currentWorkload - 1),
+              todayPieces: op.todayPieces + workItem.completedPieces,
+              status: op.currentWorkload <= 1 ? 'available' : 'working'
+            }
+          : op
+      ));
+
+      showNotification(
+        isNepali 
+          ? `${workItem.articleNumber} सम्पन्न भयो। ${workItem.operatorName} - ${formatCurrency(earnings)} कमाई`
+          : `${workItem.articleNumber} completed by ${workItem.operatorName} - ${formatCurrency(earnings)} earned`,
+        'success'
+      );
+
+    } catch (error) {
+      showNotification(
+        isNepali ? 'काम सम्पन्न गर्न समस्या भयो' : 'Failed to mark work as complete',
+        'error'
+      );
+    } finally {
+      setLoading(false);
     }
   };
 

@@ -141,6 +141,22 @@ const SelfAssignmentSystem = () => {
 
       // Apply filters
       let filteredWork = mockAvailableWork;
+      
+      // Filter by operator's machine speciality first
+      if (user && user.speciality) {
+        const machineMatches = {
+          'overlock': ['ओभरलक', 'Overlock'],
+          'flatlock': ['फ्ल्यालक', 'Flatlock'], 
+          'single_needle': ['एकल सुई', 'Single Needle'],
+          'buttonhole': ['बटनहोल', 'Buttonhole']
+        };
+        
+        const allowedMachineTypes = machineMatches[user.speciality] || [];
+        filteredWork = filteredWork.filter(work => 
+          allowedMachineTypes.includes(work.machineType) || 
+          allowedMachineTypes.includes(work.englishMachine)
+        );
+      }
 
       if (filter.machineType !== "all") {
         filteredWork = filteredWork.filter(
