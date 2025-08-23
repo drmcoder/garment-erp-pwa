@@ -15,6 +15,7 @@ import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
 import WIPImportSimplified from "./components/supervisor/WIPImportSimplified";
 import SystemSettings from "./components/admin/SystemSettings";
+import UserManagement from "./components/admin/UserManagement";
 
 // Login Component
 const LoginScreen = () => {
@@ -26,6 +27,18 @@ const LoginScreen = () => {
     rememberMe: false,
   });
   const [loginLoading, setLoginLoading] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [manualEntry, setManualEntry] = useState(false);
+  const [clickCount, setClickCount] = useState(0);
+
+  // Available users (this would normally come from a users API or context)
+  const availableUsers = [
+    { username: 'ram.singh', name: 'Ram Bahadur Singh', role: 'operator' },
+    { username: 'sita.devi', name: 'Sita Devi Sharma', role: 'operator' },
+    { username: 'hari.supervisor', name: 'Hari Prasad Thapa', role: 'supervisor' },
+    { username: 'admin.manager', name: 'Admin Manager', role: 'management' },
+    // Add more users as created through UserManagement
+  ];
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -45,6 +58,66 @@ const LoginScreen = () => {
     }
   };
 
+  const handleUserSelect = (user) => {
+    setCredentials(prev => ({ 
+      ...prev, 
+      username: user.username,
+      password: 'password123' // Auto-fill default password
+    }));
+    setShowDropdown(false);
+  };
+
+  const handleUsernameClick = () => {
+    setClickCount(prev => prev + 1);
+    setTimeout(() => {
+      if (clickCount === 0) {
+        // Single click - show dropdown
+        setShowDropdown(true);
+        setManualEntry(false);
+      }
+      setClickCount(0);
+    }, 300);
+  };
+
+  const handleUsernameDoubleClick = () => {
+    // Double click - enable manual entry
+    setManualEntry(true);
+    setShowDropdown(false);
+    setCredentials(prev => ({ ...prev, username: '' }));
+  };
+
+  const getRoleIcon = (role) => {
+    const icons = {
+      operator: '👤',
+      supervisor: '👨‍💼', 
+      management: '👔'
+    };
+    return icons[role] || '👤';
+  };
+
+  const getRoleColor = (role) => {
+    const colors = {
+      operator: 'text-blue-600',
+      supervisor: 'text-purple-600',
+      management: 'text-red-600'
+    };
+    return colors[role] || 'text-gray-600';
+  };
+
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (showDropdown && !event.target.closest('.relative')) {
+        setShowDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8">
@@ -62,22 +135,86 @@ const LoginScreen = () => {
 
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           <div className="rounded-md shadow-sm -space-y-px">
-            <div>
+            <div className="relative">
               <label htmlFor="username" className="sr-only">
                 Username
               </label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Username (e.g., ram.singh)"
-                value={credentials.username}
-                onChange={(e) =>
-                  setCredentials({ ...credentials, username: e.target.value })
-                }
-              />
+              
+              {/* Username Input/Button */}
+              {manualEntry ? (
+                <input
+                  id="username"
+                  name="username"
+                  type="text"
+                  required
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                  placeholder="Type username manually..."
+                  value={credentials.username}
+                  onChange={(e) =>
+                    setCredentials({ ...credentials, username: e.target.value })
+                  }
+                  onBlur={() => {
+                    if (!credentials.username) {
+                      setManualEntry(false);
+                    }
+                  }}
+                  autoFocus
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleUsernameClick}
+                  onDoubleClick={handleUsernameDoubleClick}
+                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm text-left bg-white hover:bg-gray-50"
+                >
+                  {credentials.username || "Click to select user, double-click for manual entry"}
+                </button>
+              )}
+
+              {/* Dropdown */}
+              {showDropdown && !manualEntry && (
+                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                  <div className="p-2 border-b bg-gray-50">
+                    <p className="text-xs text-gray-600 text-center">
+                      Select user or double-click above for manual entry
+                    </p>
+                  </div>
+                  {availableUsers.map((user) => (
+                    <button
+                      key={user.username}
+                      type="button"
+                      onClick={() => handleUserSelect(user)}
+                      className="w-full text-left px-3 py-2 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg">{getRoleIcon(user.role)}</span>
+                        <div className="flex-1">
+                          <div className="font-medium text-gray-900">{user.name}</div>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-600">@{user.username}</span>
+                            <span className={`text-xs font-semibold ${getRoleColor(user.role)}`}>
+                              {user.role}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                  <div className="p-2 border-t bg-gray-50">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setManualEntry(true);
+                        setShowDropdown(false);
+                        setCredentials(prev => ({ ...prev, username: '' }));
+                      }}
+                      className="w-full text-center py-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      ⌨️ Type manually instead
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
             <div>
               <label htmlFor="password" className="sr-only">
@@ -535,6 +672,8 @@ const AppContent = () => {
           );
         case "work-assignment":
           return <WorkAssignment />;
+        case "user-management":
+          return <UserManagement />;
         case "dashboard":
         default:
           return <SupervisorDashboard />;
@@ -658,6 +797,16 @@ const AppContent = () => {
                 }`}
               >
                 🎯 Work Assignment
+              </button>
+              <button
+                onClick={() => setCurrentView("user-management")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  currentView === "user-management"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                👥 Users
               </button>
             </nav>
           </div>

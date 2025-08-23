@@ -23,14 +23,30 @@ const BundleManager = ({ bundles, onWorkItemsCreated, onCancel }) => {
     try {
       const allWorkItems = [];
 
+      console.log('Processing bundles with template:', {
+        template: template,
+        bundleCount: bundles.length,
+        bundles: bundles
+      });
+
       bundles.forEach(bundle => {
         // Check if template is applicable to this bundle's article
         const isApplicable = template.articleNumbers?.includes(bundle.articleNumber) || 
                            template.articleType === 'universal' ||
                            template.articleNumbers === null ||
-                           !template.articleNumbers;
+                           !template.articleNumbers ||
+                           template.id === 'universal-garment-template'; // Force universal template to work
+
+        // Debug logging
+        console.log('Bundle compatibility check:', {
+          bundleArticle: bundle.articleNumber,
+          templateArticles: template.articleNumbers,
+          templateType: template.articleType,
+          isApplicable: isApplicable
+        });
 
         if (isApplicable) {
+          console.log(`Creating work items for bundle ${bundle.bundleId} with ${template.operations.length} operations`);
           // Create work items for each operation in the template
           template.operations.forEach(operation => {
             const workItem = {
@@ -59,6 +75,7 @@ const BundleManager = ({ bundles, onWorkItemsCreated, onCancel }) => {
               icon: operation.icon
             };
 
+            console.log('Created work item:', workItem);
             allWorkItems.push(workItem);
           });
         }
@@ -72,6 +89,7 @@ const BundleManager = ({ bundles, onWorkItemsCreated, onCancel }) => {
         return a.sequence - b.sequence;
       });
 
+      console.log('Final work items count:', allWorkItems.length);
       setWorkItems(allWorkItems);
       setCurrentStep(3);
 

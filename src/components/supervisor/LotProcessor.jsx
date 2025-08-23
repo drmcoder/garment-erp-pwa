@@ -29,14 +29,15 @@ const LotProcessor = ({ wipData, onBundlesCreated, onCancel }) => {
           const sizes = articleConfig.sizes.split(':').map(s => s.trim()).filter(s => s);
           const ratios = articleConfig.ratios.split(':').map(r => parseInt(r.trim()) || 0);
 
-          // Create bundles for each size
+          // Create bundles for each size, with separate bundles for each ratio
           sizes.forEach((size, index) => {
             const ratio = ratios[index] || 0;
-            const piecesPerBundle = ratio * roll.layerCount;
-
-            if (piecesPerBundle > 0) {
+            const piecesPerBundle = roll.layerCount; // Each bundle gets all layers
+            
+            // Create separate bundles based on ratio (ratio = number of bundles for this size)
+            for (let bundleNum = 1; bundleNum <= ratio; bundleNum++) {
               rollBundles.push({
-                id: `${roll.id}-${style.articleNumber}-${size}`,
+                id: `${roll.id}-${style.articleNumber}-${size}-${bundleNum}`,
                 rollId: roll.id,
                 rollNumber: roll.rollNumber,
                 articleNumber: style.articleNumber,
@@ -44,7 +45,9 @@ const LotProcessor = ({ wipData, onBundlesCreated, onCancel }) => {
                 color: roll.colorName,
                 size: size,
                 layers: roll.layerCount,
-                ratio: ratio,
+                ratio: 1, // Each individual bundle has ratio of 1
+                totalRatio: ratio, // Store original ratio for reference
+                bundleSequence: bundleNum,
                 pieces: piecesPerBundle,
                 status: 'ready_for_cutting'
               });
@@ -232,6 +235,11 @@ const LotProcessor = ({ wipData, onBundlesCreated, onCancel }) => {
                             <div>
                               <div className="font-semibold text-gray-800">
                                 {bundle.articleNumber}#{bundle.size}
+                                {bundle.bundleSequence && (
+                                  <span className="ml-1 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                    Bundle {bundle.bundleSequence}/{bundle.totalRatio}
+                                  </span>
+                                )}
                               </div>
                               <div className="text-sm text-gray-600">{bundle.articleName}</div>
                             </div>
@@ -275,6 +283,9 @@ const LotProcessor = ({ wipData, onBundlesCreated, onCancel }) => {
                     <div className="flex items-center justify-between mb-3">
                       <div className="bg-blue-500 text-white text-xs font-bold px-2 py-1 rounded">
                         B{(index + 1).toString().padStart(3, '0')}
+                        {bundle.bundleSequence && (
+                          <span className="ml-1">({bundle.bundleSequence}/{bundle.totalRatio})</span>
+                        )}
                       </div>
                       <div className="text-sm text-gray-500">
                         Roll #{bundle.rollNumber}
@@ -313,7 +324,10 @@ const LotProcessor = ({ wipData, onBundlesCreated, onCancel }) => {
 
                     {/* Bundle calculation formula */}
                     <div className="mt-3 text-xs text-gray-500 bg-gray-50 rounded p-2">
-                      {bundle.layers} layers × {bundle.ratio} ratio = {bundle.pieces} pieces
+                      {bundle.bundleSequence ? 
+                        `Bundle ${bundle.bundleSequence}: ${bundle.layers} layers = ${bundle.pieces} pieces` :
+                        `${bundle.layers} layers × ${bundle.ratio} ratio = ${bundle.pieces} pieces`
+                      }
                     </div>
                   </div>
                 ))}
