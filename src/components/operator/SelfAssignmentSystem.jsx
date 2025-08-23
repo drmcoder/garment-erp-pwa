@@ -22,78 +22,7 @@ const SelfAssignmentSystem = () => {
     articleType: "all",
   });
 
-  // Mock data for demonstration - in real app, fetch from Firebase (keeping for reference)
-  // const mockAvailableWork = [
-    {
-      id: "bundle_001",
-      articleNumber: "8085",
-      articleName: "नीलो टी-शर्ट",
-      englishName: "Blue T-Shirt",
-      color: "नीलो-१",
-      size: "XL",
-      pieces: 30,
-      operation: "काँध जोड्ने",
-      englishOperation: "Shoulder Join",
-      machineType: "ओभरलक",
-      englishMachine: "Overlock",
-      rate: 2.5,
-      estimatedTime: 25,
-      priority: "सामान्य",
-      englishPriority: "Normal",
-      difficulty: "सजिलो",
-      englishDifficulty: "Easy",
-      recommendations: {
-        match: 95,
-        reasons: ["तपाईंको विशेषता", "उच्च दर", "सजिलो काम"],
-      },
-    },
-    {
-      id: "bundle_002",
-      articleNumber: "2233",
-      articleName: "हरियो पोलो",
-      englishName: "Green Polo",
-      color: "हरियो-२",
-      size: "2XL",
-      pieces: 28,
-      operation: "हेम फोल्ड",
-      englishOperation: "Hem Fold",
-      machineType: "फ्ल्यालक",
-      englishMachine: "Flatlock",
-      rate: 2.8,
-      estimatedTime: 20,
-      priority: "उच्च",
-      englishPriority: "High",
-      difficulty: "मध्यम",
-      englishDifficulty: "Medium",
-      recommendations: {
-        match: 88,
-        reasons: ["राम्रो दर", "छिटो काम", "उच्च प्राथमिकता"],
-      },
-    },
-    {
-      id: "bundle_003",
-      articleNumber: "6635",
-      articleName: "सेतो शर्ट",
-      englishName: "White Shirt",
-      color: "सेतो",
-      size: "L",
-      pieces: 40,
-      operation: "प्लाकेट",
-      englishOperation: "Placket",
-      machineType: "एकल सुई",
-      englishMachine: "Single Needle",
-      rate: 1.9,
-      estimatedTime: 50,
-      priority: "कम",
-      englishPriority: "Low",
-      difficulty: "कठिन",
-      englishDifficulty: "Hard",
-      recommendations: {
-        match: 65,
-        reasons: ["नयाँ सिप सिक्न", "लामो अभ्यास"],
-      },
-    },
-  ];
+  // Mock data removed - now using Firebase data
 
   const mockOperationTypes = [
     {
