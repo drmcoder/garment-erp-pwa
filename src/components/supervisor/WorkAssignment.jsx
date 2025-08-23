@@ -291,15 +291,24 @@ const WorkAssignment = () => {
   };
 
   const canOperatorHandleWork = (operator, bundle) => {
-    // Check machine compatibility
+    // Check machine compatibility with comprehensive matching
     const machineMatches = {
-      'overlock': ['ओभरलक', 'Overlock'],
-      'flatlock': ['फ्ल्यालक', 'Flatlock'],
-      'single_needle': ['एकल सुई', 'Single Needle'],
-      'buttonhole': ['बटनहोल', 'Buttonhole']
+      'overlock': ['ओभरलक', 'Overlock', 'overlock'],
+      'flatlock': ['फ्ल्यालक', 'Flatlock', 'flatlock'], 
+      'single_needle': ['एकल सुई', 'Single Needle', 'singleNeedle', 'single_needle'],
+      'singleNeedle': ['एकल सुई', 'Single Needle', 'singleNeedle', 'single_needle'],
+      'buttonhole': ['बटनहोल', 'Buttonhole', 'buttonhole']
     };
 
-    return machineMatches[operator.speciality]?.includes(bundle.machineType) || false;
+    const operatorMachine = operator.speciality || operator.machine;
+    const bundleMachine = bundle.machineType;
+    
+    // Direct match first
+    if (operatorMachine === bundleMachine) return true;
+    
+    // Use mapping for cross-language matching
+    const allowedMachines = machineMatches[operatorMachine] || [];
+    return allowedMachines.includes(bundleMachine);
   };
 
   const assignWorkToOperator = async (bundle, operator) => {

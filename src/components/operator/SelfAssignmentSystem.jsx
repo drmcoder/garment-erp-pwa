@@ -66,9 +66,8 @@ const SelfAssignmentSystem = () => {
   const loadAvailableWork = async () => {
     setLoading(true);
     try {
-      // Get available bundles based on operator's machine speciality
-      const machineType = user?.machine || user?.speciality;
-      const result = await BundleService.getAvailableBundles(machineType);
+      // Get ALL available bundles first, then filter by machine type
+      const result = await BundleService.getAvailableBundles();
 
       if (result.success) {
         // Map Firebase data to component format with AI recommendations
@@ -82,8 +81,8 @@ const SelfAssignmentSystem = () => {
           pieces: bundle.quantity || bundle.pieces || 0,
           operation: bundle.currentOperation || 'Operation',
           englishOperation: bundle.currentOperation || 'Operation',
-          machineType: bundle.machineType || machineType,
-          englishMachine: bundle.machineType || machineType,
+          machineType: bundle.machineType,
+          englishMachine: bundle.machineType,
           rate: bundle.rate || 0,
           estimatedTime: bundle.estimatedTime || 30,
           priority: bundle.priority || 'medium',
@@ -92,6 +91,23 @@ const SelfAssignmentSystem = () => {
           englishDifficulty: calculateDifficulty(bundle),
           recommendations: generateRecommendations(bundle, user)
         }));
+
+        // CRITICAL: Filter by operator's machine speciality FIRST
+        if (user && user.machine) {
+          const operatorMachine = user.machine;
+          const machineMatches = {
+            'overlock': ['overlock', 'ओभरलक', 'Overlock'],
+            'flatlock': ['flatlock', 'फ्ल्यालक', 'Flatlock'], 
+            'singleNeedle': ['singleNeedle', 'single_needle', 'एकल सुई', 'Single Needle'],
+            'buttonhole': ['buttonhole', 'बटनहोल', 'Buttonhole']
+          };
+          
+          const allowedMachineTypes = machineMatches[operatorMachine] || [operatorMachine];
+          filteredWork = filteredWork.filter(work => {
+            return allowedMachineTypes.includes(work.machineType) || 
+                   work.machineType === operatorMachine;
+          });
+        }
 
         // Apply filters
         if (filter.machineType !== "all") {
@@ -136,14 +152,28 @@ const SelfAssignmentSystem = () => {
 
   // Helper function to generate AI recommendations
   const generateRecommendations = (bundle, user) => {
-    let match = 70; // Base match score
+    let match = 50; // Lower base score, machine compatibility is critical
     const reasons = [];
 
-    // Check machine compatibility
+    // Check machine compatibility - MOST IMPORTANT
     const userMachine = user?.machine || user?.speciality;
-    if (userMachine && bundle.machineType === userMachine) {
-      match += 20;
-      reasons.push(isNepali ? "तपाईंको विशेषता" : "Your specialty");
+    const machineMatches = {
+      'overlock': ['overlock', 'ओभरलक', 'Overlock'],
+      'flatlock': ['flatlock', 'फ्ल्यालक', 'Flatlock'], 
+      'singleNeedle': ['singleNeedle', 'single_needle', 'एकल सुई', 'Single Needle'],
+      'buttonhole': ['buttonhole', 'बटनहोल', 'Buttonhole']
+    };
+
+    const allowedMachines = machineMatches[userMachine] || [userMachine];
+    const isCompatible = allowedMachines.includes(bundle.machineType) || bundle.machineType === userMachine;
+    
+    if (isCompatible) {
+      match += 40; // High score for machine compatibility
+      reasons.push(isNepali ? "तपाईंको विशेषता" : "Perfect machine match");
+    } else {
+      match = 10; // Very low score if machine doesn't match
+      reasons.push(isNepali ? "मेसिन मिल्दैन" : "Machine mismatch");
+      return { match, reasons }; // Return early for non-compatible work
     }
 
     // Check rate
