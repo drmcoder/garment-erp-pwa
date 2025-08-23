@@ -10,6 +10,7 @@ import {
 } from "./context/NotificationContext";
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
+import WorkAssignment from "./components/supervisor/WorkAssignment";
 
 // Login Component
 const LoginScreen = () => {
@@ -453,7 +454,7 @@ const OperatorDashboard = ({ onNavigate }) => {
         )}
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className={`grid grid-cols-1 ${process.env.NODE_ENV === 'development' ? 'md:grid-cols-2' : ''} gap-6`}>
           <button
             onClick={() => onNavigate("self-assignment")}
             className="bg-indigo-600 text-white p-6 rounded-lg hover:bg-indigo-700 transition-colors text-left"
@@ -465,14 +466,17 @@ const OperatorDashboard = ({ onNavigate }) => {
             </div>
           </button>
 
-          <button
-            onClick={testNotifications}
-            className="bg-green-600 text-white p-6 rounded-lg hover:bg-green-700 transition-colors text-left"
-          >
-            <div className="text-3xl mb-2">🔔</div>
-            <div className="text-xl font-semibold">Test Notifications</div>
-            <div className="text-green-200 mt-1">Try sample notifications</div>
-          </button>
+          {/* Test Notifications - Only show in development */}
+          {process.env.NODE_ENV === 'development' && (
+            <button
+              onClick={testNotifications}
+              className="bg-green-600 text-white p-6 rounded-lg hover:bg-green-700 transition-colors text-left"
+            >
+              <div className="text-3xl mb-2">🔔</div>
+              <div className="text-xl font-semibold">Test Notifications</div>
+              <div className="text-green-200 mt-1">Try sample notifications</div>
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -498,9 +502,15 @@ const AppContent = () => {
       }
     }
 
-    // Supervisor and manager views
+    // Supervisor views
     if (user.role === "supervisor") {
-      return <SupervisorDashboard />;
+      switch (currentView) {
+        case "work-assignment":
+          return <WorkAssignment />;
+        case "dashboard":
+        default:
+          return <SupervisorDashboard />;
+      }
     }
 
     // Manager and admin views - still under development
@@ -537,6 +547,36 @@ const AppContent = () => {
                 }`}
               >
                 🎯 Choose Work
+              </button>
+            </nav>
+          </div>
+        </div>
+      )}
+
+      {/* Navigation Tabs for Supervisors */}
+      {user.role === "supervisor" && (
+        <div className="bg-white border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav className="flex space-x-8">
+              <button
+                onClick={() => setCurrentView("dashboard")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  currentView === "dashboard"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                📊 Dashboard
+              </button>
+              <button
+                onClick={() => setCurrentView("work-assignment")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  currentView === "work-assignment"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                🎯 Work Assignment
               </button>
             </nav>
           </div>

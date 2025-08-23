@@ -5,6 +5,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
+import { BundleService, OperatorService, WorkAssignmentService } from '../../services/firebase-services';
 
 const WorkAssignment = () => {
   const { user } = useContext(AuthContext);
@@ -36,117 +37,60 @@ const WorkAssignment = () => {
   const loadAvailableBundles = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
+      const result = await BundleService.getAvailableBundles();
       
-      const mockBundles = [
-        {
-          id: 'bundle_001',
-          articleNumber: '8085',
-          articleName: isNepali ? 'नीलो टी-शर्ट' : 'Blue T-Shirt',
-          color: 'नीलो-१',
-          size: 'XL',
-          pieces: 30,
-          operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
-          machineType: isNepali ? 'ओभरलक' : 'Overlock',
-          rate: 2.50,
-          estimatedTime: 25,
-          priority: isNepali ? 'उच्च' : 'High',
-          status: 'pending',
-          lotNumber: 'LOT-2025-001',
-          createdAt: new Date(Date.now() - 3600000).toISOString(),
-          deadline: new Date(Date.now() + 86400000).toISOString()
-        },
-        {
-          id: 'bundle_002',
-          articleNumber: '2233',
-          articleName: isNepali ? 'हरियो पोलो' : 'Green Polo',
-          color: 'हरियो-२',
-          size: '2XL',
-          pieces: 28,
-          operation: isNepali ? 'साइड सिम' : 'Side Seam',
-          machineType: isNepali ? 'ओभरलक' : 'Overlock',
-          rate: 2.80,
-          estimatedTime: 22,
-          priority: isNepali ? 'सामान्य' : 'Normal',
-          status: 'pending',
-          lotNumber: 'LOT-2025-002',
-          createdAt: new Date(Date.now() - 1800000).toISOString(),
-          deadline: new Date(Date.now() + 172800000).toISOString()
-        },
-        {
-          id: 'bundle_003',
-          articleNumber: '6635',
-          articleName: isNepali ? 'सेतो शर्ट' : 'White Shirt',
-          color: 'सेतो',
-          size: 'L',
-          pieces: 40,
-          operation: isNepali ? 'हेम फोल्ड' : 'Hem Fold',
-          machineType: isNepali ? 'फ्ल्यालक' : 'Flatlock',
-          rate: 2.20,
-          estimatedTime: 35,
-          priority: isNepali ? 'कम' : 'Low',
-          status: 'pending',
-          lotNumber: 'LOT-2025-003',
-          createdAt: new Date(Date.now() - 900000).toISOString(),
-          deadline: new Date(Date.now() + 259200000).toISOString()
-        },
-        {
-          id: 'bundle_004',
-          articleNumber: '7799',
-          articleName: isNepali ? 'कालो जैकेट' : 'Black Jacket',
-          color: 'कालो',
-          size: 'XL',
-          pieces: 20,
-          operation: isNepali ? 'जिप लगाउने' : 'Zipper Attach',
-          machineType: isNepali ? 'एकल सुई' : 'Single Needle',
-          rate: 5.00,
-          estimatedTime: 45,
-          priority: isNepali ? 'उच्च' : 'High',
-          status: 'pending',
-          lotNumber: 'LOT-2025-004',
-          createdAt: new Date(Date.now() - 450000).toISOString(),
-          deadline: new Date(Date.now() + 86400000).toISOString()
-        }
-      ];
-
-      // Apply filters
-      let filteredBundles = mockBundles;
-      
-      if (filter.machineType !== 'all') {
-        filteredBundles = filteredBundles.filter(bundle => 
-          bundle.machineType === filter.machineType
-        );
-      }
-      
-      if (filter.priority !== 'all') {
-        filteredBundles = filteredBundles.filter(bundle => 
-          bundle.priority === filter.priority
-        );
-      }
-
-      if (filter.status !== 'all') {
-        filteredBundles = filteredBundles.filter(bundle => 
-          bundle.status === filter.status
-        );
-      }
-
-      // Sort by priority and deadline
-      filteredBundles.sort((a, b) => {
-        const priorityOrder = { 'उच्च': 3, 'High': 3, 'सामान्य': 2, 'Normal': 2, 'कम': 1, 'Low': 1 };
-        const aPriority = priorityOrder[a.priority] || 2;
-        const bPriority = priorityOrder[b.priority] || 2;
+      if (result.success) {
+        // Apply filters
+        let filteredBundles = result.bundles.map(bundle => ({
+          ...bundle,
+          articleNumber: bundle.article?.toString() || bundle.articleNumber,
+          articleName: bundle.articleName || `Article ${bundle.article}`,
+          operation: bundle.currentOperation || 'Operation',
+          pieces: bundle.quantity || bundle.pieces || 0,
+          priority: bundle.priority || 'Normal',
+          deadline: bundle.dueDate || new Date(Date.now() + 86400000).toISOString(),
+          estimatedTime: bundle.estimatedTime || 30,
+          lotNumber: bundle.bundleNumber || bundle.id,
+        }));
         
-        if (aPriority !== bPriority) {
-          return bPriority - aPriority; // Higher priority first
+        if (filter.machineType !== 'all') {
+          filteredBundles = filteredBundles.filter(bundle => 
+            bundle.machineType === filter.machineType
+          );
         }
         
-        return new Date(a.deadline).getTime() - new Date(b.deadline).getTime(); // Earlier deadline first
-      });
+        if (filter.priority !== 'all') {
+          filteredBundles = filteredBundles.filter(bundle => 
+            bundle.priority === filter.priority
+          );
+        }
 
-      setAvailableBundles(filteredBundles);
+        if (filter.status !== 'all') {
+          filteredBundles = filteredBundles.filter(bundle => 
+            bundle.status === filter.status
+          );
+        }
+
+        // Sort by priority and deadline
+        filteredBundles.sort((a, b) => {
+          const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+          const aPriority = priorityOrder[a.priority?.toLowerCase()] || 2;
+          const bPriority = priorityOrder[b.priority?.toLowerCase()] || 2;
+          
+          if (aPriority !== bPriority) {
+            return bPriority - aPriority;
+          }
+          
+          return new Date(a.deadline).getTime() - new Date(b.deadline).getTime();
+        });
+
+        setAvailableBundles(filteredBundles);
+      } else {
+        throw new Error(result.error || 'Failed to load bundles');
+      }
 
     } catch (error) {
+      console.error('Load bundles error:', error);
       showNotification(
         isNepali ? 'बन्डल लोड गर्न समस्या भयो' : 'Failed to load bundles',
         'error'
@@ -158,121 +102,48 @@ const WorkAssignment = () => {
 
   const loadOperators = async () => {
     try {
-      // Mock operators data
-      const mockOperators = [
-        {
-          id: 'op_001',
-          name: isNepali ? 'राम सिंह' : 'Ram Singh',
-          speciality: 'overlock',
-          specialityNepali: 'ओभरलक',
-          station: 'overlock_01',
-          status: 'available',
-          efficiency: 92,
-          qualityScore: 96,
-          currentWorkload: 0,
-          maxWorkload: 3,
-          skills: ['shoulder_join', 'side_seam', 'armhole'],
-          todayPieces: 85,
-          estimatedFinishTime: null
-        },
-        {
-          id: 'op_002',
-          name: isNepali ? 'सीता देवी' : 'Sita Devi',
-          speciality: 'flatlock',
-          specialityNepali: 'फ्ल्यालक',
-          station: 'flatlock_01',
-          status: 'working',
-          efficiency: 88,
-          qualityScore: 94,
-          currentWorkload: 1,
-          maxWorkload: 2,
-          skills: ['hem_fold', 'neckline', 'binding'],
-          todayPieces: 72,
-          estimatedFinishTime: new Date(Date.now() + 1800000).toISOString()
-        },
-        {
-          id: 'op_003',
-          name: isNepali ? 'हरि बहादुर' : 'Hari Bahadur',
-          speciality: 'single_needle',
-          specialityNepali: 'एकल सुई',
-          station: 'single_needle_01',
-          status: 'working',
-          efficiency: 90,
-          qualityScore: 98,
-          currentWorkload: 2,
-          maxWorkload: 3,
-          skills: ['placket', 'buttonhole', 'top_stitch'],
-          todayPieces: 95,
-          estimatedFinishTime: new Date(Date.now() + 3600000).toISOString()
-        },
-        {
-          id: 'op_004',
-          name: isNepali ? 'मिना तामाङ' : 'Mina Tamang',
-          speciality: 'overlock',
-          specialityNepali: 'ओभरलक',
-          station: 'overlock_02',
-          status: 'available',
-          efficiency: 78,
-          qualityScore: 92,
-          currentWorkload: 0,
-          maxWorkload: 2,
-          skills: ['side_seam', 'hem_fold'],
-          todayPieces: 58,
-          estimatedFinishTime: null
-        },
-        {
-          id: 'op_005',
-          name: isNepali ? 'कुमार गुरुङ' : 'Kumar Gurung',
-          speciality: 'buttonhole',
-          specialityNepali: 'बटनहोल',
-          station: 'buttonhole_01',
-          status: 'break',
-          efficiency: 85,
-          qualityScore: 95,
-          currentWorkload: 1,
-          maxWorkload: 2,
-          skills: ['buttonhole', 'button_attach'],
-          todayPieces: 45,
-          estimatedFinishTime: new Date(Date.now() + 900000).toISOString()
-        }
-      ];
+      const result = await OperatorService.getActiveOperators();
+      
+      if (result.success) {
+        // Map Firebase data to component format
+        const mappedOperators = result.operators.map(operator => ({
+          ...operator,
+          name: isNepali ? operator.name : operator.nameEn,
+          speciality: operator.machine || operator.speciality,
+          specialityNepali: operator.machine,
+          status: operator.currentBundle ? 'working' : 'available',
+          efficiency: operator.efficiency || 85,
+          qualityScore: operator.qualityScore || 95,
+          currentWorkload: operator.currentWorkload || 0,
+          maxWorkload: operator.maxWorkload || 3,
+          skills: operator.skills || [],
+          todayPieces: operator.todayStats?.piecesCompleted || 0,
+          estimatedFinishTime: operator.estimatedFinishTime || null
+        }));
 
-      setOperators(mockOperators);
+        setOperators(mappedOperators);
+      } else {
+        throw new Error(result.error || 'Failed to load operators');
+      }
 
     } catch (error) {
       console.error('Failed to load operators:', error);
+      showNotification(
+        isNepali ? 'ऑपरेटर लोड गर्न समस्या भयो' : 'Failed to load operators',
+        'error'
+      );
     }
   };
 
   const loadAssignmentHistory = async () => {
     try {
-      // Mock assignment history
-      const mockHistory = [
-        {
-          id: 'assign_001',
-          bundleId: 'bundle_100',
-          operatorId: 'op_001',
-          operatorName: isNepali ? 'राम सिंह' : 'Ram Singh',
-          articleNumber: '8085',
-          operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
-          assignedAt: new Date(Date.now() - 1800000).toISOString(),
-          assignedBy: user?.id || 'supervisor_01',
-          status: 'completed'
-        },
-        {
-          id: 'assign_002',
-          bundleId: 'bundle_101',
-          operatorId: 'op_002',
-          operatorName: isNepali ? 'सीता देवी' : 'Sita Devi',
-          articleNumber: '2233',
-          operation: isNepali ? 'हेम फोल्ड' : 'Hem Fold',
-          assignedAt: new Date(Date.now() - 3600000).toISOString(),
-          assignedBy: user?.id || 'supervisor_01',
-          status: 'in_progress'
-        }
-      ];
-
-      setAssignmentHistory(mockHistory);
+      const result = await WorkAssignmentService.getAssignmentHistory(user?.id);
+      
+      if (result.success) {
+        setAssignmentHistory(result.assignments || []);
+      } else {
+        console.error('Failed to load assignment history:', result.error);
+      }
     } catch (error) {
       console.error('Failed to load assignment history:', error);
     }
@@ -280,41 +151,30 @@ const WorkAssignment = () => {
 
   const loadActiveWork = async () => {
     try {
-      // Mock active work data
-      const mockActiveWork = [
-        {
-          id: 'active_001',
-          bundleId: 'bundle_active_001',
-          articleNumber: '8085',
-          articleName: isNepali ? 'नीलो टी-शर्ट' : 'Blue T-Shirt',
-          operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
-          operatorId: 'op_001',
-          operatorName: isNepali ? 'राम सिंह' : 'Ram Singh',
-          pieces: 30,
-          completedPieces: 25,
-          rate: 2.50,
-          startedAt: new Date(Date.now() - 3600000).toISOString(),
-          estimatedFinish: new Date(Date.now() + 1800000).toISOString(),
-          status: 'in_progress'
-        },
-        {
-          id: 'active_002',
-          bundleId: 'bundle_active_002',
-          articleNumber: '2233',
-          articleName: isNepali ? 'हरियो पोलो' : 'Green Polo',
-          operation: isNepali ? 'साइड सिम' : 'Side Seam',
-          operatorId: 'op_003',
-          operatorName: isNepali ? 'हरि बहादुर' : 'Hari Bahadur',
-          pieces: 28,
-          completedPieces: 28,
-          rate: 2.80,
-          startedAt: new Date(Date.now() - 5400000).toISOString(),
-          estimatedFinish: new Date(Date.now() - 300000).toISOString(),
-          status: 'ready_to_complete'
-        }
-      ];
+      const result = await WorkAssignmentService.getActiveWorkAssignments();
+      
+      if (result.success) {
+        // Map Firebase data to component format
+        const mappedActiveWork = result.activeWork.map(work => ({
+          id: work.id,
+          bundleId: work.id,
+          articleNumber: work.article?.toString() || work.articleNumber,
+          articleName: work.articleName || `Article ${work.article}`,
+          operation: work.currentOperation || 'Operation',
+          operatorId: work.assignedOperator || work.currentOperatorId,
+          operatorName: work.operatorName || 'Unknown Operator',
+          pieces: work.quantity || work.pieces || 0,
+          completedPieces: work.completedPieces || 0,
+          rate: work.rate || 0,
+          startedAt: work.startedAt || work.assignedAt,
+          estimatedFinish: work.estimatedFinish,
+          status: work.status === 'assigned' ? 'in_progress' : work.status
+        }));
 
-      setActiveWork(mockActiveWork);
+        setActiveWork(mappedActiveWork);
+      } else {
+        console.error('Failed to load active work:', result.error);
+      }
     } catch (error) {
       console.error('Failed to load active work:', error);
     }
@@ -323,10 +183,23 @@ const WorkAssignment = () => {
   const markWorkComplete = async (workItem) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 800));
-
       const earnings = workItem.completedPieces * workItem.rate;
+
+      // Mark work as completed using Firebase service
+      const completionData = {
+        completedPieces: workItem.completedPieces,
+        actualTime: Math.floor((new Date() - new Date(workItem.startedAt)) / (1000 * 60)),
+        earnings: earnings
+      };
+
+      const completeResult = await WorkAssignmentService.markWorkAsCompleted(workItem.bundleId, completionData);
+      
+      if (!completeResult.success) {
+        throw new Error(completeResult.error || 'Failed to mark as complete');
+      }
+
+      // Update operator workload
+      await OperatorService.updateOperatorWorkload(workItem.operatorId, -1);
 
       // Send completion notification
       sendWorkCompleted(
@@ -335,25 +208,6 @@ const WorkAssignment = () => {
         workItem.completedPieces,
         formatCurrency(earnings)
       );
-
-      // Update assignment history
-      const completedAssignment = {
-        id: `completed_${Date.now()}`,
-        bundleId: workItem.bundleId,
-        operatorId: workItem.operatorId,
-        operatorName: workItem.operatorName,
-        articleNumber: workItem.articleNumber,
-        operation: workItem.operation,
-        assignedAt: workItem.startedAt,
-        completedAt: new Date().toISOString(),
-        assignedBy: user?.id || 'supervisor_01',
-        status: 'completed',
-        pieces: workItem.pieces,
-        completedPieces: workItem.completedPieces,
-        earnings: earnings
-      };
-
-      setAssignmentHistory(prev => [completedAssignment, ...prev]);
 
       // Remove from active work
       setActiveWork(prev => prev.filter(w => w.id !== workItem.id));
@@ -370,6 +224,9 @@ const WorkAssignment = () => {
           : op
       ));
 
+      // Reload assignment history
+      loadAssignmentHistory();
+
       showNotification(
         isNepali 
           ? `${workItem.articleNumber} सम्पन्न भयो। ${workItem.operatorName} - ${formatCurrency(earnings)} कमाई`
@@ -378,6 +235,7 @@ const WorkAssignment = () => {
       );
 
     } catch (error) {
+      console.error('Work completion error:', error);
       showNotification(
         isNepali ? 'काम सम्पन्न गर्न समस्या भयो' : 'Failed to mark work as complete',
         'error'
@@ -447,10 +305,29 @@ const WorkAssignment = () => {
   const assignWorkToOperator = async (bundle, operator) => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Assign bundle using Firebase service
+      const assignResult = await BundleService.assignBundle(bundle.id, operator.id, user?.id || 'supervisor_01');
+      
+      if (!assignResult.success) {
+        throw new Error(assignResult.error || 'Assignment failed');
+      }
+
+      // Create assignment record
+      const assignmentData = {
+        bundleId: bundle.id,
+        operatorId: operator.id,
+        operatorName: operator.name,
+        articleNumber: bundle.articleNumber,
+        operation: bundle.operation,
+        assignedBy: user?.id || 'supervisor_01'
+      };
+
+      await WorkAssignmentService.createAssignmentRecord(assignmentData);
 
       // Update operator workload
+      await OperatorService.updateOperatorWorkload(operator.id, 1);
+
+      // Update local state
       setOperators(prev => prev.map(op => 
         op.id === operator.id 
           ? { ...op, currentWorkload: op.currentWorkload + 1, status: 'working' }
@@ -460,20 +337,8 @@ const WorkAssignment = () => {
       // Remove bundle from available list
       setAvailableBundles(prev => prev.filter(b => b.id !== bundle.id));
 
-      // Add to assignment history
-      const newAssignment = {
-        id: `assign_${Date.now()}`,
-        bundleId: bundle.id,
-        operatorId: operator.id,
-        operatorName: operator.name,
-        articleNumber: bundle.articleNumber,
-        operation: bundle.operation,
-        assignedAt: new Date().toISOString(),
-        assignedBy: user?.id || 'supervisor_01',
-        status: 'assigned'
-      };
-
-      setAssignmentHistory(prev => [newAssignment, ...prev]);
+      // Reload assignment history
+      loadAssignmentHistory();
 
       showNotification(
         isNepali 
@@ -483,6 +348,7 @@ const WorkAssignment = () => {
       );
 
     } catch (error) {
+      console.error('Assignment error:', error);
       showNotification(
         isNepali ? 'काम असाइन गर्न समस्या भयो' : 'Failed to assign work',
         'error'

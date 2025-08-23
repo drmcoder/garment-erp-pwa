@@ -577,4 +577,203 @@ export class QualityService {
   }
 }
 
+// Operator Service for work assignment system
+export class OperatorService {
+  // Get all active operators
+  static async getActiveOperators() {
+    try {
+      const operatorsSnapshot = await getDocs(
+        query(
+          collection(db, COLLECTIONS.OPERATORS),
+          orderBy("name", "asc")
+        )
+      );
+
+      const operators = operatorsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return { success: true, operators };
+    } catch (error) {
+      console.error("Get active operators error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get operators by speciality
+  static async getOperatorsBySpeciality(speciality) {
+    try {
+      const operatorsSnapshot = await getDocs(
+        query(
+          collection(db, COLLECTIONS.OPERATORS),
+          where("speciality", "==", speciality),
+          orderBy("efficiency", "desc")
+        )
+      );
+
+      const operators = operatorsSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return { success: true, operators };
+    } catch (error) {
+      console.error("Get operators by speciality error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Update operator workload
+  static async updateOperatorWorkload(operatorId, workloadChange) {
+    try {
+      const operatorRef = doc(db, COLLECTIONS.OPERATORS, operatorId);
+      await updateDoc(operatorRef, {
+        currentWorkload: increment(workloadChange),
+        updatedAt: serverTimestamp(),
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error("Update operator workload error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get operator availability
+  static async getOperatorAvailability(operatorId) {
+    try {
+      const operatorDoc = await getDoc(doc(db, COLLECTIONS.OPERATORS, operatorId));
+      
+      if (!operatorDoc.exists()) {
+        throw new Error("Operator not found");
+      }
+
+      const operatorData = operatorDoc.data();
+      const isAvailable = operatorData.currentWorkload < operatorData.maxWorkload;
+
+      return { 
+        success: true, 
+        available: isAvailable,
+        currentWorkload: operatorData.currentWorkload,
+        maxWorkload: operatorData.maxWorkload
+      };
+    } catch (error) {
+      console.error("Get operator availability error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+}
+
+// Work Assignment Service
+export class WorkAssignmentService {
+  // Get assignment history
+  static async getAssignmentHistory(supervisorId = null, limit_count = 50) {
+    try {
+      let assignmentQuery = query(
+        collection(db, COLLECTIONS.ASSIGNMENT_HISTORY),
+        orderBy("assignedAt", "desc"),
+        limit(limit_count)
+      );
+
+      if (supervisorId) {
+        assignmentQuery = query(
+          collection(db, COLLECTIONS.ASSIGNMENT_HISTORY),
+          where("assignedBy", "==", supervisorId),
+          orderBy("assignedAt", "desc"),
+          limit(limit_count)
+        );
+      }
+
+      const assignmentSnapshot = await getDocs(assignmentQuery);
+      const assignments = assignmentSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return { success: true, assignments };
+    } catch (error) {
+      console.error("Get assignment history error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Create assignment record
+  static async createAssignmentRecord(assignmentData) {
+    try {
+      const docRef = await addDoc(collection(db, COLLECTIONS.ASSIGNMENT_HISTORY), {
+        ...assignmentData,
+        assignedAt: serverTimestamp(),
+        status: "assigned",
+        createdAt: serverTimestamp(),
+      });
+
+      return { success: true, id: docRef.id };
+    } catch (error) {
+      console.error("Create assignment record error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get active work assignments
+  static async getActiveWorkAssignments() {
+    try {
+      const activeWorkSnapshot = await getDocs(
+        query(
+          collection(db, COLLECTIONS.BUNDLES),
+          where("status", "in", ["assigned", "in-progress"]),
+          orderBy("assignedAt", "desc")
+        )
+      );
+
+      const activeWork = activeWorkSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      return { success: true, activeWork };
+    } catch (error) {
+      console.error("Get active work assignments error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Mark work as completed
+  static async markWorkAsCompleted(workId, completionData) {
+    try {
+      const workRef = doc(db, COLLECTIONS.BUNDLES, workId);
+      await updateDoc(workRef, {
+        status: "completed",
+        completedAt: serverTimestamp(),
+        completedPieces: completionData.completedPieces,
+        actualTime: completionData.actualTime,
+        earnings: completionData.earnings,
+        updatedAt: serverTimestamp(),
+      });
+
+      // Update assignment history
+      const historyQuery = query(
+        collection(db, COLLECTIONS.ASSIGNMENT_HISTORY),
+        where("bundleId", "==", workId),
+        where("status", "==", "assigned")
+      );
+
+      const historySnapshot = await getDocs(historyQuery);
+      if (!historySnapshot.empty) {
+        const historyDoc = historySnapshot.docs[0];
+        await updateDoc(historyDoc.ref, {
+          status: "completed",
+          completedAt: serverTimestamp(),
+          ...completionData,
+        });
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error("Mark work as completed error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+}
+
 // All services are already exported individually above

@@ -5,10 +5,11 @@ import React, { useState, useEffect, useContext } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
+import { BundleService } from "../../services/firebase-services";
 
 const SelfAssignmentSystem = () => {
   const { user } = useContext(AuthContext);
-  const { t, isNepali } = useContext(LanguageContext);
+  const { isNepali } = useContext(LanguageContext);
   const { showNotification } = useContext(NotificationContext);
 
   const [availableWork, setAvailableWork] = useState([]);
@@ -21,8 +22,8 @@ const SelfAssignmentSystem = () => {
     articleType: "all",
   });
 
-  // Mock data for demonstration - in real app, fetch from Firebase
-  const mockAvailableWork = [
+  // Mock data for demonstration - in real app, fetch from Firebase (keeping for reference)
+  // const mockAvailableWork = [
     {
       id: "bundle_001",
       articleNumber: "8085",
@@ -136,51 +137,110 @@ const SelfAssignmentSystem = () => {
   const loadAvailableWork = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Get available bundles based on operator's machine speciality
+      const machineType = user?.machine || user?.speciality;
+      const result = await BundleService.getAvailableBundles(machineType);
 
-      // Apply filters
-      let filteredWork = mockAvailableWork;
-      
-      // Filter by operator's machine speciality first
-      if (user && user.speciality) {
-        const machineMatches = {
-          'overlock': ['ओभरलक', 'Overlock'],
-          'flatlock': ['फ्ल्यालक', 'Flatlock'], 
-          'single_needle': ['एकल सुई', 'Single Needle'],
-          'buttonhole': ['बटनहोल', 'Buttonhole']
-        };
-        
-        const allowedMachineTypes = machineMatches[user.speciality] || [];
-        filteredWork = filteredWork.filter(work => 
-          allowedMachineTypes.includes(work.machineType) || 
-          allowedMachineTypes.includes(work.englishMachine)
+      if (result.success) {
+        // Map Firebase data to component format with AI recommendations
+        let filteredWork = result.bundles.map(bundle => ({
+          id: bundle.id,
+          articleNumber: bundle.article?.toString() || bundle.articleNumber,
+          articleName: bundle.articleName || `Article ${bundle.article}`,
+          englishName: bundle.articleName || `Article ${bundle.article}`,
+          color: bundle.color || 'N/A',
+          size: bundle.sizes?.[0] || bundle.size || 'N/A',
+          pieces: bundle.quantity || bundle.pieces || 0,
+          operation: bundle.currentOperation || 'Operation',
+          englishOperation: bundle.currentOperation || 'Operation',
+          machineType: bundle.machineType || machineType,
+          englishMachine: bundle.machineType || machineType,
+          rate: bundle.rate || 0,
+          estimatedTime: bundle.estimatedTime || 30,
+          priority: bundle.priority || 'medium',
+          englishPriority: bundle.priority || 'medium',
+          difficulty: calculateDifficulty(bundle),
+          englishDifficulty: calculateDifficulty(bundle),
+          recommendations: generateRecommendations(bundle, user)
+        }));
+
+        // Apply filters
+        if (filter.machineType !== "all") {
+          filteredWork = filteredWork.filter(
+            (work) => work.machineType === filter.machineType
+          );
+        }
+
+        if (filter.priority !== "all") {
+          filteredWork = filteredWork.filter(
+            (work) => work.priority === filter.priority
+          );
+        }
+
+        // Sort by recommendation match score
+        filteredWork.sort(
+          (a, b) => b.recommendations.match - a.recommendations.match
         );
+
+        setAvailableWork(filteredWork);
+      } else {
+        throw new Error(result.error || 'Failed to load available work');
       }
-
-      if (filter.machineType !== "all") {
-        filteredWork = filteredWork.filter(
-          (work) => work.machineType === filter.machineType
-        );
-      }
-
-      if (filter.priority !== "all") {
-        filteredWork = filteredWork.filter(
-          (work) => work.priority === filter.priority
-        );
-      }
-
-      // Sort by recommendation match score
-      filteredWork.sort(
-        (a, b) => b.recommendations.match - a.recommendations.match
-      );
-
-      setAvailableWork(filteredWork);
     } catch (error) {
-      showNotification("काम लोड गर्न समस्या भयो", "error");
+      console.error('Load available work error:', error);
+      showNotification(
+        isNepali ? "काम लोड गर्न समस्या भयो" : "Failed to load available work",
+        "error"
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to calculate difficulty
+  const calculateDifficulty = (bundle) => {
+    const estimatedTime = bundle.estimatedTime || 30;
+    if (estimatedTime < 20) return isNepali ? "सजिलो" : "Easy";
+    if (estimatedTime < 40) return isNepali ? "मध्यम" : "Medium";
+    return isNepali ? "कठिन" : "Hard";
+  };
+
+  // Helper function to generate AI recommendations
+  const generateRecommendations = (bundle, user) => {
+    let match = 70; // Base match score
+    const reasons = [];
+
+    // Check machine compatibility
+    const userMachine = user?.machine || user?.speciality;
+    if (userMachine && bundle.machineType === userMachine) {
+      match += 20;
+      reasons.push(isNepali ? "तपाईंको विशेषता" : "Your specialty");
+    }
+
+    // Check rate
+    const rate = bundle.rate || 0;
+    if (rate > 2.5) {
+      match += 10;
+      reasons.push(isNepali ? "उच्च दर" : "High rate");
+    }
+
+    // Check priority
+    if (bundle.priority === 'high') {
+      match += 5;
+      reasons.push(isNepali ? "उच्च प्राथमिकता" : "High priority");
+    }
+
+    // Check estimated time (shorter = easier)
+    const estimatedTime = bundle.estimatedTime || 30;
+    if (estimatedTime < 30) {
+      match += 5;
+      reasons.push(isNepali ? "छिटो काम" : "Quick work");
+    }
+
+    return {
+      match: Math.min(match, 100),
+      reasons: reasons.slice(0, 3) // Limit to top 3 reasons
+    };
   };
 
   const loadOperationTypes = () => {
@@ -196,8 +256,16 @@ const SelfAssignmentSystem = () => {
 
     setLoading(true);
     try {
-      // Simulate API call to assign work
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Self-assign work using Firebase service
+      const assignResult = await BundleService.assignBundle(
+        selectedWork.id,
+        user.id,
+        user.id // Self-assignment, so assignedBy is the operator themselves
+      );
+
+      if (!assignResult.success) {
+        throw new Error(assignResult.error || 'Self-assignment failed');
+      }
 
       showNotification(
         isNepali
@@ -210,6 +278,7 @@ const SelfAssignmentSystem = () => {
       setSelectedWork(null);
       loadAvailableWork();
     } catch (error) {
+      console.error('Self-assignment error:', error);
       showNotification(
         isNepali ? "काम असाइन गर्न समस्या भयो" : "Failed to assign work",
         "error"

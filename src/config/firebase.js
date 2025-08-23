@@ -139,6 +139,7 @@ export const COLLECTIONS = {
   MANAGEMENT: "management",
   BUNDLES: "bundles",
   WORK_ASSIGNMENTS: "workAssignments",
+  ASSIGNMENT_HISTORY: "assignmentHistory",
   QUALITY_ISSUES: "qualityIssues",
   NOTIFICATIONS: "notifications",
   PRODUCTION_STATS: "productionStats",
