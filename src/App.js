@@ -9,11 +9,11 @@ import {
   useNotifications,
 } from "./context/NotificationContext";
 import { SystemProvider, useSystem } from "./context/SystemContext";
+import { GlobalErrorProvider } from "./components/common/GlobalErrorHandler";
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
-import WorkCreation from "./components/supervisor/WorkCreation";
-import WIPImport from "./components/supervisor/WIPImport";
+import WIPImportSimplified from "./components/supervisor/WIPImportSimplified";
 import SystemSettings from "./components/admin/SystemSettings";
 
 // Login Component
@@ -519,19 +519,22 @@ const AppContent = () => {
     // Supervisor views
     if (user.role === "supervisor") {
       switch (currentView) {
-        case "work-creation":
-          return <WorkCreation />;
+        case "wip-import":
+          return (
+            <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
+                <WIPImportSimplified 
+                  onImport={(result) => {
+                    console.log('WIP Import completed:', result);
+                    setCurrentView('dashboard');
+                  }}
+                  onCancel={() => setCurrentView('dashboard')}
+                />
+              </div>
+            </div>
+          );
         case "work-assignment":
           return <WorkAssignment />;
-        case "wip-import":
-          return <WIPImport 
-            onImport={(wipData) => {
-              console.log('WIP Import completed:', wipData);
-              // Handle the imported WIP data here
-              setCurrentView('dashboard');
-            }}
-            onCancel={() => setCurrentView('dashboard')}
-          />;
         case "dashboard":
         default:
           return <SupervisorDashboard />;
@@ -637,14 +640,14 @@ const AppContent = () => {
                 📊 Dashboard
               </button>
               <button
-                onClick={() => setCurrentView("work-creation")}
+                onClick={() => setCurrentView("wip-import")}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  currentView === "work-creation"
+                  currentView === "wip-import"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
-                ➕ Create Work
+                📝 WIP Import
               </button>
               <button
                 onClick={() => setCurrentView("work-assignment")}
@@ -655,16 +658,6 @@ const AppContent = () => {
                 }`}
               >
                 🎯 Work Assignment
-              </button>
-              <button
-                onClick={() => setCurrentView("wip-import")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  currentView === "wip-import"
-                    ? "border-indigo-500 text-indigo-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                📊 WIP Import
               </button>
             </nav>
           </div>
@@ -728,13 +721,15 @@ const App = () => {
 const AppWithProviders = () => {
   return (
     <LanguageProvider>
-      <AuthProvider>
-        <SystemProvider>
-          <NotificationProvider>
-            <App />
-          </NotificationProvider>
-        </SystemProvider>
-      </AuthProvider>
+      <GlobalErrorProvider>
+        <AuthProvider>
+          <SystemProvider>
+            <NotificationProvider>
+              <App />
+            </NotificationProvider>
+          </SystemProvider>
+        </AuthProvider>
+      </GlobalErrorProvider>
     </LanguageProvider>
   );
 };

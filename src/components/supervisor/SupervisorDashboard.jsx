@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import BundleFlowTracker from './BundleFlowTracker';
 import WIPStatusBoard from './WIPStatusBoard';
-import GoogleSheetsParser from './GoogleSheetsParser';
+import WIPImportSimplified from './WIPImportSimplified';
 import { 
   BarChart3, 
   Users, 
@@ -20,7 +20,7 @@ const SupervisorDashboard = () => {
   const isNepali = currentLanguage === 'np';
   const [showBundleTracker, setShowBundleTracker] = useState(false);
   const [showWIPBoard, setShowWIPBoard] = useState(false);
-  const [showGoogleSheetsParser, setShowGoogleSheetsParser] = useState(false);
+  const [showWIPImport, setShowWIPImport] = useState(false);
   const [stats, setStats] = useState({
     totalOperators: 12,
     activeOperators: 10,
@@ -216,15 +216,15 @@ const SupervisorDashboard = () => {
             </button>
 
             <button 
-              onClick={() => setShowGoogleSheetsParser(true)}
-              className="flex flex-col items-center p-4 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors"
+              onClick={() => setShowWIPImport(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-green-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
             >
-              <div className="text-3xl mb-2">🧪</div>
+              <div className="text-3xl mb-2">📝</div>
               <div className="text-sm font-medium text-gray-900 text-center">
-                {isNepali ? 'Google Sheets टेस्टर' : 'Google Sheets Tester'}
+                {isNepali ? 'WIP डेटा इम्पोर्ट' : 'WIP Data Import'}
               </div>
               <div className="text-xs text-gray-600 mt-1 text-center">
-                {isNepali ? 'Google Sheets URLs परीक्षण गर्नुहोस्' : 'Test Google Sheets URLs'}
+                {isNepali ? 'उत्पादन डेटा र बंडल बनाउनुहोस्' : 'Create production data and bundles'}
               </div>
             </button>
 
@@ -377,21 +377,17 @@ const SupervisorDashboard = () => {
         />
       )}
 
-      {showGoogleSheetsParser && (
+      {showWIPImport && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
-            <div className="bg-indigo-600 text-white p-4 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Google Sheets Parser</h2>
-              <button
-                onClick={() => setShowGoogleSheetsParser(false)}
-                className="text-white hover:text-indigo-200 text-2xl"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="h-full overflow-y-auto">
-              <GoogleSheetsParser />
-            </div>
+            <WIPImportSimplified 
+              onImport={(result) => {
+                console.log('WIP Import completed:', result);
+                setShowWIPImport(false);
+                // You can add success notification here
+              }}
+              onCancel={() => setShowWIPImport(false)}
+            />
           </div>
         </div>
       )}

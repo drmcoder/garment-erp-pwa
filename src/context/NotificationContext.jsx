@@ -1,58 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useLanguage } from './LanguageContext';
-import { NotificationService } from "../services/firebase-services";
-import { useAuth } from "./AuthContext";
 
 export const NotificationContext = createContext();
 
 export const NotificationProvider = ({ children }) => {
-  const { t, currentLanguage } = useLanguage();
+  const { currentLanguage } = useLanguage();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Sample notifications for testing
-  useEffect(() => {
-    if (!currentLanguage) return; // Guard clause instead of early return
-
-    const sampleNotifications = [
-      {
-        id: 1,
-        title: currentLanguage === 'np' ? 'बन्डल #५ तयार छ' : 'Bundle #5 Ready',
-        message: currentLanguage === 'np' 
-          ? 'तपाईंको स्टेसनमा नयाँ काम तयार छ'
-          : 'New work ready at your station',
-        time: new Date(Date.now() - 2 * 60000),
-        type: 'work',
-        read: false,
-        priority: 'high'
-      },
-      {
-        id: 2,
-        title: currentLanguage === 'np' ? 'दैनिक लक्ष्य' : 'Daily Target',
-        message: currentLanguage === 'np'
-          ? 'आजको लक्ष्यको ८५% पूरा भयो'
-          : '85% of today\'s target completed',
-        time: new Date(Date.now() - 30 * 60000),
-        type: 'achievement',
-        read: false,
-        priority: 'medium'
-      },
-      {
-        id: 3,
-        title: currentLanguage === 'np' ? 'गुणस्तर चेक' : 'Quality Check',
-        message: currentLanguage === 'np'
-          ? 'बन्डल #३ मा गुणस्तर जाँच सम्पन्न'
-          : 'Quality check completed for Bundle #3',
-        time: new Date(Date.now() - 60 * 60000),
-        type: 'quality',
-        read: true,
-        priority: 'low'
-      }
-    ];
-
-    setNotifications(sampleNotifications);
-    setUnreadCount(sampleNotifications.filter(n => !n.read).length);
-  }, [currentLanguage]);
+  // Initialize empty notifications - no test data
 
   const addNotification = (notification) => {
     const newNotification = {

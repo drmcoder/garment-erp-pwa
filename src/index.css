@@ -5,6 +5,22 @@
 /* Nepali Font Support */
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap');
 
+/* Error notification animations */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideUp {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
 /* Base styles */
 * {
   box-sizing: border-box;
@@ -32,10 +48,144 @@ body {
 
 /* Touch-friendly buttons for production floor */
 .touch-button {
-  min-height: 44px;
-  min-width: 44px;
+  min-height: 48px;
+  min-width: 48px;
   padding: 12px 16px;
-  font-size: 16px;
+  font-size: 18px;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.touch-button:active {
+  transform: scale(0.95);
+}
+
+/* Extra large touch buttons for operators */
+.touch-button-large {
+  min-height: 60px;
+  min-width: 60px;
+  padding: 16px 24px;
+  font-size: 20px;
+  font-weight: 600;
+  touch-action: manipulation;
+  user-select: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 16px;
+}
+
+.touch-button-large:active {
+  transform: scale(0.95);
+}
+
+/* Extra extra large for critical actions */
+.touch-button-xl {
+  min-height: 72px;
+  min-width: 72px;
+  padding: 20px 32px;
+  font-size: 24px;
+  font-weight: 700;
+  touch-action: manipulation;
+  user-select: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: 20px;
+}
+
+.touch-button-xl:active {
+  transform: scale(0.92);
+}
+
+/* Operator-friendly number buttons */
+.numpad-button {
+  width: 80px;
+  height: 80px;
+  font-size: 32px;
+  font-weight: bold;
+  border-radius: 16px;
+  touch-action: manipulation;
+  user-select: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.numpad-button:active {
+  transform: scale(0.9);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Visual feedback for selections */
+.selection-pulse {
+  animation: selectionPulse 1.5s infinite;
+}
+
+@keyframes selectionPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+}
+
+/* High contrast mode for better visibility */
+.high-contrast-mode {
+  filter: contrast(1.2) brightness(1.1);
+}
+
+/* Larger icons for better visibility */
+.icon-large {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.icon-xl {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.icon-xxl {
+  font-size: 4rem;
+  line-height: 1;
+}
+
+/* Visual hierarchy improvements */
+.card-elevated {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.card-elevated:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+.card-selected {
+  border-color: #10B981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+
+/* Loading states */
+.loading-shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 /* High contrast for visibility */
