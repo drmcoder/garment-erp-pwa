@@ -15,7 +15,10 @@
       "Bash(kill:*)",
       "Bash(git checkout:*)",
       "Bash(python3:*)",
-      "WebFetch(domain:garment-erp-nepal.netlify.app)"
+      "WebFetch(domain:garment-erp-nepal.netlify.app)",
+      "Bash(mkdir:*)",
+      "Bash(touch:*)",
+      "Bash(netlify:*)"
     ],
     "deny": [],
     "ask": []

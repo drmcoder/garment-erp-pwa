@@ -24,6 +24,7 @@
     "@types/react-dom": "^18.2.0",
     "autoprefixer": "^10.4.21",
     "eslint": "^8.57.1",
+    "netlify-cli": "^17.10.1",
     "postcss": "^8.5.6",
     "prettier": "^2.8.8",
     "tailwindcss": "^3.4.17"
@@ -36,6 +37,10 @@
     "eject": "react-scripts eject",
     "deploy": "npm run build && netlify deploy --prod",
     "dev": "netlify dev",
+    "netlify:dev": "netlify dev",
+    "netlify:build": "netlify build",
+    "netlify:deploy": "netlify deploy",
+    "netlify:deploy:prod": "netlify deploy --prod",
     "lint": "eslint src --ext .js,.jsx",
     "lint:fix": "eslint src --ext .js,.jsx --fix",
     "format": "prettier --write src/**/*.{js,jsx,css,md}"

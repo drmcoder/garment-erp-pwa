@@ -1,60 +1,81 @@
-# netlify.toml - Place this file in your root directory
+# Netlify configuration for Garment ERP PWA
+
 [build]
   publish = "build"
-  command = "npm ci && npm run build && echo 'Build completed successfully'"
+  command = "npm run build"
 
 [build.environment]
   NODE_VERSION = "18"
-  REACT_APP_ENVIRONMENT = "production"
-  CI = "false"
+  NPM_VERSION = "8"
 
-# Headers for PWA support
+[functions]
+  directory = "netlify/functions"
+
+# API redirects
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# Environment variables for production
+[context.production.environment]
+  REACT_APP_ENVIRONMENT = "production"
+  REACT_APP_API_URL = "https://garment-erp-nepal.netlify.app/api"
+  JWT_SECRET = "garment-erp-jwt-secret-prod"
+  TOKEN_EXPIRY = "24h"
+  BUNDLE_CACHE_TTL = "300"
+  PUSH_NOTIFICATION_ENABLED = "true"
+
+# Environment variables for development
+[context.develop.environment]
+  REACT_APP_ENVIRONMENT = "development"
+  REACT_APP_API_URL = "http://localhost:8888/api"
+  JWT_SECRET = "garment-erp-jwt-secret-dev"
+  TOKEN_EXPIRY = "24h"
+  BUNDLE_CACHE_TTL = "300"
+  PUSH_NOTIFICATION_ENABLED = "true"
+
+# Security and CORS headers for API endpoints
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Headers = "Content-Type, Authorization"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+
+# Security headers for all pages
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-XSS-Protection = "1; mode=block"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    
+# PWA configuration
 [[headers]]
   for = "/manifest.json"
   [headers.values]
     Content-Type = "application/manifest+json"
 
 [[headers]]
-  for = "/sw.js"
+  for = "/service-worker.js"
   [headers.values]
     Content-Type = "application/javascript"
-    Cache-Control = "no-cache"
+    Service-Worker-Allowed = "/"
 
+# Static file caching
 [[headers]]
-  for = "*.js"
+  for = "/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
 
-[[headers]]
-  for = "*.css"
-  [headers.values]
-    Cache-Control = "public, max-age=31536000, immutable"
 
-# Redirects for SPA (Single Page Application)
+# SPA routing - catch-all for React Router (must be last)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-
-# Serverless functions configuration
-[functions]
-  directory = "netlify/functions"
-  node_bundler = "esbuild"
-
-# Build settings
-[build.processing]
-  skip_processing = false
-
-[build.processing.css]
-  bundle = true
-  minify = true
-
-[build.processing.js]
-  bundle = true
-  minify = true
-
-[build.processing.html]
-  pretty_urls = true
-
-[build.processing.images]
-  compress = true
