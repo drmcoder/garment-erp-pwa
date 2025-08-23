@@ -18,9 +18,23 @@ const WIPImport = ({ onImport, onCancel }) => {
   const [processTemplate, setProcessTemplate] = useState('');
   const [customProcess, setCustomProcess] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentView, setCurrentView] = useState('import'); // 'import' or 'template-manager'
+  const [templateManager, setTemplateManager] = useState({
+    name: '',
+    articleNumber: '',
+    steps: []
+  });
+  const [editingTemplate, setEditingTemplate] = useState(null);
+
+  // Load saved templates from localStorage
+  const [savedTemplates, setSavedTemplates] = useState(() => {
+    const saved = localStorage.getItem('processTemplates');
+    return saved ? JSON.parse(saved) : {};
+  });
 
   // Predefined process templates
   const processTemplates = {
+    ...savedTemplates,
     'polo-tshirt': {
       name: currentLanguage === 'np' ? 'पोलो टी-शर्ट मानक' : 'Polo T-Shirt Standard',
       steps: [
@@ -62,6 +76,54 @@ const WIPImport = ({ onImport, onCancel }) => {
   const sizes = {
     'tshirt': ['L', 'XL', '2XL', '3XL'],
     'tops': ['L', 'XL', '2XL', '3XL', '4XL', '5XL']
+  };
+
+  // Template management functions
+  const saveTemplate = () => {
+    const templateKey = `custom-${Date.now()}`;
+    const template = {
+      name: templateManager.name,
+      articleNumber: templateManager.articleNumber,
+      steps: templateManager.steps
+    };
+    
+    const updated = { ...savedTemplates, [templateKey]: template };
+    setSavedTemplates(updated);
+    localStorage.setItem('processTemplates', JSON.stringify(updated));
+    
+    // Reset form
+    setTemplateManager({ name: '', articleNumber: '', steps: [] });
+    setCurrentView('import');
+  };
+
+  const deleteTemplate = (templateKey) => {
+    const updated = { ...savedTemplates };
+    delete updated[templateKey];
+    setSavedTemplates(updated);
+    localStorage.setItem('processTemplates', JSON.stringify(updated));
+  };
+
+  const addTemplateStep = () => {
+    setTemplateManager(prev => ({
+      ...prev,
+      steps: [...prev.steps, { operation: '', machine: 'ओभरलक', rate: 0, time: 0 }]
+    }));
+  };
+
+  const updateTemplateStep = (index, field, value) => {
+    setTemplateManager(prev => ({
+      ...prev,
+      steps: prev.steps.map((step, i) => 
+        i === index ? { ...step, [field]: value } : step
+      )
+    }));
+  };
+
+  const removeTemplateStep = (index) => {
+    setTemplateManager(prev => ({
+      ...prev,
+      steps: prev.steps.filter((_, i) => i !== index)
+    }));
   };
 
   const handleAddArticle = () => {
@@ -219,17 +281,213 @@ const WIPImport = ({ onImport, onCancel }) => {
     onImport(wipData);
   };
 
+  if (currentView === 'template-manager') {
+    return (
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold text-gray-900">
+            {currentLanguage === 'np' ? 'प्रक्रिया टेम्प्लेट प्रबन्धक' : 'Process Template Manager'} 🏭
+          </h1>
+          <button
+            onClick={() => setCurrentView('import')}
+            className="px-4 py-2 text-blue-600 hover:text-blue-800"
+          >
+            ← {currentLanguage === 'np' ? 'आयातमा फर्कनुहोस्' : 'Back to Import'}
+          </button>
+        </div>
+
+        {/* Create New Template */}
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h2 className="text-lg font-semibold text-gray-800 mb-4">
+            {currentLanguage === 'np' ? 'नयाँ टेम्प्लेट सिर्जना गर्नुहोस्' : 'Create New Template'}
+          </h2>
+
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {currentLanguage === 'np' ? 'टेम्प्लेट नाम' : 'Template Name'}
+              </label>
+              <input
+                type="text"
+                value={templateManager.name}
+                onChange={(e) => setTemplateManager(prev => ({ ...prev, name: e.target.value }))}
+                placeholder={currentLanguage === 'np' ? 'टेम्प्लेटको नाम' : 'Template name'}
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                {currentLanguage === 'np' ? 'लेख नम्बर' : 'Article Number'}
+              </label>
+              <input
+                type="text"
+                value={templateManager.articleNumber}
+                onChange={(e) => setTemplateManager(prev => ({ ...prev, articleNumber: e.target.value }))}
+                placeholder="8085"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+
+          {/* Process Steps */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-md font-semibold text-gray-700">
+                {currentLanguage === 'np' ? 'प्रक्रिया चरणहरू' : 'Process Steps'}
+              </h3>
+              <button
+                onClick={addTemplateStep}
+                className="px-3 py-1 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
+              >
+                + {currentLanguage === 'np' ? 'चरण थप्नुहोस्' : 'Add Step'}
+              </button>
+            </div>
+
+            {templateManager.steps.map((step, index) => (
+              <div key={index} className="grid grid-cols-5 gap-3 p-4 border border-gray-200 rounded-lg">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {currentLanguage === 'np' ? 'सञ्चालन' : 'Operation'}
+                  </label>
+                  <input
+                    type="text"
+                    value={step.operation}
+                    onChange={(e) => updateTemplateStep(index, 'operation', e.target.value)}
+                    placeholder={currentLanguage === 'np' ? 'सञ्चालनको नाम' : 'Operation name'}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {currentLanguage === 'np' ? 'मेसिन' : 'Machine'}
+                  </label>
+                  <select
+                    value={step.machine}
+                    onChange={(e) => updateTemplateStep(index, 'machine', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-sm"
+                  >
+                    <option value="ओभरलक">ओभरलक</option>
+                    <option value="एकल सुई">एकल सुई</option>
+                    <option value="फ्ल्यालक">फ्ल्यालक</option>
+                    <option value="बटनहोल">बटनहोल</option>
+                    <option value="बटन अट्याच">बटन अट्याच</option>
+                    <option value="आइरन">आइरन</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {currentLanguage === 'np' ? 'दर (रु.)' : 'Rate (Rs.)'}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.10"
+                    value={step.rate}
+                    onChange={(e) => updateTemplateStep(index, 'rate', parseFloat(e.target.value) || 0)}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    {currentLanguage === 'np' ? 'समय (मिन)' : 'Time (min)'}
+                  </label>
+                  <input
+                    type="number"
+                    value={step.time}
+                    onChange={(e) => updateTemplateStep(index, 'time', parseInt(e.target.value) || 0)}
+                    className="w-full p-2 border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => removeTemplateStep(index)}
+                    className="w-full p-2 bg-red-100 text-red-600 rounded hover:bg-red-200 text-sm"
+                  >
+                    🗑️
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            {templateManager.steps.length === 0 && (
+              <div className="text-center py-8 text-gray-500">
+                {currentLanguage === 'np' ? 'कुनै चरण थपिएको छैन' : 'No steps added yet'}
+              </div>
+            )}
+          </div>
+
+          {/* Save Template */}
+          <div className="flex justify-end space-x-3 mt-6">
+            <button
+              onClick={() => setTemplateManager({ name: '', articleNumber: '', steps: [] })}
+              className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              {currentLanguage === 'np' ? 'सफा गर्नुहोस्' : 'Clear'}
+            </button>
+            <button
+              onClick={saveTemplate}
+              disabled={!templateManager.name || !templateManager.articleNumber || templateManager.steps.length === 0}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {currentLanguage === 'np' ? 'टेम्प्लेट सुरक्षित गर्नुहोस्' : 'Save Template'}
+            </button>
+          </div>
+        </div>
+
+        {/* Existing Templates */}
+        {Object.keys(savedTemplates).length > 0 && (
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              {currentLanguage === 'np' ? 'सुरक्षित टेम्प्लेटहरू' : 'Saved Templates'}
+            </h2>
+            
+            <div className="space-y-4">
+              {Object.entries(savedTemplates).map(([key, template]) => (
+                <div key={key} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <h3 className="font-medium text-gray-900">{template.name}</h3>
+                      <p className="text-sm text-gray-600">
+                        {currentLanguage === 'np' ? 'लेख:' : 'Article:'} {template.articleNumber} | 
+                        {template.steps.length} {currentLanguage === 'np' ? 'चरणहरू' : 'steps'}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => deleteTemplate(key)}
+                      className="px-3 py-1 bg-red-100 text-red-600 rounded hover:bg-red-200 text-sm"
+                    >
+                      {currentLanguage === 'np' ? 'मेटाउनुहोस्' : 'Delete'}
+                    </button>
+                  </div>
+                  
+                  <div className="text-sm space-y-1">
+                    {template.steps.map((step, index) => (
+                      <div key={index} className="flex justify-between text-gray-600">
+                        <span>{step.operation} ({step.machine})</span>
+                        <span>रु. {step.rate} | {step.time}मिन</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          <div className="flex items-center space-x-3 mb-4">
-            <button
-              onClick={onCancel}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={onCancel}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
@@ -241,6 +499,12 @@ const WIPImport = ({ onImport, onCancel }) => {
                 {currentLanguage === 'np' ? 'Google Sheets वा म्यानुअल एन्ट्री' : 'Google Sheets or Manual Entry'}
               </p>
             </div>
+            <button
+              onClick={() => setCurrentView('template-manager')}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+            >
+              {currentLanguage === 'np' ? 'टेम्प्लेट प्रबन्धक' : 'Template Manager'}
+            </button>
           </div>
 
           {/* Import Method Selection */}

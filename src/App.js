@@ -13,6 +13,7 @@ import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
 import WorkCreation from "./components/supervisor/WorkCreation";
+import WIPImport from "./components/supervisor/WIPImport";
 import SystemSettings from "./components/admin/SystemSettings";
 
 // Login Component
@@ -513,6 +514,8 @@ const AppContent = () => {
           return <WorkCreation />;
         case "work-assignment":
           return <WorkAssignment />;
+        case "wip-import":
+          return <WIPImport />;
         case "dashboard":
         default:
           return <SupervisorDashboard />;
@@ -636,6 +639,16 @@ const AppContent = () => {
                 }`}
               >
                 🎯 Work Assignment
+              </button>
+              <button
+                onClick={() => setCurrentView("wip-import")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  currentView === "wip-import"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                📊 WIP Import
               </button>
             </nav>
           </div>
