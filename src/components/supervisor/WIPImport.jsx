@@ -1,18 +1,27 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { WIPDataParser, parseWIPData } from '../../utils/wipDataParser';
+import { AdvancedWIPParser } from '../../utils/advancedWIPParser';
+import { LayerBasedBundleGenerator } from '../../utils/layerBasedBundleGenerator';
 
 const WIPImport = ({ onImport, onCancel }) => {
   const { currentLanguage } = useLanguage();
   
-  const [importMethod, setImportMethod] = useState('manual'); // 'manual' or 'sheets'
+  const [importMethod, setImportMethod] = useState('excel'); // 'excel', 'manual', or 'sheets'
   const [sheetsUrl, setSheetsUrl] = useState('');
+  const [excelFile, setExcelFile] = useState(null);
+  const [excelData, setExcelData] = useState(null);
   const [manualData, setManualData] = useState({
     lotNumber: '',
     articles: [''],
     fabricType: '',
     fabricWeight: '',
     colors: [{ name: '', layers: 0, pieces: {} }],
-    consumptionRate: 0
+    consumptionRate: 0,
+    cuttingDate: new Date().toISOString().split('T')[0],
+    buyer: '',
+    orderNumber: '',
+    style: ''
   });
 
   const [processTemplate, setProcessTemplate] = useState('');
@@ -74,9 +83,19 @@ const WIPImport = ({ onImport, onCancel }) => {
   };
 
   const sizes = {
-    'tshirt': ['L', 'XL', '2XL', '3XL'],
-    'tops': ['L', 'XL', '2XL', '3XL', '4XL', '5XL']
+    'tshirt': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+    'tops': ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'],
+    'kids': ['2-3Y', '4-5Y', '6-7Y', '8-9Y', '10-11Y', '12-13Y', '14-15Y']
   };
+
+  // Available size categories
+  const sizeCategories = {
+    'adult': sizes.tshirt,
+    'adult-extended': sizes.tops,
+    'kids': sizes.kids
+  };
+
+  const [selectedSizeCategory, setSelectedSizeCategory] = useState('adult');
 
   // Template management functions
   const saveTemplate = () => {
@@ -175,35 +194,196 @@ const WIPImport = ({ onImport, onCancel }) => {
     }));
   };
 
-  const parseGoogleSheets = async () => {
+  // Excel file handling functions
+  const handleExcelFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setExcelFile(file);
+      setExcelData(null);
+    }
+  };
+
+  const parseExcelFile = async () => {
+    if (!excelFile) return;
+    
     setIsProcessing(true);
     try {
-      // Simulate Google Sheets parsing
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Read file content
+      const fileContent = await readFileContent(excelFile);
       
-      // Mock parsed data
-      const parsedData = {
-        lotNumber: 'S-85',
-        articles: ['8085'],
-        fabricType: 'Cotton Pique',
-        fabricWeight: '180 GSM',
-        colors: [
-          {
-            name: 'नीलो-१',
-            layers: 35,
-            pieces: { 'L': 180, 'XL': 185, '2XL': 190, '3XL': 190 }
-          }
-        ],
-        consumptionRate: 0.25
-      };
+      // Parse using the enhanced WIP parser
+      const parsedResult = await parseWIPData(fileContent, 'auto');
       
-      setManualData(parsedData);
-      setImportMethod('manual'); // Switch to manual to show parsed data
+      // Validate parsed data
+      const parser = new WIPDataParser();
+      const validation = parser.validateParsedData(parsedResult);
+      const stats = parser.generateStats(parsedResult);
+      
+      if (validation.errors.length > 0) {
+        throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+      }
+      
+      // Show warnings if any
+      if (validation.warnings.length > 0) {
+        console.warn('Parsing warnings:', validation.warnings);
+      }
+      
+      setExcelData({
+        ...parsedResult,
+        stats: stats,
+        validation: validation
+      });
+      
     } catch (error) {
-      console.error('Error parsing sheets:', error);
+      console.error('Error parsing Excel file:', error);
+      alert(`${currentLanguage === 'np' ? 'Excel फाइल पार्स गर्नमा त्रुटि' : 'Error parsing Excel file'}: ${error.message}`);
     } finally {
       setIsProcessing(false);
     }
+  };
+  
+  const readFileContent = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        try {
+          const content = e.target.result;
+          
+          if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+            // Parse CSV
+            const lines = content.split('\n').map(line => line.split(','));
+            resolve(lines);
+          } else {
+            // For Excel files, we would need a library like xlsx
+            // For now, simulate with CSV-like parsing
+            const lines = content.split('\n').map(line => 
+              line.split(/\t|,/).map(cell => cell.trim())
+            );
+            resolve(lines);
+          }
+        } catch (error) {
+          reject(error);
+        }
+      };
+      
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      
+      if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+        reader.readAsText(file);
+      } else {
+        reader.readAsText(file); // For demo - real implementation would use xlsx
+      }
+    });
+  };
+
+  const useExcelData = () => {
+    if (!excelData) return;
+    
+    // Convert Excel data to manual data format
+    const convertedData = {
+      ...manualData,
+      colors: excelData.colors.map((color, index) => ({
+        name: color.name,
+        layers: Math.ceil(Object.values(color.pieces).reduce((sum, pieces) => sum + pieces, 0) / 25), // Estimate layers based on total pieces
+        pieces: color.pieces
+      }))
+    };
+    
+    setManualData(convertedData);
+    setImportMethod('manual'); // Switch to manual view to show data
+  };
+
+  const parseGoogleSheets = async () => {
+    if (!sheetsUrl) return;
+    
+    setIsProcessing(true);
+    try {
+      // Extract Google Sheets CSV URL
+      const csvUrl = convertToCSVUrl(sheetsUrl);
+      
+      // Fetch data from Google Sheets
+      const response = await fetch(csvUrl, {
+        mode: 'cors',
+        headers: {
+          'Accept': 'text/csv'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch data: ${response.status}`);
+      }
+      
+      const csvText = await response.text();
+      const csvData = csvText.split('\n').map(line => 
+        line.split(',').map(cell => cell.replace(/^"|"$/g, '').trim())
+      ).filter(row => row.some(cell => cell.length > 0));
+      
+      // Parse using advanced parser
+      const advancedParser = new AdvancedWIPParser();
+      const parsedResult = await advancedParser.parseWIPData(csvData);
+      
+      // Validate
+      const validation = parsedResult.validation;
+      
+      if (validation.errors.length > 0) {
+        throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+      }
+      
+      // Convert to manual data format with enhanced metadata
+      const convertedData = {
+        lotNumber: parsedResult.metadata.lotNumber || parsedResult.metadata.lot || 'AUTO-' + Date.now().toString().slice(-6),
+        articles: parsedResult.metadata.articles || (parsedResult.metadata.article ? [parsedResult.metadata.article] : ['AUTO']),
+        fabricType: parsedResult.metadata.fabric || 'Cotton',
+        fabricWeight: parsedResult.metadata.weight || '180 GSM',
+        colors: parsedResult.colors.map(color => ({
+          name: color.name,
+          layers: color.layers || Math.ceil(color.total / 25),
+          pieces: color.pieces,
+          piecesPerLayer: color.piecesPerLayer || Math.round(color.total / (color.layers || 1))
+        })),
+        consumptionRate: parsedResult.metadata.consumption || 0.25,
+        buyer: parsedResult.metadata.buyer || 'Google Sheets Import',
+        orderNumber: parsedResult.metadata.order || 'GS-' + Date.now().toString().slice(-6),
+        style: parsedResult.metadata.style || parsedResult.metadata.article || 'Imported Style',
+        cuttingDate: parsedResult.metadata.cuttingDate || new Date().toISOString().split('T')[0]
+      };
+      
+      setManualData(convertedData);
+      setImportMethod('manual');
+      
+    } catch (error) {
+      console.error('Error parsing Google Sheets:', error);
+      alert(`${currentLanguage === 'np' ? 'Google Sheets पार्स गर्नमा त्रुटि' : 'Error parsing Google Sheets'}: ${error.message}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+  
+  const convertToCSVUrl = (sheetsUrl) => {
+    // Convert various Google Sheets URL formats to CSV export URL
+    let url = sheetsUrl.trim();
+    
+    // Handle published CSV URLs (already in correct format)
+    if (url.includes('output=csv')) {
+      return url;
+    }
+    
+    // Handle pubhtml URLs
+    if (url.includes('pubhtml')) {
+      return url.replace('pubhtml', 'pub').replace(/&single=true.*$/, '') + '&output=csv';
+    }
+    
+    // Handle regular sharing URLs
+    const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (match) {
+      const sheetId = match[1];
+      const gidMatch = url.match(/[#&]gid=([0-9]+)/);
+      const gid = gidMatch ? gidMatch[1] : '0';
+      return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=${gid}`;
+    }
+    
+    throw new Error('Invalid Google Sheets URL format');
   };
 
   const generateBundles = () => {
@@ -262,23 +442,60 @@ const WIPImport = ({ onImport, onCancel }) => {
       return;
     }
 
-    const bundles = generateBundles();
-    const wipData = {
-      lotNumber: manualData.lotNumber,
-      articles: manualData.articles,
-      fabricType: manualData.fabricType,
-      fabricWeight: manualData.fabricWeight,
-      colors: manualData.colors,
-      consumptionRate: manualData.consumptionRate,
-      processTemplate: processTemplate,
-      bundles: bundles,
-      createdAt: new Date().toISOString(),
-      totalPieces: manualData.colors.reduce((total, color) => 
-        total + Object.values(color.pieces).reduce((sum, pieces) => sum + pieces, 0), 0
-      )
-    };
+    try {
+      // Use layer-based bundle generator for proper bundle creation
+      const bundleGenerator = new LayerBasedBundleGenerator();
+      
+      // Prepare WIP data in the correct format for the generator
+      const wipDataForGenerator = {
+        lotNumber: manualData.lotNumber,
+        articles: manualData.articles,
+        colors: manualData.colors.map(color => ({
+          name: color.name,
+          layers: color.layers || Math.ceil(Object.values(color.pieces).reduce((sum, p) => sum + p, 0) / 25),
+          pieces: color.pieces,
+          total: Object.values(color.pieces).reduce((sum, p) => sum + p, 0)
+        })),
+        cuttingDate: manualData.cuttingDate,
+        cutter: 'Manual Import'
+      };
 
-    onImport(wipData);
+      // Determine garment type from process template
+      let garmentType = 'tshirt'; // default
+      if (processTemplate.includes('polo')) {
+        garmentType = 'polo';
+      }
+
+      // Generate bundles using the layer-based approach
+      const bundleResult = bundleGenerator.generateLayerBasedBundles(wipDataForGenerator, {
+        garmentType: garmentType,
+        maxBundleSize: 30,
+        minBundleSize: 15,
+        bundleNamingFormat: '{lot}-{article}-{color}-{size}-{sequence}'
+      });
+
+      const wipData = {
+        lotNumber: manualData.lotNumber,
+        articles: manualData.articles,
+        fabricType: manualData.fabricType,
+        fabricWeight: manualData.fabricWeight,
+        colors: manualData.colors,
+        consumptionRate: manualData.consumptionRate,
+        processTemplate: processTemplate,
+        bundles: bundleResult.bundles,
+        workflowBundles: bundleGenerator.createProductionWorkflow(bundleResult.bundles),
+        bundleSummary: bundleResult.summary,
+        bundleMetadata: bundleResult.metadata,
+        createdAt: new Date().toISOString(),
+        totalPieces: bundleResult.summary.totalGarments,
+        bundleGenerationMethod: 'layer_based'
+      };
+
+      onImport(wipData);
+    } catch (error) {
+      console.error('Bundle generation failed:', error);
+      alert('बन्डल सिर्जना असफल भयो: ' + error.message);
+    }
   };
 
   if (currentView === 'template-manager') {
@@ -508,7 +725,17 @@ const WIPImport = ({ onImport, onCancel }) => {
           </div>
 
           {/* Import Method Selection */}
-          <div className="flex space-x-4">
+          <div className="flex space-x-4 flex-wrap">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                value="excel"
+                checked={importMethod === 'excel'}
+                onChange={(e) => setImportMethod(e.target.value)}
+                className="mr-2"
+              />
+              <span>{currentLanguage === 'np' ? 'Excel फाइल आयात' : 'Import Excel File'}</span>
+            </label>
             <label className="flex items-center">
               <input
                 type="radio"
@@ -531,6 +758,187 @@ const WIPImport = ({ onImport, onCancel }) => {
             </label>
           </div>
         </div>
+
+        {/* Excel File Import */}
+        {importMethod === 'excel' && (
+          <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              📊 {currentLanguage === 'np' ? 'Excel WIP फाइल अपलोड' : 'Excel WIP File Upload'}
+            </h2>
+            
+            <div className="space-y-4">
+              {/* File Upload */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {currentLanguage === 'np' ? 'WIP Excel फाइल छान्नुहोस्' : 'Select WIP Excel File'}
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors">
+                  <input
+                    type="file"
+                    accept=".xlsx,.xls,.csv"
+                    onChange={handleExcelFileUpload}
+                    className="hidden"
+                    id="excel-upload"
+                  />
+                  <label htmlFor="excel-upload" className="cursor-pointer">
+                    <div className="text-4xl mb-2">📁</div>
+                    <p className="text-gray-600 mb-2">
+                      {excelFile ? excelFile.name : 
+                        (currentLanguage === 'np' ? 'Excel फाइल छान्नुहोस्' : 'Click to select Excel file')
+                      }
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {currentLanguage === 'np' ? 'समर्थित: .xlsx, .xls, .csv' : 'Supported: .xlsx, .xls, .csv'}
+                    </p>
+                  </label>
+                </div>
+              </div>
+              
+              {/* Supported Formats Guide */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-medium text-blue-800 mb-3">
+                  📋 {currentLanguage === 'np' ? 'सपोर्टेड फर्म्याटहरू' : 'Supported Formats'}
+                </h3>
+                <div className="text-sm text-blue-700 space-y-3">
+                  <div>
+                    <p className="font-semibold">📋 {currentLanguage === 'np' ? 'होरिजन्टल म्याट्रिक्स:' : 'Horizontal Matrix:'}</p>
+                    <p className="ml-4">Color | XS | S | M | L | XL | 2XL | 3XL</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">📋 {currentLanguage === 'np' ? 'भर्टिकल म्याट्रिक्स:' : 'Vertical Matrix:'}</p>
+                    <p className="ml-4">Size | Color1 | Color2 | Color3</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">📋 {currentLanguage === 'np' ? 'डिटेल ब्रेकडाउन:' : 'Detail Breakdown:'}</p>
+                    <p className="ml-4">Color | Size | Pieces | Lot | Article</p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">📋 {currentLanguage === 'np' ? 'कटिङ लेआउट:' : 'Cutting Layout:'}</p>
+                    <p className="ml-4">Color | Size | Pieces | Layers | Fabric</p>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-2">
+                    🤖 {currentLanguage === 'np' ? 'आटो-डिटेक्शन: सिस्टमले आफ्नै फर्म्याट पत्ता लगाउँछ' : 'Auto-Detection: System automatically detects your format'}
+                  </p>
+                </div>
+              </div>
+              
+              {excelFile && (
+                <button
+                  onClick={parseExcelFile}
+                  disabled={isProcessing}
+                  className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center"
+                >
+                  {isProcessing ? (
+                    <>
+                      <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      {currentLanguage === 'np' ? 'पार्स गर्दै...' : 'Parsing...'}
+                    </>
+                  ) : (
+                    <>
+                      📊 {currentLanguage === 'np' ? 'Excel डेटा पार्स गर्नुहोस्' : 'Parse Excel Data'}
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            
+            {/* Parsed Excel Data Preview */}
+            {excelData && (
+              <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                <h3 className="font-medium text-gray-800 mb-3">
+                  📈 {currentLanguage === 'np' ? 'पार्स गरिएको डेटा पूर्वावलोकन' : 'Parsed Data Preview'}
+                </h3>
+                
+                {/* Parsing Statistics */}
+                {excelData.stats && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                    <h4 className="font-medium text-green-800 mb-2">
+                      📊 {currentLanguage === 'np' ? 'पार्सिङ तथ्याङ्क' : 'Parsing Statistics'}
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <span className="text-green-600 font-medium">{currentLanguage === 'np' ? 'फर्म्याट:' : 'Format:'}</span>
+                        <span className="ml-1 text-green-800">{excelData.stats.format}</span>
+                      </div>
+                      <div>
+                        <span className="text-green-600 font-medium">{currentLanguage === 'np' ? 'रङहरू:' : 'Colors:'}</span>
+                        <span className="ml-1 text-green-800">{excelData.stats.totalColors}</span>
+                      </div>
+                      <div>
+                        <span className="text-green-600 font-medium">{currentLanguage === 'np' ? 'साइजहरू:' : 'Sizes:'}</span>
+                        <span className="ml-1 text-green-800">{excelData.stats.totalSizes}</span>
+                      </div>
+                      <div>
+                        <span className="text-green-600 font-medium">{currentLanguage === 'np' ? 'बन्डल:' : 'Bundles:'}</span>
+                        <span className="ml-1 text-green-800">{excelData.stats.estimatedBundles}</span>
+                      </div>
+                    </div>
+                    {excelData.validation.warnings.length > 0 && (
+                      <div className="mt-2 text-xs text-yellow-600">
+                        ⚠️ {currentLanguage === 'np' ? 'चेतावनी:' : 'Warnings:'} {excelData.validation.warnings.join(', ')}
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                          {currentLanguage === 'np' ? 'रङ' : 'Color'}
+                        </th>
+                        {sizeCategories[selectedSizeCategory].map(size => (
+                          <th key={size} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            {size}
+                          </th>
+                        ))}
+                        <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                          {currentLanguage === 'np' ? 'कुल' : 'Total'}
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {excelData.colors.map((color, index) => (
+                        <tr key={index}>
+                          <td className="px-3 py-2 text-sm font-medium text-gray-900">{color.name}</td>
+                          {sizeCategories[selectedSizeCategory].map(size => (
+                            <td key={size} className="px-3 py-2 text-sm text-gray-500">
+                              {color.pieces[size] || 0}
+                            </td>
+                          ))}
+                          <td className="px-3 py-2 text-sm font-semibold text-gray-900">
+                            {Object.values(color.pieces).reduce((sum, pieces) => sum + (pieces || 0), 0)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="mt-3 flex justify-between items-center">
+                  <span className="text-sm text-gray-600">
+                    {currentLanguage === 'np' ? 'रङहरू:' : 'Colors:'} {excelData.colors.length} | 
+                    {currentLanguage === 'np' ? 'कुल टुक्रा:' : 'Total Pieces:'} {' '}
+                    <span className="font-semibold">
+                      {excelData.colors.reduce((total, color) => 
+                        total + Object.values(color.pieces).reduce((sum, pieces) => sum + (pieces || 0), 0), 0
+                      )}
+                    </span>
+                  </span>
+                  <button
+                    onClick={useExcelData}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
+                  >
+                    ✅ {currentLanguage === 'np' ? 'यो डेटा प्रयोग गर्नुहोस्' : 'Use This Data'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Google Sheets Import */}
         {importMethod === 'sheets' && (

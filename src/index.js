@@ -55,4 +55,4 @@ root.render(
 // Or add this to your package.json scripts:
 // "start": "REACT_APP_ENABLE_ANALYTICS=false react-scripts start"
 
-console.log("🚀 Garment ERP App initialized");
+console.log("🚀 TSA Production Management System initialized");

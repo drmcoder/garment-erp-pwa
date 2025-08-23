@@ -677,6 +677,7 @@ export class WorkAssignmentService {
       );
 
       if (supervisorId) {
+        // Now we can use both where and orderBy since the composite index exists
         assignmentQuery = query(
           collection(db, COLLECTIONS.ASSIGNMENT_HISTORY),
           where("assignedBy", "==", supervisorId),
@@ -718,18 +719,39 @@ export class WorkAssignmentService {
   // Get active work assignments
   static async getActiveWorkAssignments() {
     try {
-      const activeWorkSnapshot = await getDocs(
+      // Query for assigned bundles (without orderBy to avoid index requirement)
+      const assignedSnapshot = await getDocs(
         query(
           collection(db, COLLECTIONS.BUNDLES),
-          where("status", "in", ["assigned", "in-progress"]),
-          orderBy("assignedAt", "desc")
+          where("status", "==", "assigned")
         )
       );
 
-      const activeWork = activeWorkSnapshot.docs.map((doc) => ({
+      // Query for in-progress bundles (without orderBy to avoid index requirement)
+      const inProgressSnapshot = await getDocs(
+        query(
+          collection(db, COLLECTIONS.BUNDLES),
+          where("status", "==", "in-progress")
+        )
+      );
+
+      // Combine results
+      const assignedWork = assignedSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
+
+      const inProgressWork = inProgressSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      // Merge and sort by assignedAt or createdAt as fallback
+      const activeWork = [...assignedWork, ...inProgressWork].sort((a, b) => {
+        const aTime = a.assignedAt?.toDate?.() || a.createdAt?.toDate?.() || new Date(a.assignedAt || a.createdAt || 0);
+        const bTime = b.assignedAt?.toDate?.() || b.createdAt?.toDate?.() || new Date(b.assignedAt || b.createdAt || 0);
+        return bTime - aTime;
+      });
 
       return { success: true, activeWork };
     } catch (error) {

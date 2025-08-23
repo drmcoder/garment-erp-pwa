@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import BundleFlowTracker from './BundleFlowTracker';
+import WIPStatusBoard from './WIPStatusBoard';
+import GoogleSheetsParser from './GoogleSheetsParser';
 import { 
   BarChart3, 
   Users, 
@@ -15,6 +18,9 @@ const SupervisorDashboard = () => {
   const { user } = useAuth();
   const { currentLanguage } = useLanguage();
   const isNepali = currentLanguage === 'np';
+  const [showBundleTracker, setShowBundleTracker] = useState(false);
+  const [showWIPBoard, setShowWIPBoard] = useState(false);
+  const [showGoogleSheetsParser, setShowGoogleSheetsParser] = useState(false);
   const [stats, setStats] = useState({
     totalOperators: 12,
     activeOperators: 10,
@@ -177,6 +183,63 @@ const SupervisorDashboard = () => {
           </div>
         </div>
 
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            {isNepali ? '🚀 त्वरित कार्यहरू' : '🚀 Quick Actions'}
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <button
+              onClick={() => setShowWIPBoard(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
+            >
+              <div className="text-3xl mb-2">📊</div>
+              <div className="text-sm font-medium text-gray-900 text-center">
+                {isNepali ? 'WIP स्थिति बोर्ड' : 'WIP Status Board'}
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {isNepali ? 'रङ र साइज अनुसार प्रगति हेर्नुहोस्' : 'View progress by color and size'}
+              </div>
+            </button>
+
+            <button
+              onClick={() => setShowBundleTracker(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-green-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
+            >
+              <div className="text-3xl mb-2">🔄</div>
+              <div className="text-sm font-medium text-gray-900 text-center">
+                {isNepali ? 'बन्डल फ्लो ट्र्याकर' : 'Bundle Flow Tracker'}
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {isNepali ? 'सिलाई प्रक्रियाहरू बीच ट्र्याकिङ' : 'Track bundles between operations'}
+              </div>
+            </button>
+
+            <button 
+              onClick={() => setShowGoogleSheetsParser(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors"
+            >
+              <div className="text-3xl mb-2">🧪</div>
+              <div className="text-sm font-medium text-gray-900 text-center">
+                {isNepali ? 'Google Sheets टेस्टर' : 'Google Sheets Tester'}
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {isNepali ? 'Google Sheets URLs परीक्षण गर्नुहोस्' : 'Test Google Sheets URLs'}
+              </div>
+            </button>
+
+            <button className="flex flex-col items-center p-4 border-2 border-dashed border-orange-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-colors">
+              <div className="text-3xl mb-2">⚡</div>
+              <div className="text-sm font-medium text-gray-900 text-center">
+                {isNepali ? 'लाइभ मोनिटरिङ' : 'Live Monitoring'}
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {isNepali ? 'रियल-टाइम उत्पादन ट्र्याकिङ' : 'Real-time production tracking'}
+              </div>
+            </button>
+          </div>
+        </div>
+
         <div className="grid lg:grid-cols-2 gap-6">
           {/* Operator Performance */}
           <div className="bg-white rounded-lg shadow-sm border">
@@ -296,6 +359,42 @@ const SupervisorDashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal Components */}
+      {showBundleTracker && (
+        <BundleFlowTracker
+          onBundleUpdate={(bundle) => {
+            // Handle bundle updates here
+            console.log('Bundle updated:', bundle);
+          }}
+          onClose={() => setShowBundleTracker(false)}
+        />
+      )}
+
+      {showWIPBoard && (
+        <WIPStatusBoard
+          onClose={() => setShowWIPBoard(false)}
+        />
+      )}
+
+      {showGoogleSheetsParser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
+            <div className="bg-indigo-600 text-white p-4 flex justify-between items-center">
+              <h2 className="text-xl font-bold">Google Sheets Parser</h2>
+              <button
+                onClick={() => setShowGoogleSheetsParser(false)}
+                className="text-white hover:text-indigo-200 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="h-full overflow-y-auto">
+              <GoogleSheetsParser />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,14 +1,14 @@
 {
-  "name": "गारमेन्ट ERP - उत्पादन व्यवस्थापन",
-  "short_name": "गारमेन्ट ERP",
-  "description": "Garment manufacturing production management system with real-time tracking, flexible sizing, and multi-language support",
+  "name": "TSA Production Management System - AI Powered for Line Balancing",
+  "short_name": "TSA Production",
+  "description": "AI-powered garment manufacturing production management system with line balancing, real-time tracking, and multi-language support",
   "version": "1.0.0",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "theme_color": "#2563eb",
   "background_color": "#f8fafc",
-  "lang": "ne",
+  "lang": "en",
   "scope": "/",
   "categories": ["business", "productivity", "utilities"],
   "icons": [
@@ -39,26 +39,26 @@
   ],
   "shortcuts": [
     {
-      "name": "ऑपरेटर ड्यासबोर्ड",
-      "short_name": "ऑपरेटर",
+      "name": "Operator Dashboard",
+      "short_name": "Operator",
       "description": "Operator dashboard for production work",
       "url": "/operator"
     },
     {
-      "name": "सुपरभाइजर ड्यासबोर्ड", 
-      "short_name": "सुपरभाइजर",
+      "name": "Supervisor Dashboard", 
+      "short_name": "Supervisor",
       "description": "Supervisor dashboard for line monitoring",
       "url": "/supervisor"
     },
     {
-      "name": "काम पूरा गर्नुहोस्",
-      "short_name": "काम पूरा",
+      "name": "Complete Work",
+      "short_name": "Complete",
       "description": "Complete current work assignment",
       "url": "/operator?action=complete"
     },
     {
-      "name": "गुणस्तर रिपोर्ट",
-      "short_name": "गुणस्तर",
+      "name": "Quality Report",
+      "short_name": "Quality",
       "description": "Report quality issues",
       "url": "/operator?action=quality"
     }
@@ -113,8 +113,8 @@
     "real-time-updates"
   ],
   "custom": {
-    "supported_languages": ["ne", "en"],
-    "default_language": "ne",
+    "supported_languages": ["en", "ne"],
+    "default_language": "en",
     "size_configurations": {
       "standard-shirt": ["L", "XL", "2XL", "3XL"],
       "numeric-sizes": ["20", "22", "24", "26", "28", "30", "32"],

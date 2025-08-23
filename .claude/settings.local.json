@@ -18,7 +18,18 @@
       "WebFetch(domain:garment-erp-nepal.netlify.app)",
       "Bash(mkdir:*)",
       "Bash(touch:*)",
-      "Bash(netlify:*)"
+      "Bash(netlify:*)",
+      "Bash(npm run dev:*)",
+      "Bash(firebase --version)",
+      "Bash(firebase firestore:indexes:*)",
+      "Bash(PORT=3001 npm start)",
+      "Bash(PORT=3002 npm start)",
+      "Bash(npm:*)",
+      "Bash(PORT=3005 npm start)",
+      "WebFetch(domain:docs.google.com)",
+      "WebFetch(domain:doc-0c-3o-sheets.googleusercontent.com)",
+      "WebFetch(domain:doc-10-3o-sheets.googleusercontent.com)",
+      "Bash(firebase projects:list:*)"
     ],
     "deny": [],
     "ask": []

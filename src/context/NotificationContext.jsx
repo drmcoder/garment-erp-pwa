@@ -12,6 +12,8 @@ export const NotificationProvider = ({ children }) => {
 
   // Sample notifications for testing
   useEffect(() => {
+    if (!currentLanguage) return; // Guard clause instead of early return
+
     const sampleNotifications = [
       {
         id: 1,
@@ -165,6 +167,15 @@ export const NotificationProvider = ({ children }) => {
     clearAllNotifications,
     getUnreadCount
   };
+
+  // Show loading state if language context is not ready
+  if (!currentLanguage) {
+    return (
+      <NotificationContext.Provider value={value}>
+        <div>Loading notifications...</div>
+      </NotificationContext.Provider>
+    );
+  }
 
   return (
     <NotificationContext.Provider value={value}>

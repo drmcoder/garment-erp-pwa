@@ -1,11 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Complete language translations for Garment ERP with flexible sizing
+// Complete language translations for TSA Production Management System with flexible sizing
 export const languages = {
   np: {
     // App Info
-    appTitle: "गारमेन्ट ERP",
-    subtitle: "उत्पादन व्यवस्थापन",
+    appTitle: "TSA उत्पादन प्रबन्धन प्रणाली",
+    subtitle: "लाइन ब्यालेन्सिङको लागि AI संचालित",
     version: "संस्करण",
 
     // Navigation & Menu
@@ -278,8 +278,8 @@ export const languages = {
 
   en: {
     // App Info
-    appTitle: "Garment ERP",
-    subtitle: "Production Management",
+    appTitle: "TSA Production Management System",
+    subtitle: "AI Powered for Line Balancing",
     version: "Version",
 
     // Navigation & Menu
@@ -666,7 +666,7 @@ export const LanguageContext = createContext();
 
 export const LanguageProvider = ({ children }) => {
   const [currentLanguage, setCurrentLanguage] = useState(() => {
-    return localStorage.getItem('garment-erp-language') || 'en';
+    return localStorage.getItem('garment-erp-language') || 'en'; // English as primary language
   });
 
   useEffect(() => {

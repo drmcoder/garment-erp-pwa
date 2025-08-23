@@ -1,5 +1,5 @@
 // src/contexts/AuthContext.jsx
-// Complete Authentication Context for Garment ERP
+// Complete Authentication Context for TSA Production Management System
 
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { LanguageContext } from './LanguageContext';

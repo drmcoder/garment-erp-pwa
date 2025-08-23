@@ -99,8 +99,8 @@ const PWAInstaller = () => {
             </h3>
             <p className="text-xs text-gray-600 mt-1">
               {currentLanguage === "np"
-                ? "तपाईंको फोनमा गारमेन्ट ERP एप इन्स्टल गरेर अफलाइन प्रयोग गर्नुहोस्"
-                : "Install Garment ERP app on your phone for offline use"}
+                ? "तपाईंको फोनमा TSA उत्पादन प्रबन्धन एप इन्स्टल गरेर अफलाइन प्रयोग गर्नुहोस्"
+                : "Install TSA Production Management app on your phone for offline use"}
             </p>
 
             <div className="flex space-x-2 mt-3">

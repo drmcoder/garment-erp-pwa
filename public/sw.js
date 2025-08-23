@@ -1,14 +1,12 @@
 // File: public/sw.js
 // Fixed Service Worker for Garment ERP PWA
 
-const CACHE_NAME = "garment-erp-v1";
+const CACHE_NAME = "garment-erp-v2";
 const urlsToCache = [
   "/",
-  "/static/js/bundle.js",
-  "/static/css/main.css",
   "/manifest.json",
   "/favicon.ico",
-  // Add other static assets as needed
+  // Static assets will be cached dynamically when fetched
 ];
 
 // Install event - cache resources
@@ -91,12 +89,23 @@ self.addEventListener("fetch", (event) => {
             return response;
           }
 
-          // Clone the response because it's a stream
-          const responseToCache = response.clone();
+          // Cache static assets (JS, CSS, images)
+          const shouldCache = 
+            event.request.url.includes('/static/') ||
+            event.request.url.endsWith('.js') ||
+            event.request.url.endsWith('.css') ||
+            event.request.url.endsWith('.png') ||
+            event.request.url.endsWith('.ico') ||
+            event.request.url.endsWith('.json');
 
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+          if (shouldCache) {
+            // Clone the response because it's a stream
+            const responseToCache = response.clone();
+
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
 
           return response;
         })

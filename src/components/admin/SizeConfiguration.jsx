@@ -190,7 +190,7 @@ const SizeConfiguration = ({ onClose, onSave }) => {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h3 className="font-medium text-gray-800">
-                {currentLanguage === "np" ? config.nameNepali : config.name}
+                {currentLanguage === "en" ? config.name : config.nameNepali}
               </h3>
               <p className="text-sm text-gray-600">
                 {config.sizes.length} {t("sizes")} |{" "}
@@ -329,7 +329,7 @@ const SizeConfiguration = ({ onClose, onSave }) => {
           >
             {Object.entries(configurations).map(([configId, config]) => (
               <option key={configId} value={configId}>
-                {currentLanguage === "np" ? config.nameNepali : config.name}
+                {currentLanguage === "en" ? config.name : config.nameNepali}
               </option>
             ))}
           </select>

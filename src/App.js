@@ -53,10 +53,10 @@ const LoginScreen = () => {
             🏭
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Garment ERP
+            TSA Production Management System
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Production Management System
+            AI Powered for Line Balancing
           </p>
         </div>
 
@@ -177,9 +177,18 @@ const LanguageToggle = () => {
 
 // Notification Bell Component
 const NotificationBell = () => {
-  const { getUnreadCount, notifications, markAllAsRead } = useNotifications();
+  const notificationContext = useNotifications();
   const [showNotifications, setShowNotifications] = useState(false);
-  const unreadCount = getUnreadCount();
+  
+  // Safely destructure with fallbacks
+  const {
+    getUnreadCount = () => 0,
+    notifications = [],
+    markAllAsRead = () => {}
+  } = notificationContext || {};
+  
+  // Safety check to ensure getUnreadCount is available
+  const unreadCount = typeof getUnreadCount === 'function' ? getUnreadCount() : 0;
 
   return (
     <div className="relative">
@@ -313,10 +322,10 @@ const Navigation = () => {
             </div>
             <div className="ml-4">
               <h1 className="text-xl font-semibold text-gray-900">
-                Garment ERP
+                TSA Production Management System
               </h1>
               <p className="text-sm text-gray-500">
-                {lineName} - Production Management
+                {lineName} - AI Powered Line Balancing
               </p>
             </div>
           </div>
