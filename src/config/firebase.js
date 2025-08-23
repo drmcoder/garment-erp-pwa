@@ -150,6 +150,7 @@ export const COLLECTIONS = {
   DAILY_REPORTS: "dailyReports",
   EFFICIENCY_LOGS: "efficiencyLogs",
   LINE_STATUS: "lineStatus",
+  SYSTEM_SETTINGS: "systemSettings",
 };
 
 // Demo Users for Development
@@ -164,6 +165,7 @@ export const DEMO_USERS = {
       role: "operator",
       machine: "overlock",
       station: "स्टेसन-1",
+      assignedLine: "line-1",
       department: "sewing",
       shift: "morning",
       dailyTarget: 50,
@@ -179,6 +181,7 @@ export const DEMO_USERS = {
       role: "operator",
       machine: "flatlock",
       station: "स्टेसन-2",
+      assignedLine: "line-1",
       department: "sewing",
       shift: "morning",
       dailyTarget: 50,
@@ -194,6 +197,7 @@ export const DEMO_USERS = {
       role: "operator",
       machine: "singleNeedle",
       station: "स्टेसन-3",
+      assignedLine: "line-1",
       department: "sewing",
       shift: "morning",
       dailyTarget: 50,
@@ -209,6 +213,7 @@ export const DEMO_USERS = {
       name: "श्याम पोखरेल",
       nameEn: "Shyam Pokharel",
       role: "supervisor",
+      assignedLine: "line-1",
       department: "sewing",
       shift: "morning",
       permissions: ["all_view", "work_assign", "quality_manage", "report_view"],
@@ -247,6 +252,7 @@ export const SAMPLE_BUNDLES = [
     machineType: "overlock",
     currentOperation: "shoulderJoin",
     assignedOperator: null,
+    assignedLine: "line-1",
     estimatedTime: 60,
   },
   {
@@ -266,6 +272,7 @@ export const SAMPLE_BUNDLES = [
     machineType: "flatlock",
     currentOperation: "sideSeam",
     assignedOperator: null,
+    assignedLine: "line-1",
     estimatedTime: 45,
   },
   {
@@ -285,6 +292,7 @@ export const SAMPLE_BUNDLES = [
     machineType: "singleNeedle",
     currentOperation: "collar",
     assignedOperator: null,
+    assignedLine: "line-1",
     estimatedTime: 90,
   },
 ];

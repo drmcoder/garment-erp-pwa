@@ -8,9 +8,11 @@ import {
   NotificationProvider,
   useNotifications,
 } from "./context/NotificationContext";
+import { SystemProvider, useSystem } from "./context/SystemContext";
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
+import SystemSettings from "./components/admin/SystemSettings";
 
 // Login Component
 const LoginScreen = () => {
@@ -287,6 +289,7 @@ const getNotificationIcon = (type) => {
 const Navigation = () => {
   const { logout, getUserDisplayName, getUserRoleDisplay } = useAuth();
   const { showNotification } = useNotifications();
+  const { lineName } = useSystem();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   const handleLogout = async () => {
@@ -311,7 +314,7 @@ const Navigation = () => {
                 Garment ERP
               </h1>
               <p className="text-sm text-gray-500">
-                Production Management System
+                {lineName} - Production Management
               </p>
             </div>
           </div>
@@ -513,7 +516,50 @@ const AppContent = () => {
       }
     }
 
-    // Manager and admin views - still under development
+    // Manager and admin views
+    if (user.role === "management") {
+      switch (currentView) {
+        case "settings":
+          return <SystemSettings />;
+        case "dashboard":
+        default:
+          return (
+            <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+              <div className="px-4 py-6 sm:px-0">
+                <div className="text-center mb-8">
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    Management Dashboard 👔
+                  </h1>
+                  <p className="mt-2 text-gray-600">
+                    System Overview and Administration
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <button
+                    onClick={() => setCurrentView("settings")}
+                    className="bg-blue-600 text-white p-6 rounded-lg hover:bg-blue-700 transition-colors text-left"
+                  >
+                    <div className="text-3xl mb-2">⚙️</div>
+                    <div className="text-xl font-semibold">System Settings</div>
+                    <div className="text-blue-200 mt-1">
+                      Configure production line and targets
+                    </div>
+                  </button>
+                  
+                  <div className="bg-gray-100 p-6 rounded-lg text-center">
+                    <div className="text-3xl mb-2">📊</div>
+                    <div className="text-xl font-semibold text-gray-600">Reports & Analytics</div>
+                    <div className="text-gray-500 mt-1">Coming Soon</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+      }
+    }
+
+    // Other roles - still under development
     return (
       <div className="p-8 text-center">Under Development for {user.role}</div>
     );
@@ -583,6 +629,36 @@ const AppContent = () => {
         </div>
       )}
 
+      {/* Navigation Tabs for Management */}
+      {user.role === "management" && (
+        <div className="bg-white border-b">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <nav className="flex space-x-8">
+              <button
+                onClick={() => setCurrentView("dashboard")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  currentView === "dashboard"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                📊 Dashboard
+              </button>
+              <button
+                onClick={() => setCurrentView("settings")}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  currentView === "settings"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                ⚙️ System Settings
+              </button>
+            </nav>
+          </div>
+        </div>
+      )}
+
       <main>{renderContent()}</main>
     </div>
   );
@@ -611,9 +687,11 @@ const AppWithProviders = () => {
   return (
     <LanguageProvider>
       <AuthProvider>
-        <NotificationProvider>
-          <App />
-        </NotificationProvider>
+        <SystemProvider>
+          <NotificationProvider>
+            <App />
+          </NotificationProvider>
+        </SystemProvider>
       </AuthProvider>
     </LanguageProvider>
   );
