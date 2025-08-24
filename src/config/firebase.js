@@ -67,7 +67,7 @@ const firebaseConfig = {
   storageBucket: "code-for-erp.firebasestorage.app",
   messagingSenderId: "490842962773",
   appId: "1:490842962773:web:b2a5688d22416ebc710ddc",
-  measurementId: "G-SYC37HR0QE",
+  // measurementId: "G-SYC37HR0QE", // Removed to prevent Analytics loading
 };
 
 // Initialize Firebase

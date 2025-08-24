@@ -376,10 +376,25 @@ export class BundleService {
     try {
       const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
 
-      // Check if bundle exists first
+      // Check if bundle exists and is available
       const bundleDoc = await getDoc(bundleRef);
       if (!bundleDoc.exists()) {
         return { success: false, error: `Bundle ${bundleId} not found` };
+      }
+
+      const bundleData = bundleDoc.data();
+      if (bundleData.status !== 'pending') {
+        return { 
+          success: false, 
+          error: `Bundle ${bundleId} is not available (status: ${bundleData.status})` 
+        };
+      }
+
+      if (bundleData.assignedOperator && bundleData.assignedOperator !== operatorId) {
+        return { 
+          success: false, 
+          error: `Bundle ${bundleId} is already assigned to another operator` 
+        };
       }
 
       await updateDoc(bundleRef, {

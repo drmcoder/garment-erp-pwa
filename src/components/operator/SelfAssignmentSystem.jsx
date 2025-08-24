@@ -197,6 +197,13 @@ const SelfAssignmentSystem = () => {
 
     setLoading(true);
     try {
+      // Validate bundle exists before assignment
+      if (!selectedWork || !selectedWork.id) {
+        throw new Error('No work selected or invalid bundle ID');
+      }
+
+      console.log(`🔍 Attempting to assign bundle: ${selectedWork.id} to operator: ${user.id}`);
+
       // Self-assign work using Firebase service
       const assignResult = await BundleService.assignBundle(
         selectedWork.id,
@@ -205,8 +212,11 @@ const SelfAssignmentSystem = () => {
       );
 
       if (!assignResult.success) {
-        throw new Error(assignResult.error || 'Self-assignment failed');
+        console.error(`❌ Assignment failed for bundle ${selectedWork.id}:`, assignResult.error);
+        throw new Error(assignResult.error || 'Bundle assignment failed - bundle may no longer be available');
       }
+
+      console.log(`✅ Successfully assigned bundle ${selectedWork.id} to ${user.id}`);
 
       // Calculate estimated earnings
       const estimatedEarning = selectedWork.rate * selectedWork.pieces;
@@ -245,10 +255,26 @@ const SelfAssignmentSystem = () => {
       loadAvailableWork();
     } catch (error) {
       console.error('Self-assignment error:', error);
-      showNotification(
-        isNepali ? "काम असाइन गर्न समस्या भयो" : "Failed to assign work",
-        "error"
-      );
+      
+      // Show appropriate error message
+      let errorMessage = error.message;
+      if (errorMessage.includes('not found')) {
+        errorMessage = isNepali 
+          ? "यो काम अब उपलब्ध छैन। कृपया अर्को काम छान्नुहोस्।"
+          : "This work is no longer available. Please select another task.";
+      } else if (errorMessage.includes('already assigned')) {
+        errorMessage = isNepali
+          ? "यो काम अर्को व्यक्तिले पहिले नै लिएको छ।"
+          : "This work has already been taken by another operator.";
+      } else {
+        errorMessage = isNepali ? "काम असाइन गर्न समस्या भयो" : "Failed to assign work";
+      }
+      
+      showNotification(errorMessage, "error");
+      
+      // Refresh work list to show current availability
+      setSelectedWork(null);
+      loadAvailableWork();
     } finally {
       setLoading(false);
     }
