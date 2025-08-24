@@ -54,7 +54,7 @@ export const GlobalErrorProvider = ({ children }) => {
     setCurrentError(errorObject);
 
     // Auto-hide based on severity
-    const hideDelay = getHideDelay(severity);
+    const hideDelay = getHideDelay(severity, type);
     if (hideDelay > 0) {
       setTimeout(() => {
         hideError(errorId);
@@ -120,18 +120,23 @@ export const GlobalErrorProvider = ({ children }) => {
   };
 
   // Get auto-hide delay based on severity
-  const getHideDelay = (severity) => {
+  const getHideDelay = (severity, type) => {
+    // Success messages close even faster
+    if (type === ERROR_TYPES.USER && severity === ERROR_SEVERITY.LOW) {
+      return 2000; // 2 seconds for success messages
+    }
+    
     switch (severity) {
       case ERROR_SEVERITY.CRITICAL:
         return 0; // Never auto-hide critical errors
       case ERROR_SEVERITY.HIGH:
-        return 3000;
+        return 4000;
       case ERROR_SEVERITY.MEDIUM:
-        return 2000;
+        return 3000;
       case ERROR_SEVERITY.LOW:
-        return 1000; // 1 second for success/info messages
+        return 2000; // 2 seconds for info messages
       default:
-        return 2000;
+        return 3000;
     }
   };
 

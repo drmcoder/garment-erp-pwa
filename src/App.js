@@ -541,12 +541,6 @@ const OperatorDashboard = ({ onNavigate }) => {
   const { sendWorkAssigned, sendWorkCompleted } = useNotifications();
 
   // Demo notification buttons
-  const testNotifications = () => {
-    sendWorkAssigned("8085", "Shoulder Join");
-    setTimeout(() => {
-      sendWorkCompleted("8085", 75);
-    }, 2000);
-  };
 
   return (
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
@@ -626,17 +620,6 @@ const OperatorDashboard = ({ onNavigate }) => {
             </div>
           </button>
 
-          {/* Test Notifications - Only show in development */}
-          {process.env.NODE_ENV === 'development' && (
-            <button
-              onClick={testNotifications}
-              className="bg-green-600 text-white p-6 rounded-lg hover:bg-green-700 transition-colors text-left"
-            >
-              <div className="text-3xl mb-2">🔔</div>
-              <div className="text-xl font-semibold">Test Notifications</div>
-              <div className="text-green-200 mt-1">Try sample notifications</div>
-            </button>
-          )}
         </div>
       </div>
     </div>
@@ -731,33 +714,23 @@ const AppContent = () => {
       switch (currentView) {
         case "settings":
           return (
-            <PermissionGate permission={PERMISSIONS.SETTINGS_VIEW}>
-              <SystemSettings onBack={() => setCurrentView("dashboard")} />
-            </PermissionGate>
+            <SystemSettings onBack={() => setCurrentView("dashboard")} />
           );
         case "analytics":
           return (
-            <PermissionGate permission={PERMISSIONS.ANALYTICS_VIEW}>
-              <AIProductionAnalytics onBack={() => setCurrentView("dashboard")} />
-            </PermissionGate>
+            <AIProductionAnalytics onBack={() => setCurrentView("dashboard")} />
           );
         case "payroll":
           return (
-            <PermissionGate permission={PERMISSIONS.PAYROLL_VIEW}>
-              <PayrollSystem onBack={() => setCurrentView("dashboard")} />
-            </PermissionGate>
+            <PayrollSystem onBack={() => setCurrentView("dashboard")} />
           );
         case "users":
           return (
-            <PermissionGate permission={PERMISSIONS.USER_MANAGEMENT}>
-              <UserManagement onBack={() => setCurrentView("dashboard")} />
-            </PermissionGate>
+            <UserManagement onBack={() => setCurrentView("dashboard")} />
           );
         case "machines":
           return (
-            <PermissionGate permission={PERMISSIONS.SETTINGS_VIEW}>
-              <MachineManagement onBack={() => setCurrentView("dashboard")} />
-            </PermissionGate>
+            <MachineManagement onBack={() => setCurrentView("dashboard")} />
           );
         case "dashboard":
         default:

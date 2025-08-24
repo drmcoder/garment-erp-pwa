@@ -334,16 +334,16 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
                     }`}
                   >
                     <div className="flex items-center space-x-4">
-                      <div className="text-2xl">{item.icon}</div>
+                      <div className="text-2xl">{item.icon || '🧵'}</div>
                       
                       <div className="flex-1">
                         <div className="flex items-center space-x-2 mb-1">
                           <span className="font-semibold text-gray-800">
-                            {item.bundleId}
+                            {item.bundleNumber || item.bundleId || item.id}
                           </span>
                           <span className="text-sm text-gray-500">→</span>
                           <span className="font-medium text-gray-700">
-                            {item.operationName}
+                            {item.operation || item.operationName || 'Proceed'}
                           </span>
                         </div>
                         
@@ -355,9 +355,14 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
                           <span className={`px-2 py-1 rounded border text-xs font-semibold ${getMachineTypeColor(item.machineType)}`}>
                             {item.machineType}
                           </span>
-                          <span className="text-xs text-gray-500">
-                            रु. {item.totalEarnings} • {item.estimatedTime} min
+                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
+                            ⏱️ {item.estimatedTime || item.time || 0} min
                           </span>
+                          {item.totalEarnings && (
+                            <span className="text-xs text-gray-500">
+                              रु. {item.totalEarnings}
+                            </span>
+                          )}
                         </div>
                       </div>
                       

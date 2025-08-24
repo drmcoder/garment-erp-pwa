@@ -337,7 +337,7 @@ const MachineManagement = ({ onStatsUpdate, onBack }) => {
         item: machineToDelete,
         itemName: currentLanguage === 'np' ? 'मेसिन' : 'Machine',
         user,
-        permissionLevel: DELETE_PERMISSIONS.ADMIN_ONLY,
+        permissionLevel: DELETE_PERMISSIONS.UNRESTRICTED,
         permissionOptions: { allowedRoles: ['management', 'admin'] },
         language: currentLanguage === 'np' ? 'np' : 'en',
         collectionName: COLLECTIONS.MACHINE_CONFIGS,
@@ -399,12 +399,12 @@ const MachineManagement = ({ onStatsUpdate, onBack }) => {
     if (editingMachine) {
       setEditingMachine(prev => ({
         ...prev,
-        specifications: { ...prev.specifications, [field]: value }
+        specifications: { ...(prev.specifications || {}), [field]: value }
       }));
     } else {
       setNewMachine(prev => ({
         ...prev,
-        specifications: { ...prev.specifications, [field]: value }
+        specifications: { ...(prev.specifications || {}), [field]: value }
       }));
     }
   };
@@ -790,7 +790,7 @@ const MachineManagement = ({ onStatsUpdate, onBack }) => {
                 <span className="text-gray-600">Location:</span>
                 <span className="font-medium">{machine.location || 'N/A'}</span>
               </div>
-              {machine.specifications.maxSpeed && (
+              {machine.specifications && machine.specifications.maxSpeed && (
                 <div className="flex justify-between text-sm">
                   <span className="text-gray-600">Max Speed:</span>
                   <span className="font-medium">{machine.specifications.maxSpeed} RPM</span>

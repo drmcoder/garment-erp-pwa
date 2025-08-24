@@ -80,7 +80,17 @@ const PayrollSystem = ({ onBack }) => {
   // Data States
   const [payrollData, setPayrollData] = useState({
     operators: [],
-    summary: {},
+    summary: {
+      totalOperators: 0,
+      activeOperators: 0,
+      totalPayroll: 0,
+      totalDeductions: 0,
+      netPayroll: 0,
+      averageWage: 0,
+      averageEfficiency: 0,
+      bonusDistributed: 0,
+      overtimePaid: 0,
+    },
     incentives: [],
     deductions: [],
   });

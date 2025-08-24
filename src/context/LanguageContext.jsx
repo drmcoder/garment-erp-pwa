@@ -709,6 +709,9 @@ export const LanguageProvider = ({ children }) => {
 
   // Convert numbers to Nepali numerals
   const formatNumber = (num) => {
+    if (num === undefined || num === null) {
+      return '0';
+    }
     if (currentLanguage === 'np') {
       const nepaliNumbers = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९'];
       return num.toString().split('').map(digit => nepaliNumbers[parseInt(digit)] || digit).join('');

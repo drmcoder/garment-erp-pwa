@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 import BackButton from '../common/BackButton';
@@ -8,47 +8,67 @@ const UserManagement = ({ onBack }) => {
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   const isNepali = currentLanguage === 'np';
   
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      username: 'ram.singh',
-      name: 'Ram Bahadur Singh',
-      nameNp: 'राम बहादुर सिंह',
-      role: 'operator',
-      station: 'Station-1',
-      stationNp: 'स्टेसन-१',
-      machines: ['overlock', 'flatlock'],
-      skillLevel: 'medium',
-      active: true,
-      createdAt: new Date('2024-01-15')
-    },
-    {
-      id: 2,
-      username: 'sita.devi',
-      name: 'Sita Devi Sharma',
-      nameNp: 'सीता देवी शर्मा',
-      role: 'operator',
-      station: 'Station-2',
-      stationNp: 'स्टेसन-२',
-      machines: ['singleNeedle', 'buttonhole'],
-      skillLevel: 'high',
-      active: true,
-      createdAt: new Date('2024-01-20')
-    },
-    {
-      id: 3,
-      username: 'hari.supervisor',
-      name: 'Hari Prasad Thapa',
-      nameNp: 'हरि प्रसाद थापा',
-      role: 'supervisor',
-      station: 'Supervisor Desk',
-      stationNp: 'सुपरवाइजर डेस्क',
-      machines: [],
-      skillLevel: 'high',
-      active: true,
-      createdAt: new Date('2024-01-10')
+  const [users, setUsers] = useState([]);
+
+  // Load users from localStorage or initialize with default data
+  useEffect(() => {
+    const savedUsers = localStorage.getItem('users');
+    if (savedUsers) {
+      setUsers(JSON.parse(savedUsers));
+    } else {
+      // Initialize with default users
+      const defaultUsers = [
+        {
+          id: 1,
+          username: 'ram.singh',
+          name: 'Ram Bahadur Singh',
+          nameNp: 'राम बहादुर सिंह',
+          role: 'operator',
+          station: 'Station-1',
+          stationNp: 'स्टेसन-१',
+          machines: ['overlock', 'flatlock'],
+          skillLevel: 'medium',
+          active: true,
+          createdAt: new Date('2024-01-15')
+        },
+        {
+          id: 2,
+          username: 'sita.devi',
+          name: 'Sita Devi Sharma',
+          nameNp: 'सीता देवी शर्मा',
+          role: 'operator',
+          station: 'Station-2',
+          stationNp: 'स्टेसन-२',
+          machines: ['singleNeedle', 'buttonhole'],
+          skillLevel: 'high',
+          active: true,
+          createdAt: new Date('2024-01-20')
+        },
+        {
+          id: 3,
+          username: 'hari.supervisor',
+          name: 'Hari Prasad Thapa',
+          nameNp: 'हरि प्रसाद थापा',
+          role: 'supervisor',
+          station: 'Supervisor Desk',
+          stationNp: 'सुपरवाइजर डेस्क',
+          machines: [],
+          skillLevel: 'high',
+          active: true,
+          createdAt: new Date('2024-01-10')
+        }
+      ];
+      setUsers(defaultUsers);
+      localStorage.setItem('users', JSON.stringify(defaultUsers));
     }
-  ]);
+  }, []);
+
+  // Save users to localStorage whenever users change
+  useEffect(() => {
+    if (users.length > 0) {
+      localStorage.setItem('users', JSON.stringify(users));
+    }
+  }, [users]);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -184,6 +204,27 @@ const UserManagement = ({ onBack }) => {
     }));
   };
 
+  const handleDeleteUser = (userId) => {
+    if (window.confirm(isNepali ? 'के तपाईं यस प्रयोगकर्तालाई मेटाउन चाहनुहुन्छ?' : 'Are you sure you want to delete this user?')) {
+      try {
+        setUsers(prev => prev.filter(user => user.id !== userId));
+        
+        addError({
+          message: isNepali ? 'प्रयोगकर्ता सफलतापूर्वक मेटाइयो' : 'User deleted successfully',
+          component: 'UserManagement',
+          action: 'Delete User'
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+      } catch (error) {
+        addError({
+          message: 'Failed to delete user',
+          component: 'UserManagement',
+          action: 'Delete User',
+          data: { error: error.message }
+        }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+      }
+    }
+  };
+
   const getRoleBadgeColor = (role) => {
     const colors = {
       operator: 'bg-blue-100 text-blue-800',
@@ -298,6 +339,12 @@ const UserManagement = ({ onBack }) => {
                       className="text-blue-600 hover:text-blue-800 p-2 rounded"
                     >
                       ✏️
+                    </button>
+                    <button
+                      onClick={() => handleDeleteUser(user.id)}
+                      className="text-red-600 hover:text-red-800 p-2 rounded"
+                    >
+                      🗑️
                     </button>
                   </div>
                 </div>

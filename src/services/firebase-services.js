@@ -342,20 +342,17 @@ export class BundleService {
     try {
       let bundleQuery;
       
+      // Simplified query to avoid composite index requirements
       if (machineType && machineType !== 'all') {
         bundleQuery = query(
           collection(db, COLLECTIONS.BUNDLES),
-          where("status", "in", ["pending", "ready", "waiting"]),
           where("machineType", "==", machineType),
-          orderBy("priority", "desc"),
-          orderBy("createdAt", "asc")
+          where("status", "in", ["pending", "ready", "waiting"])
         );
       } else {
         bundleQuery = query(
           collection(db, COLLECTIONS.BUNDLES),
-          where("status", "in", ["pending", "ready", "waiting"]),
-          orderBy("priority", "desc"),
-          orderBy("createdAt", "asc")
+          where("status", "in", ["pending", "ready", "waiting"])
         );
       }
 
@@ -366,7 +363,63 @@ export class BundleService {
         ...doc.data(),
       }));
 
-      return { success: true, bundles };
+      // Enrich bundles with work history
+      const enrichedBundles = await Promise.all(bundles.map(async (bundle) => {
+        try {
+          // Get latest assignment history for this bundle
+          const historyQuery = query(
+            collection(db, COLLECTIONS.ASSIGNMENT_HISTORY),
+            where("bundleId", "==", bundle.id)
+          );
+          
+          const historySnapshot = await getDocs(historyQuery);
+          let lastWorker = null;
+          let lastAction = null;
+          let lastActionDate = null;
+
+          if (!historySnapshot.empty) {
+            // Sort by assignedAt desc to get latest
+            const histories = historySnapshot.docs
+              .map(doc => doc.data())
+              .sort((a, b) => {
+                const aTime = a.assignedAt?.toDate?.() || new Date(0);
+                const bTime = b.assignedAt?.toDate?.() || new Date(0);
+                return bTime - aTime;
+              });
+
+            if (histories.length > 0) {
+              const latestHistory = histories[0];
+              lastWorker = latestHistory.operatorName || latestHistory.operatorId;
+              lastAction = latestHistory.status === 'completed' ? 'Completed' : 'Worked on';
+              lastActionDate = latestHistory.assignedAt;
+            }
+          }
+
+          return {
+            ...bundle,
+            lastWorker,
+            lastAction,
+            lastActionDate
+          };
+        } catch (error) {
+          console.warn('Failed to get history for bundle', bundle.id, error);
+          return bundle;
+        }
+      }));
+
+      // Sort client-side: priority desc, then createdAt asc
+      enrichedBundles.sort((a, b) => {
+        // First by priority (desc)
+        if (b.priority !== a.priority) {
+          return (b.priority || 0) - (a.priority || 0);
+        }
+        // Then by createdAt (asc)
+        const aTime = a.createdAt?.toDate?.() || a.createdAt || new Date(0);
+        const bTime = b.createdAt?.toDate?.() || b.createdAt || new Date(0);
+        return new Date(aTime) - new Date(bTime);
+      });
+
+      return { success: true, bundles: enrichedBundles };
     } catch (error) {
       console.error("Get available bundles error:", error);
       return { success: false, error: error.message };
@@ -381,7 +434,8 @@ export class BundleService {
       // Check if bundle exists and is available
       const bundleDoc = await getDoc(bundleRef);
       if (!bundleDoc.exists()) {
-        return { success: false, error: `Bundle ${bundleId} not found` };
+        // Fallback: Check if this is a localStorage bundle
+        return await this.assignLocalStorageBundle(bundleId, operatorId, supervisorId);
       }
 
       const bundleData = bundleDoc.data();
@@ -440,6 +494,7 @@ export class BundleService {
       return { success: false, error: error.message };
     }
   }
+
 
   // Start work on bundle
   static async startWork(bundleId, operatorId) {

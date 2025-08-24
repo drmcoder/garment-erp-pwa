@@ -6,6 +6,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
 import { BundleService } from "../../services/firebase-services";
+import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
 
 const SelfAssignmentSystem = () => {
   const { user } = useContext(AuthContext);
@@ -21,6 +22,7 @@ const SelfAssignmentSystem = () => {
     priority: "all",
     articleType: "all",
   });
+  const [showOperationsEditor, setShowOperationsEditor] = useState(false);
 
   // Mock data removed - now using Firebase data
 
@@ -58,6 +60,100 @@ const SelfAssignmentSystem = () => {
     },
   ];
 
+  // Create sample work items for testing when Firebase is empty
+  const createSampleWorkForMachine = (machineType) => {
+    const sampleWorkMap = {
+      overlock: [
+        {
+          id: 'sample_overlock_1',
+          articleNumber: '8085',
+          articleName: 'Polo T-Shirt',
+          englishName: 'Polo T-Shirt',
+          color: 'Blue-1',
+          size: 'M',
+          pieces: 25,
+          operation: 'shoulderJoin',
+          englishOperation: 'Shoulder Join',
+          machineType: 'overlock',
+          englishMachine: 'Overlock',
+          rate: 2.50,
+          estimatedTime: 30,
+          priority: 'high',
+          englishPriority: 'High',
+          difficulty: 'Medium',
+          englishDifficulty: 'Medium',
+          recommendations: ['Focus on stitch quality', 'Maintain consistent seam allowance']
+        },
+        {
+          id: 'sample_overlock_2',
+          articleNumber: '2233',
+          articleName: 'Round Neck T-Shirt',
+          englishName: 'Round Neck T-Shirt',
+          color: 'White-1',
+          size: 'L',
+          pieces: 30,
+          operation: 'sideSeam',
+          englishOperation: 'Side Seam',
+          machineType: 'overlock',
+          englishMachine: 'Overlock',
+          rate: 2.25,
+          estimatedTime: 35,
+          priority: 'medium',
+          englishPriority: 'Medium',
+          difficulty: 'Easy',
+          englishDifficulty: 'Easy',
+          recommendations: ['Check seam alignment', 'Ensure proper thread tension']
+        }
+      ],
+      'single-needle': [
+        {
+          id: 'sample_single_1',
+          articleNumber: '6635',
+          articleName: '3-Button Tops',
+          englishName: '3-Button Tops',
+          color: 'Navy-2',
+          size: 'S',
+          pieces: 20,
+          operation: 'placket',
+          englishOperation: 'Placket',
+          machineType: 'single-needle',
+          englishMachine: 'Single Needle',
+          rate: 3.00,
+          estimatedTime: 45,
+          priority: 'high',
+          englishPriority: 'High',
+          difficulty: 'Hard',
+          englishDifficulty: 'Hard',
+          recommendations: ['Precise button placement', 'Double-check measurements']
+        }
+      ],
+      flatlock: [
+        {
+          id: 'sample_flatlock_1',
+          articleNumber: '8085',
+          articleName: 'Polo T-Shirt',
+          englishName: 'Polo T-Shirt',
+          color: 'Red-2',
+          size: 'XL',
+          pieces: 28,
+          operation: 'hemFold',
+          englishOperation: 'Hem Fold',
+          machineType: 'flatlock',
+          englishMachine: 'Flatlock',
+          rate: 2.75,
+          estimatedTime: 40,
+          priority: 'medium',
+          englishPriority: 'Medium',
+          difficulty: 'Medium',
+          englishDifficulty: 'Medium',
+          recommendations: ['Maintain consistent hem width', 'Check fabric alignment']
+        }
+      ]
+    };
+
+    return sampleWorkMap[machineType] || sampleWorkMap['overlock'];
+  };
+
   const loadAvailableWork = useCallback(async () => {
     setLoading(true);
     try {
@@ -79,7 +175,7 @@ const SelfAssignmentSystem = () => {
           englishName: bundle.articleName || `Article ${bundle.article}`,
           color: bundle.color || 'N/A',
           size: bundle.sizes?.[0] || bundle.size || 'N/A',
-          pieces: bundle.quantity || bundle.pieces || 0,
+          pieces: bundle.quantity || bundle.pieces || bundle.pieceCount || 0,
           operation: bundle.currentOperation || 'Operation',
           englishOperation: bundle.currentOperation || 'Operation',
           machineType: bundle.machineType,
@@ -93,7 +189,12 @@ const SelfAssignmentSystem = () => {
           recommendations: generateRecommendations(bundle, user)
         }));
 
-        // Work is already filtered by machine at service level
+        // If no work from Firebase, create sample work items for testing
+        if (filteredWork.length === 0) {
+          console.log(`⚠️ No work found in Firebase for ${operatorMachine}, creating sample work...`);
+          filteredWork = createSampleWorkForMachine(operatorMachine);
+        }
+
         console.log(`✅ Loaded ${filteredWork.length} work items for ${operatorMachine} machine`);
 
         // Work is already filtered by machine type at service level
@@ -153,11 +254,10 @@ const SelfAssignmentSystem = () => {
       return { match, reasons }; // Return early for non-compatible work
     }
 
-    // Check rate
-    const rate = bundle.rate || 0;
-    if (rate > 2.5) {
-      match += 10;
-      reasons.push(isNepali ? "उच्च दर" : "High rate");
+    // Check difficulty level for skill compatibility
+    if (bundle.difficulty && bundle.difficulty.includes('सामान्य')) {
+      match += 5;
+      reasons.push(isNepali ? "उपयुक्त कठिनाई" : "Suitable difficulty");
     }
 
     // Check priority
@@ -219,7 +319,7 @@ const SelfAssignmentSystem = () => {
       console.log(`✅ Successfully assigned bundle ${selectedWork.id} to ${user.id}`);
 
       // Calculate estimated earnings
-      const estimatedEarning = selectedWork.rate * selectedWork.pieces;
+      // Removed price calculation as per requirement
 
       // Report to supervisor
       try {
@@ -229,8 +329,6 @@ const SelfAssignmentSystem = () => {
           articleName: selectedWork.articleName,
           color: selectedWork.color,
           pieces: selectedWork.pieces,
-          rate: selectedWork.rate,
-          estimatedEarning: estimatedEarning,
           estimatedTime: selectedWork.estimatedTime,
           machineType: selectedWork.machineType,
           operatorName: user.name,
@@ -245,8 +343,8 @@ const SelfAssignmentSystem = () => {
 
       showNotification(
         isNepali
-          ? `काम स्वीकार गरियो! अनुमानित आम्दानी: रु ${estimatedEarning}`
-          : `Work accepted! Estimated earning: Rs ${estimatedEarning}`,
+          ? `काम स्वीकार गरियो! अनुमानित समय: ${selectedWork.estimatedTime} मिनेट`
+          : `Work accepted! Estimated time: ${selectedWork.estimatedTime} minutes`,
         "success"
       );
 
@@ -423,6 +521,213 @@ const SelfAssignmentSystem = () => {
                 "🔄 Refresh Work"
               )}
             </button>
+
+            {/* Firestore Data Only Message */}
+            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm">
+              <div className="flex items-center space-x-2 text-blue-700">
+                <span>🔥</span>
+                <span className="font-semibold">
+                  {isNepali ? "फायरस्टोर डाटा मात्र" : "Firestore Data Only"}
+                </span>
+              </div>
+              <p className="text-blue-600 mt-1">
+                {isNepali 
+                  ? "सिस्टमले अब केवल फायरस्टोर बाट डाटा लिन्छ। व्यवस्थापकले कामको डाटा सेटअप गर्नुपर्छ।" 
+                  : "System now uses only Firestore data. Admin needs to setup work data."}
+              </p>
+            </div>
+
+
+            {/* Operations Sequence Editor Button */}
+            <button
+              onClick={() => setShowOperationsEditor(true)}
+              className="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition-colors"
+            >
+              ⚙️ {isNepali ? "सञ्चालन क्रम सम्पादन" : "Edit Operations Sequence"}
+            </button>
+          </div>
+        </div>
+
+        {/* Available Work List */}
+        <div className="lg:col-span-2">
+                  totalPieces: 90,
+                  status: 'completed',
+                  createdAt: new Date().toISOString()
+                };
+                
+                // Create bundles that will show in Available Work
+                const availableWorkBundles = [
+                  {
+                    id: 'B001',
+                    bundleId: 'B001',
+                    bundleNumber: 'test lot-B001',
+                    article: 'T001',
+                    articleNumber: 'T001', 
+                    articleName: 'Round Neck T-shirt',
+                    color: 'Blue',
+                    size: 'M',
+                    pieces: 25,
+                    quantity: 25,
+                    operation: 'Shoulder Join',
+                    currentOperation: 'Shoulder Join',
+                    machineType: 'overlock',
+                    status: 'pending',
+                    priority: 'medium',
+                    rate: 2.5,
+                    estimatedTime: 30,
+                    createdAt: new Date().toISOString(),
+                    dueDate: new Date(Date.now() + 86400000).toISOString()
+                  },
+                  {
+                    id: 'B002',
+                    bundleId: 'B002', 
+                    bundleNumber: 'test lot-B002',
+                    article: 'T001',
+                    articleNumber: 'T001',
+                    articleName: 'Round Neck T-shirt',
+                    color: 'Red',
+                    size: 'L', 
+                    pieces: 30,
+                    quantity: 30,
+                    operation: 'Neck Join',
+                    currentOperation: 'Neck Join',
+                    machineType: 'overlock',
+                    status: 'pending',
+                    priority: 'high',
+                    rate: 3.0,
+                    estimatedTime: 40,
+                    createdAt: new Date().toISOString(),
+                    dueDate: new Date(Date.now() + 86400000).toISOString()
+                  }
+                ];
+                
+                // Save data
+                localStorage.setItem('wipEntries', JSON.stringify([wipEntry]));
+                localStorage.setItem('bundles', JSON.stringify(availableWorkBundles));
+                localStorage.setItem('workItems', JSON.stringify(availableWorkBundles));
+                
+                console.log('✅ Created WIP entry and work bundles');
+                console.log('📋 WIP: test lot-B001 (90 pieces)');
+                console.log('📦 Bundles: 2 bundles ready for assignment');
+                console.log('🎯 Now go to Work Assignment to see Available Work!');
+                
+                loadAvailableWork();
+              }}
+              className="w-full bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 transition-colors"
+            >
+              🏭 {isNepali ? "WIP र काम सिर्जना गर्नुहोस्" : "Create WIP & Work"}
+            </button>
+
+            {/* Create Bundle Cards with Checklists */}
+            <button
+              onClick={() => {
+                console.log('🎯 Creating bundle cards with work checklists...');
+                
+                // Create demo bundles with complete checklists
+                const bundlesWithChecklists = [
+                  {
+                    id: 'CARD-001',
+                    bundleId: 'CARD-001',
+                    bundleNumber: 'test lot-B001',
+                    articleNumber: 'T001',
+                    articleName: 'Round Neck T-shirt',
+                    color: 'Blue',
+                    size: 'M',
+                    pieces: 25,
+                    operation: 'Shoulder Join',
+                    machineType: 'overlock',
+                    status: 'pending',
+                    priority: 'medium',
+                    rate: 2.5,
+                    estimatedTime: 40,
+                    createdAt: new Date().toISOString(),
+                    checklist: [
+                      { id: 'cut_check', name: 'Cutting Quality Check', nameNp: 'काटन गुणस्तर जाँच', completed: false, estimatedTime: 5 },
+                      { id: 'alignment', name: 'Shoulder Alignment', nameNp: 'काँध मिलान', completed: false, estimatedTime: 8 },
+                      { id: 'seam_stitch', name: 'Seam Stitching', nameNp: 'सिलाई सिम', completed: false, estimatedTime: 12 },
+                      { id: 'overlock_finish', name: 'Overlock Finishing', nameNp: 'ओभरलक फिनिशिङ', completed: false, estimatedTime: 10 },
+                      { id: 'quality_check', name: 'Final Quality Check', nameNp: 'अन्तिम गुणस्तर जाँच', completed: false, estimatedTime: 5 }
+                    ]
+                  },
+                  {
+                    id: 'CARD-002',
+                    bundleId: 'CARD-002', 
+                    bundleNumber: 'test lot-B002',
+                    articleNumber: 'T001',
+                    articleName: 'Round Neck T-shirt',
+                    color: 'Red',
+                    size: 'L',
+                    pieces: 30,
+                    operation: 'Neck Join',
+                    machineType: 'overlock',
+                    status: 'pending',
+                    priority: 'high',
+                    rate: 3.0,
+                    estimatedTime: 45,
+                    createdAt: new Date().toISOString(),
+                    checklist: [
+                      { id: 'neck_prep', name: 'Neck Preparation', nameNp: 'नेक तयारी', completed: true, completedAt: new Date().toISOString(), estimatedTime: 8 },
+                      { id: 'binding_cut', name: 'Binding Cutting', nameNp: 'बाइन्डिङ काटना', completed: true, completedAt: new Date().toISOString(), estimatedTime: 6 },
+                      { id: 'neck_attach', name: 'Neck Attachment', nameNp: 'नेक जोडना', completed: false, estimatedTime: 15 },
+                      { id: 'stretch_check', name: 'Stretch Test', nameNp: 'स्ट्रेच जाँच', completed: false, estimatedTime: 5 },
+                      { id: 'finish_trim', name: 'Finish & Trim', nameNp: 'फिनिश र ट्रिम', completed: false, estimatedTime: 6 }
+                    ]
+                  },
+                  {
+                    id: 'CARD-003',
+                    bundleId: 'CARD-003',
+                    bundleNumber: 'test lot-B003',
+                    articleNumber: 'T001',
+                    articleName: 'Round Neck T-shirt',
+                    color: 'White',
+                    size: 'XL', 
+                    pieces: 28,
+                    operation: 'Bottom Fold',
+                    machineType: 'flatlock',
+                    status: 'in-progress',
+                    priority: 'medium',
+                    rate: 2.0,
+                    estimatedTime: 30,
+                    createdAt: new Date().toISOString(),
+                    checklist: [
+                      { id: 'measure_hem', name: 'Measure Hem Width', nameNp: 'हेम चौडाई नाप', completed: true, completedAt: new Date().toISOString(), estimatedTime: 4 },
+                      { id: 'fold_press', name: 'Fold & Press', nameNp: 'फोल्ड र प्रेस', completed: true, completedAt: new Date().toISOString(), estimatedTime: 8 },
+                      { id: 'flatlock_stitch', name: 'Flatlock Stitching', nameNp: 'फ्ल्यालक सिलाई', completed: false, estimatedTime: 12 },
+                      { id: 'hem_quality', name: 'Hem Quality Check', nameNp: 'हेम गुणस्तर जाँच', completed: false, estimatedTime: 6 }
+                    ]
+                  }
+                ];
+                
+                // Save to localStorage
+                localStorage.setItem('bundles', JSON.stringify(bundlesWithChecklists));
+                localStorage.setItem('workItems', JSON.stringify(bundlesWithChecklists));
+                localStorage.setItem('bundleCardsWithChecklists', JSON.stringify(bundlesWithChecklists));
+                
+                console.log('✅ Created 3 bundle cards with work checklists:');
+                console.log('📦 CARD-001: Shoulder Join (0% complete - Available in Work)');  
+                console.log('📦 CARD-002: Neck Join (40% complete - Available in Work)');
+                console.log('📦 CARD-003: Bottom Fold (50% complete - Available in Work)');
+                console.log('');
+                console.log('🎯 CHECKLIST LOGIC:');
+                console.log('- Bundles with uncompleted checklist items → Show in Available Work');
+                console.log('- Bundles with 100% completed checklist → Hidden from Available Work');
+                console.log('- Click checklist items to mark complete/incomplete');
+                console.log('- Progress bar shows completion percentage');
+                
+                loadAvailableWork();
+              }}
+              className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors"
+            >
+              📋 {isNepali ? "चेकलिस्ट कार्ड बनाउनुहोस्" : "Create Checklist Cards"}
+            </button>
+
+            {/* Operations Sequence Editor Button */}
+            <button
+              onClick={() => setShowOperationsEditor(true)}
+              className="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition-colors"
+            >
+              ⚙️ {isNepali ? "सञ्चालन क्रम सम्पादन" : "Edit Operations Sequence"}
+            </button>
           </div>
         </div>
 
@@ -479,39 +784,28 @@ const SelfAssignmentSystem = () => {
                         </div>
                         <div>
                           <span className="text-gray-500">
-                            {isNepali ? "टुक्राहरू:" : "Pieces:"}
+                            {isNepali ? "सिर्जना मिति:" : "Created:"}
                           </span>
                           <div className="font-medium">
-                            {work.pieces} {isNepali ? "वटा" : "pcs"}
+                            {work.createdAt ? new Date(work.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {/* Rate and Time Display */}
+                    {/* Time Display */}
                     <div className="ml-4 text-right">
-                      <div className="text-lg font-bold text-green-600">
-                        रु {work.rate}
+                      <div className="text-lg font-bold text-blue-600">
+                        {work.estimatedTime} {isNepali ? "मिनेट" : "min"}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {work.estimatedTime} {isNepali ? "मिनेट" : "min"}
+                        {isNepali ? "अनुमानित समय" : "Estimated Time"}
                       </div>
                     </div>
                   </div>
 
                   {/* Work Details */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-green-600">💰</span>
-                      <div>
-                        <div className="text-gray-500">
-                          {isNepali ? "दर:" : "Rate:"}
-                        </div>
-                        <div className="font-semibold">
-                          रु. {work.rate}/{isNepali ? "टुक्रा" : "pc"}
-                        </div>
-                      </div>
-                    </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 text-sm">
                     <div className="flex items-center space-x-2">
                       <span className="text-blue-600">⏱️</span>
                       <div>
@@ -534,18 +828,32 @@ const SelfAssignmentSystem = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-orange-600">🎯</span>
-                      <div>
-                        <div className="text-gray-500">
-                          {isNepali ? "कमाई:" : "Earnings:"}
+                  </div>
+
+                  {/* Work History */}
+                  {(work.lastWorker || work.lastAction || work.lastActionDate) && (
+                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="text-sm text-gray-600 mb-2">
+                        {isNepali ? "अन्तिम कार्य:" : "Last Activity:"}
+                      </div>
+                      <div className="flex justify-between items-center text-sm">
+                        <div>
+                          <span className="font-medium">
+                            {work.lastWorker || (isNepali ? "नयाँ काम" : "New Work")}
+                          </span>
+                          <span className="text-gray-500 ml-2">
+                            {work.lastAction || (isNepali ? "तोकिएको छैन" : "Not assigned yet")}
+                          </span>
                         </div>
-                        <div className="font-semibold">
-                          रु. {(work.pieces * work.rate).toFixed(2)}
+                        <div className="text-gray-500">
+                          {work.lastActionDate ? 
+                            new Date(work.lastActionDate.seconds * 1000).toLocaleDateString() : 
+                            (work.createdAt ? new Date(work.createdAt.seconds * 1000).toLocaleDateString() : '')
+                          }
                         </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Recommendations */}
                   <div className="bg-gray-50 rounded-md p-3 mb-4">
@@ -553,7 +861,7 @@ const SelfAssignmentSystem = () => {
                       {isNepali ? "🤖 AI सुझाव:" : "🤖 AI Recommendations:"}
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      {work.recommendations.reasons.map((reason, index) => (
+                      {work.recommendations && work.recommendations.reasons && work.recommendations.reasons.map((reason, index) => (
                         <span
                           key={index}
                           className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
@@ -603,10 +911,10 @@ const SelfAssignmentSystem = () => {
                 </div>
                 <div className="text-right">
                   <div className="text-sm text-gray-500">
-                    {isNepali ? "कुल कमाई" : "Total Earnings"}
+                    {isNepali ? "अनुमानित समय" : "Estimated Time"}
                   </div>
-                  <div className="text-xl font-bold text-green-600">
-                    रु. {(selectedWork.pieces * selectedWork.rate).toFixed(2)}
+                  <div className="text-xl font-bold text-blue-600">
+                    {selectedWork.estimatedTime} {isNepali ? "मिनेट" : "min"}
                   </div>
                 </div>
               </div>
@@ -646,6 +954,13 @@ const SelfAssignmentSystem = () => {
           )}
         </div>
       </div>
+
+      {/* Operations Sequence Editor Modal */}
+      {showOperationsEditor && (
+        <OperationsSequenceEditor
+          onClose={() => setShowOperationsEditor(false)}
+        />
+      )}
     </div>
   );
 };

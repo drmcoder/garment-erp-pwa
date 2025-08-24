@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { db, collection, addDoc, serverTimestamp } from '../../config/firebase';
 import BundleFlowTracker from './BundleFlowTracker';
 import WIPStatusBoard from './WIPStatusBoard';
 import WIPImportSimplified from './WIPImportSimplified';
@@ -103,6 +104,203 @@ const SupervisorDashboard = () => {
     { line: 'Line B', lineNp: 'लाइन B', target: 200, completed: 165, efficiency: 82.5, operators: 4 },
     { line: 'Line C', lineNp: 'लाइन C', target: 100, completed: 80, efficiency: 80, operators: 3 },
   ]);
+
+  // Initialize sample work items for testing
+  useEffect(() => {
+    const initializeSampleWork = async () => {
+      const existingWorkItems = JSON.parse(localStorage.getItem('workItems') || '[]');
+      
+      if (existingWorkItems.length === 0) {
+        const sampleWorkItems = [
+          {
+            id: 'work_001',
+            bundleId: 'bundle_001',
+            articleNumber: '8085',
+            articleName: 'Polo T-Shirt',
+            color: 'Blue-1',
+            size: 'M',
+            pieces: 25,
+            operation: 'shoulderJoin',
+            machineType: 'overlock',
+            status: 'ready',
+            priority: 'high',
+            rate: 2.50,
+            estimatedTime: 30,
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 'work_002',
+            bundleId: 'bundle_002',
+            articleNumber: '6635',
+            articleName: '3-Button Tops',
+            color: 'Navy-2',
+            size: 'S',
+            pieces: 20,
+            operation: 'placket',
+            machineType: 'single-needle',
+            status: 'ready',
+            priority: 'medium',
+            rate: 3.00,
+            estimatedTime: 45,
+            createdAt: new Date().toISOString()
+          },
+          {
+            id: 'work_003',
+            bundleId: 'bundle_003',
+            articleNumber: '8085',
+            articleName: 'Polo T-Shirt',
+            color: 'Red-2',
+            size: 'L',
+            pieces: 28,
+            operation: 'hemFold',
+            machineType: 'flatlock',
+            status: 'ready',
+            priority: 'medium',
+            rate: 2.75,
+            estimatedTime: 40,
+            createdAt: new Date().toISOString()
+          }
+        ];
+
+        // Store in localStorage
+        localStorage.setItem('workItems', JSON.stringify(sampleWorkItems));
+        
+        // Also store in Firestore
+        try {
+          console.log('🔄 Storing sample data in Firestore...');
+          const bundlesCollection = collection(db, 'bundles');
+          
+          for (const workItem of sampleWorkItems) {
+            // Convert work item to bundle format for Firestore
+            const bundleData = {
+              id: workItem.bundleId,
+              bundleNumber: workItem.bundleId,
+              article: workItem.articleNumber,
+              articleName: workItem.articleName,
+              color: workItem.color,
+              size: workItem.size,
+              pieceCount: workItem.pieces,
+              quantity: workItem.pieces,
+              currentOperation: workItem.operation,
+              machineType: workItem.machineType,
+              status: workItem.status,
+              priority: workItem.priority,
+              rate: workItem.rate,
+              estimatedTime: workItem.estimatedTime,
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp()
+            };
+            
+            await addDoc(bundlesCollection, bundleData);
+          }
+          
+          console.log('✅ Sample data stored in both localStorage and Firestore');
+        } catch (firebaseError) {
+          console.warn('⚠️ Firebase storage failed, using localStorage only:', firebaseError.message);
+        }
+        
+        console.log('✅ Sample work items initialized for testing');
+        console.log('🔧 Available work by machine:');
+        console.log('- Overlock: shoulderJoin (ram.singh can pick this up)');
+        console.log('- Single-needle: placket (sita.devi can pick this up)');
+        console.log('- Flatlock: hemFold (other operators can pick this up)');
+      }
+    };
+
+    initializeSampleWork();
+  }, []);
+
+  // Manual function to reinitialize sample data for testing
+  const reinitializeSampleData = async () => {
+    localStorage.removeItem('workItems');
+    console.log('🔄 Manually reinitializing sample data...');
+    
+    const sampleWorkItems = [
+      {
+        id: 'work_001',
+        bundleId: 'bundle_001',
+        articleNumber: '8085',
+        articleName: 'Polo T-Shirt',
+        color: 'Blue-1',
+        size: 'M',
+        pieces: 25,
+        operation: 'shoulderJoin',
+        machineType: 'overlock',
+        status: 'ready',
+        priority: 'high',
+        rate: 2.50,
+        estimatedTime: 30,
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'work_002',
+        bundleId: 'bundle_002',
+        articleNumber: '6635',
+        articleName: '3-Button Tops',
+        color: 'Navy-2',
+        size: 'S',
+        pieces: 20,
+        operation: 'placket',
+        machineType: 'single-needle',
+        status: 'ready',
+        priority: 'medium',
+        rate: 3.00,
+        estimatedTime: 45,
+        createdAt: new Date().toISOString()
+      },
+      {
+        id: 'work_003',
+        bundleId: 'bundle_003',
+        articleNumber: '8085',
+        articleName: 'Polo T-Shirt',
+        color: 'Red-2',
+        size: 'L',
+        pieces: 28,
+        operation: 'hemFold',
+        machineType: 'flatlock',
+        status: 'ready',
+        priority: 'medium',
+        rate: 2.75,
+        estimatedTime: 40,
+        createdAt: new Date().toISOString()
+      }
+    ];
+
+    localStorage.setItem('workItems', JSON.stringify(sampleWorkItems));
+    
+    try {
+      console.log('🔄 Storing fresh sample data in Firestore...');
+      const bundlesCollection = collection(db, 'bundles');
+      
+      for (const workItem of sampleWorkItems) {
+        const bundleData = {
+          id: workItem.bundleId,
+          bundleNumber: workItem.bundleId,
+          article: workItem.articleNumber,
+          articleName: workItem.articleName,
+          color: workItem.color,
+          size: workItem.size,
+          pieceCount: workItem.pieces,
+          quantity: workItem.pieces,
+          currentOperation: workItem.operation,
+          machineType: workItem.machineType,
+          status: workItem.status,
+          priority: workItem.priority,
+          rate: workItem.rate,
+          estimatedTime: workItem.estimatedTime,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+        
+        await addDoc(bundlesCollection, bundleData);
+      }
+      
+      alert('✅ Sample data refreshed in both localStorage and Firestore! Operators should now see work items.');
+    } catch (error) {
+      console.warn('⚠️ Firebase storage failed:', error);
+      alert('✅ Sample data refreshed in localStorage! (Firebase connection issue)');
+    }
+  };
 
   const getEfficiencyColor = (efficiency) => {
     if (efficiency >= 95) return 'text-green-600 bg-green-50 border-green-200';
@@ -403,6 +601,17 @@ const SupervisorDashboard = () => {
                 <div className="text-left">
                   <p className="font-medium text-gray-900">{isNepali ? 'समस्या समाधान' : 'Issue Resolution'}</p>
                   <p className="text-sm text-gray-600">{isNepali ? 'बाँकी समस्याहरू हेर्नुहोस्' : 'Review pending issues'}</p>
+                </div>
+              </button>
+
+              <button 
+                onClick={reinitializeSampleData}
+                className="flex items-center p-4 border border-green-300 rounded-lg hover:bg-green-50 transition-colors bg-green-25"
+              >
+                <BarChart3 className="w-5 h-5 text-green-600 mr-3" />
+                <div className="text-left">
+                  <p className="font-medium text-gray-900">{isNepali ? 'नमूना डेटा रिफ्रेश' : 'Refresh Sample Data'}</p>
+                  <p className="text-sm text-gray-600">{isNepali ? 'परीक्षणका लागि काम आइटम पुनः लोड' : 'Reload work items for testing'}</p>
                 </div>
               </button>
             </div>
