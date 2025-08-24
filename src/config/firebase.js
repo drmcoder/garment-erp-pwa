@@ -78,28 +78,9 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Initialize Analytics only in production or when explicitly enabled
+// Analytics completely disabled to avoid conflicts and blocking issues
 let analytics = null;
-if (
-  typeof window !== "undefined" &&
-  (process.env.NODE_ENV === "production" ||
-    process.env.REACT_APP_ENABLE_ANALYTICS === "true")
-) {
-  try {
-    import("firebase/analytics")
-      .then(({ getAnalytics }) => {
-        analytics = getAnalytics(app);
-        console.log("✅ Firebase Analytics initialized");
-      })
-      .catch((error) => {
-        console.log("⚠️ Analytics not available:", error);
-      });
-  } catch (error) {
-    console.log("⚠️ Analytics initialization failed:", error);
-  }
-} else {
-  console.log("🔧 Analytics disabled in development");
-}
+console.log("🔧 Analytics disabled - preventing conflicts and blocking issues");
 
 export { analytics };
 

@@ -135,7 +135,7 @@ const SelfAssignmentSystem = () => {
     } finally {
       setLoading(false);
     }
-  }, [filter, user, isNepali, showNotification]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Helper function to calculate difficulty
   const calculateDifficulty = (bundle) => {
@@ -199,7 +199,7 @@ const SelfAssignmentSystem = () => {
 
   const loadOperationTypes = useCallback(() => {
     setOperationTypes(mockOperationTypes);
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     loadAvailableWork();
