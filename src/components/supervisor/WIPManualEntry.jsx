@@ -30,7 +30,6 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
         fabricWidth: initialData.fabricWidth || '',
         fabricStore: initialData.fabricStore || '',
         rollCount: initialData.rollCount || initialData.rolls?.length || 1,
-        garmentCategory: initialData.garmentCategory || 'polo-tshirt',
         
         // Articles and Styles
         parsedStyles: initialData.parsedStyles?.length > 0 ? initialData.parsedStyles : [
@@ -57,7 +56,6 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       fabricWidth: '',
       fabricStore: '',
       rollCount: 1, // Number of rolls to create
-      garmentCategory: 'polo-tshirt', // Default category for process template
       
       // Articles and Styles
       parsedStyles: [
@@ -492,36 +490,6 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                   </p>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {currentLanguage === 'np' ? 'गार्मेन्ट प्रकार' : 'Garment Category'} *
-                  </label>
-                  <select
-                    value={wipData.garmentCategory}
-                    onChange={(e) => setWipData(prev => ({ ...prev, garmentCategory: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="polo-tshirt">
-                      {currentLanguage === 'np' ? 'पोलो/टी-शर्ट (शीर्ष लुगा)' : 'Polo/T-Shirt (Top Garment)'}
-                    </option>
-                    <option value="cargo-pants">
-                      {currentLanguage === 'np' ? 'प्यान्ट/कार्गो (तल्लो लुगा)' : 'Pants/Cargo (Bottom Garment)'}
-                    </option>
-                    <option value="plazo">
-                      {currentLanguage === 'np' ? 'प्लाजो (महिला तल्लो लुगा)' : 'Plazo (Ladies Bottom Garment)'}
-                    </option>
-                    <option value="universal">
-                      {currentLanguage === 'np' ? 'सार्वभौमिक प्रक्रिया' : 'Universal Process'}
-                    </option>
-                  </select>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {currentLanguage === 'np' 
-                      ? 'सिलाई प्रक्रिया निर्धारण गर्न'
-                      : 'Determines the sewing process template'
-                    }
-                  </p>
-                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

@@ -37,7 +37,8 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
         const isUniversalTemplate = template.articleType === 'universal' || 
                                    template.id === 'universal-garment-template';
         
-        const matchesGarmentCategory = template.articleType === wipData?.garmentCategory;
+        // Remove garment category dependency - use universal matching instead
+        const matchesGarmentCategory = true;
         
         const isCustomTemplate = template.customTemplate === true || template.id.startsWith('custom-');
         
@@ -55,7 +56,7 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
         // Debug logging
         console.log('Bundle compatibility check:');
         console.log('- Bundle Article:', bundle.articleNumber);
-        console.log('- WIP Garment Category:', wipData?.garmentCategory);
+        console.log('- WIP Data Available:', !!wipData);
         console.log('- Template Type:', template.articleType);
         console.log('- Template ID:', template.id);
         console.log('- Is Custom Template:', isCustomTemplate);
@@ -119,7 +120,7 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
       setWorkItems(allWorkItems);
       setCurrentStep(3);
 
-      // Add debugging information for 0 work items
+      // Log results - only warn if no work items created
       if (allWorkItems.length === 0) {
         addError({
           message: currentLanguage === 'np' 
@@ -143,18 +144,8 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
           }
         }, ERROR_TYPES.USER, ERROR_SEVERITY.MEDIUM);
       } else {
-        addError({
-          message: currentLanguage === 'np' 
-            ? `${allWorkItems.length} काम आइटमहरू सिर्जना गरियो`
-            : `${allWorkItems.length} work items created`,
-          component: 'BundleManager',
-          action: 'Process Bundles',
-          data: { 
-            bundleCount: bundles.length, 
-            workItemCount: allWorkItems.length,
-            templateId: template.id 
-          }
-        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+        // Success message - no need to log as warning, just console log
+        console.log(`✅ Bundle processing success: ${allWorkItems.length} work items created from ${bundles.length} bundles using template ${template.id}`);
       }
 
     } catch (error) {

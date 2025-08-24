@@ -392,7 +392,6 @@ const WIPDataManager = ({ onClose }) => {
                   <div className="text-sm text-gray-600 space-y-1">
                     <div>{isNepali ? 'रोल:' : 'Rolls:'} <span className="font-medium">{entry.totalRolls || 0}</span></div>
                     <div>{isNepali ? 'कुल टुक्रा:' : 'Total Pieces:'} <span className="font-medium">{entry.totalPieces || 0}</span></div>
-                    <div>{isNepali ? 'गार्मेन्ट:' : 'Category:'} <span className="font-medium">{entry.garmentCategory}</span></div>
                   </div>
                 </div>
                 
