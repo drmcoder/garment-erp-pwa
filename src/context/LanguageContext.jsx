@@ -57,7 +57,7 @@ export const languages = {
     nextWork: "अर्को काम",
     pendingWork: "बाँकी काम",
     completedWork: "सकिएको काम",
-    workQueue: "कामको लाइन",
+    workQueueManagement: "कामको लाइन व्यवस्थापन",
     workAssignment: "काम बाँडफाँड",
     workProgress: "कामको प्रगति",
     workStatus: "कामको स्थिति",

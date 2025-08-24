@@ -1,7 +1,7 @@
 // src/components/operator/SelfAssignmentSystem.jsx
 // Complete Operator Self-Assignment System with Smart Recommendations
 
-import React, { useState, useEffect, useContext } from "react";
+import React, { useState, useEffect, useContext, useCallback } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
@@ -58,12 +58,7 @@ const SelfAssignmentSystem = () => {
     },
   ];
 
-  useEffect(() => {
-    loadAvailableWork();
-    loadOperationTypes();
-  }, [filter, loadAvailableWork, loadOperationTypes]);
-
-  const loadAvailableWork = async () => {
+  const loadAvailableWork = useCallback(async () => {
     setLoading(true);
     try {
       // Get ALL available bundles first, then filter by machine type
@@ -140,7 +135,7 @@ const SelfAssignmentSystem = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, user, isNepali, showNotification]);
 
   // Helper function to calculate difficulty
   const calculateDifficulty = (bundle) => {
@@ -202,9 +197,14 @@ const SelfAssignmentSystem = () => {
     };
   };
 
-  const loadOperationTypes = () => {
+  const loadOperationTypes = useCallback(() => {
     setOperationTypes(mockOperationTypes);
-  };
+  }, []);
+
+  useEffect(() => {
+    loadAvailableWork();
+    loadOperationTypes();
+  }, [loadAvailableWork, loadOperationTypes]);
 
   const handleWorkSelection = (work) => {
     setSelectedWork(work);
