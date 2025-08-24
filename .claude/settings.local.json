@@ -32,7 +32,11 @@
       "Bash(firebase projects:list:*)",
       "Bash(BROWSER=none PORT=3000 npm start)",
       "Bash(GENERATE_SOURCEMAP=false BROWSER=none PORT=3000 npm start)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(firebase login:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(BROWSER=none PORT=3001 npm start)",
+      "Bash(firebase use:*)"
     ],
     "deny": [],
     "ask": []

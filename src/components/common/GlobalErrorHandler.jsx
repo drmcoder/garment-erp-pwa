@@ -69,25 +69,35 @@ export const GlobalErrorProvider = ({ children }) => {
     const logLevel = getConsoleLogLevel(errorObject.severity);
     const timestamp = errorObject.timestamp.toISOString();
     
-    console.group(`🚨 ${logLevel.toUpperCase()} ERROR - ${timestamp}`);
-    console.error('Message:', errorObject.message);
-    console.error('Type:', errorObject.type);
-    console.error('Severity:', errorObject.severity);
+    // Choose appropriate console method and icon based on type and severity
+    const isSuccess = errorObject.type === ERROR_TYPES.USER && errorObject.severity === ERROR_SEVERITY.LOW;
+    const consoleMethod = isSuccess ? console.info : 
+                         errorObject.severity === ERROR_SEVERITY.LOW ? console.info :
+                         errorObject.severity === ERROR_SEVERITY.MEDIUM ? console.warn : console.error;
+    const icon = isSuccess ? '✅' : 
+                errorObject.severity === ERROR_SEVERITY.LOW ? 'ℹ️' : 
+                errorObject.severity === ERROR_SEVERITY.MEDIUM ? '⚠️' : '🚨';
+    const label = isSuccess ? 'SUCCESS' : logLevel.toUpperCase();
+    
+    console.group(`${icon} ${label} - ${timestamp}`);
+    consoleMethod('Message:', errorObject.message);
+    consoleMethod('Type:', errorObject.type);
+    consoleMethod('Severity:', errorObject.severity);
     
     if (errorObject.component) {
-      console.error('Component:', errorObject.component);
+      consoleMethod('Component:', errorObject.component);
     }
     
     if (errorObject.action) {
-      console.error('Action:', errorObject.action);
+      consoleMethod('Action:', errorObject.action);
     }
     
     if (errorObject.data) {
-      console.error('Data:', errorObject.data);
+      consoleMethod('Data:', errorObject.data);
     }
     
     if (errorObject.stack) {
-      console.error('Stack Trace:', errorObject.stack);
+      consoleMethod('Stack Trace:', errorObject.stack);
     }
     
     console.groupEnd();
@@ -115,13 +125,13 @@ export const GlobalErrorProvider = ({ children }) => {
       case ERROR_SEVERITY.CRITICAL:
         return 0; // Never auto-hide critical errors
       case ERROR_SEVERITY.HIGH:
-        return 8000;
-      case ERROR_SEVERITY.MEDIUM:
-        return 5000;
-      case ERROR_SEVERITY.LOW:
         return 3000;
+      case ERROR_SEVERITY.MEDIUM:
+        return 2000;
+      case ERROR_SEVERITY.LOW:
+        return 1000; // 1 second for success/info messages
       default:
-        return 5000;
+        return 2000;
     }
   };
 
@@ -195,7 +205,12 @@ const ErrorNotification = () => {
 
   if (!currentError) return null;
 
-  const getSeverityColor = (severity) => {
+  const getSeverityColor = (severity, type) => {
+    // Success messages (user type with low severity)
+    if (type === ERROR_TYPES.USER && severity === ERROR_SEVERITY.LOW) {
+      return 'bg-green-500 border-green-600';
+    }
+    
     switch (severity) {
       case ERROR_SEVERITY.CRITICAL:
         return 'bg-red-600 border-red-700';
@@ -204,13 +219,18 @@ const ErrorNotification = () => {
       case ERROR_SEVERITY.MEDIUM:
         return 'bg-orange-500 border-orange-600';
       case ERROR_SEVERITY.LOW:
-        return 'bg-yellow-500 border-yellow-600';
+        return 'bg-blue-500 border-blue-600';
       default:
         return 'bg-red-500 border-red-600';
     }
   };
 
-  const getSeverityIcon = (severity) => {
+  const getSeverityIcon = (severity, type) => {
+    // Success messages (user type with low severity)
+    if (type === ERROR_TYPES.USER && severity === ERROR_SEVERITY.LOW) {
+      return '✅';
+    }
+    
     switch (severity) {
       case ERROR_SEVERITY.CRITICAL:
         return '🚨';
@@ -230,14 +250,17 @@ const ErrorNotification = () => {
       <div className={`
         max-w-md w-full border-l-4 rounded-lg shadow-lg text-white p-4 
         transform transition-all duration-300 animate-slideUp
-        ${getSeverityColor(currentError.severity)}
+        ${getSeverityColor(currentError.severity, currentError.type)}
       `}>
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-3">
-            <span className="text-lg">{getSeverityIcon(currentError.severity)}</span>
+            <span className="text-lg">{getSeverityIcon(currentError.severity, currentError.type)}</span>
             <div className="flex-1">
               <div className="font-medium text-sm">
-                {currentLanguage === 'np' ? 'त्रुटि' : 'Error'}
+                {currentError.type === ERROR_TYPES.USER && currentError.severity === ERROR_SEVERITY.LOW 
+                  ? (currentLanguage === 'np' ? 'सफल' : 'Success')
+                  : (currentLanguage === 'np' ? 'त्रुटि' : 'Error')
+                }
               </div>
               <div className="text-sm opacity-90 mt-1">
                 {getLocalizedErrorMessage(currentError)}

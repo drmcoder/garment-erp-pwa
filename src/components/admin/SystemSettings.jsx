@@ -7,7 +7,6 @@ import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 
 const SystemSettings = () => {
-  const { user } = useContext(AuthContext);
   const { isNepali } = useContext(LanguageContext);
   const { showNotification } = useContext(NotificationContext);
   

@@ -659,19 +659,20 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
                           <div className="text-2xl font-bold text-purple-600">{template.totalOperations}</div>
                           <div className="text-sm text-gray-600">{currentLanguage === 'np' ? 'सञ्चालनहरू' : 'operations'}</div>
                         </div>
-                        {/* Edit/Delete buttons only for custom templates */}
-                        {template.customTemplate && (
-                          <div className="flex flex-col space-y-1">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEditTemplate(template);
-                              }}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                              title={currentLanguage === 'np' ? 'सम्पादन गर्नुहोस्' : 'Edit Template'}
-                            >
-                              ✏️
-                            </button>
+                        {/* Edit/Delete buttons for all templates */}
+                        <div className="flex flex-col space-y-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditTemplate(template);
+                            }}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title={currentLanguage === 'np' ? 'सम्पादन गर्नुहोस्' : 'Edit Template'}
+                          >
+                            ✏️
+                          </button>
+                          {/* Only allow delete for custom templates */}
+                          {template.customTemplate && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -682,8 +683,8 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
                             >
                               🗑️
                             </button>
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -61,7 +61,7 @@ const SelfAssignmentSystem = () => {
   useEffect(() => {
     loadAvailableWork();
     loadOperationTypes();
-  }, [filter]);
+  }, [filter, loadAvailableWork, loadOperationTypes]);
 
   const loadAvailableWork = async () => {
     setLoading(true);

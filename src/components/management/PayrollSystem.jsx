@@ -30,10 +30,41 @@ import {
   subMonths,
   addMonths,
 } from "date-fns";
-import { ne } from "date-fns/locale";
+import { enUS } from "date-fns/locale";
+import NepaliDate from "nepali-date-converter";
 
 const PayrollSystem = () => {
   const { t, currentLanguage, formatNumber } = useLanguage();
+  const isNepali = currentLanguage === "np";
+
+  // Helper function to format dates based on language
+  const formatDate = (date, formatStr = "dd/MM/yyyy") => {
+    if (isNepali) {
+      const nepaliDate = new NepaliDate(date);
+      if (formatStr.includes("HH:mm")) {
+        const nepaliDateStr = nepaliDate.format("YYYY-MM-DD");
+        const timeStr = format(date, "HH:mm");
+        return `${nepaliDateStr} ${timeStr}`;
+      }
+      return nepaliDate.format("YYYY-MM-DD");
+    }
+    return format(date, formatStr);
+  };
+
+  // Helper function to format month display
+  const formatMonth = (date) => {
+    if (isNepali) {
+      const nepaliDate = new NepaliDate(date);
+      const nepaliMonths = [
+        'बैशाख', 'जेठ', 'आषाढ़', 'श्रावण', 'भाद्र', 'आश्विन',
+        'कार्तिक', 'मंसिर', 'पुष', 'माघ', 'फाल्गुन', 'चैत्र'
+      ];
+      const month = nepaliMonths[nepaliDate.getMonth()];
+      const year = nepaliDate.getYear();
+      return `${month} ${year}`;
+    }
+    return format(date, "MMMM yyyy");
+  };
 
   // State Management
   const [activeTab, setActiveTab] = useState("monthly");
@@ -298,9 +329,7 @@ const PayrollSystem = () => {
               <p className="text-gray-600">उत्पादन व्यवस्थापन</p>
               <p className="text-sm text-gray-500">
                 {currentLanguage === "np" ? "महिना" : "Month"}:{" "}
-                {format(selectedMonth, "MMMM yyyy", {
-                  locale: currentLanguage === "np" ? ne : undefined,
-                })}
+                {formatMonth(selectedMonth)}
               </p>
             </div>
 
@@ -491,7 +520,7 @@ const PayrollSystem = () => {
               <p>
                 यो कम्प्युटर जेनेरेटेड पेस्लिप हो। हस्ताक्षरको आवश्यकता छैन।
               </p>
-              <p>Generated on: {format(new Date(), "dd/MM/yyyy HH:mm")}</p>
+              <p>Generated on: {formatDate(new Date(), "dd/MM/yyyy HH:mm")}</p>
             </div>
           </div>
 
@@ -542,9 +571,7 @@ const PayrollSystem = () => {
               ← {currentLanguage === "np" ? "अघिल्लो महिना" : "Previous"}
             </button>
             <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-medium">
-              {format(selectedMonth, "MMMM yyyy", {
-                locale: currentLanguage === "np" ? ne : undefined,
-              })}
+              {formatMonth(selectedMonth)}
             </div>
             <button
               onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}

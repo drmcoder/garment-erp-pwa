@@ -7,12 +7,10 @@ import {
   COLLECTIONS,
   collection,
   doc,
-  setDoc,
   getDoc,
   getDocs,
   addDoc,
   updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
@@ -20,12 +18,109 @@ import {
   onSnapshot,
   serverTimestamp,
   increment,
-  signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged,
+  writeBatch,
 } from "../config/firebase";
 
-// Import optimized query service
+// User Activity Logging Service
+export class ActivityLogService {
+  static async logActivity(userId, action, details = {}) {
+    try {
+      await addDoc(collection(db, 'activity_logs'), {
+        userId,
+        action,
+        details,
+        timestamp: serverTimestamp(),
+        ip: await this.getClientIP()
+      });
+    } catch (error) {
+      console.error('Error logging activity:', error);
+    }
+  }
+
+  static async getClientIP() {
+    try {
+      const response = await fetch('https://api.ipify.org?format=json');
+      const data = await response.json();
+      return data.ip;
+    } catch {
+      return 'unknown';
+    }
+  }
+
+  static async getUserActivity(userId, limit = 50) {
+    try {
+      const q = query(
+        collection(db, 'activity_logs'),
+        where('userId', '==', userId),
+        orderBy('timestamp', 'desc'),
+        limit(limit)
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error('Error fetching user activity:', error);
+      return [];
+    }
+  }
+}
+
+// Enhanced Data Persistence Service
+export class DataPersistenceService {
+  static async saveWorkSession(data) {
+    try {
+      const docRef = await addDoc(collection(db, 'work_sessions'), {
+        ...data,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error('Error saving work session:', error);
+      throw error;
+    }
+  }
+
+  static async updateWorkSession(sessionId, updates) {
+    try {
+      await updateDoc(doc(db, 'work_sessions', sessionId), {
+        ...updates,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error updating work session:', error);
+      throw error;
+    }
+  }
+
+  static async saveProductionData(data) {
+    try {
+      const batch = writeBatch(db);
+      
+      // Save main production record
+      const prodRef = doc(collection(db, 'production_data'));
+      batch.set(prodRef, {
+        ...data,
+        timestamp: serverTimestamp()
+      });
+
+      // Update daily stats
+      const today = new Date().toISOString().split('T')[0];
+      const statsRef = doc(db, 'daily_stats', today);
+      batch.update(statsRef, {
+        totalPieces: increment(data.pieces || 0),
+        totalOperators: increment(data.operators || 0),
+        efficiency: data.efficiency || 0
+      });
+
+      await batch.commit();
+      return prodRef.id;
+    } catch (error) {
+      console.error('Error saving production data:', error);
+      throw error;
+    }
+  }
+}
 
 // Authentication Service
 export class AuthService {
@@ -62,6 +157,12 @@ export class AuthService {
       // Update last login
       await updateDoc(doc(db, userCollection, userData.id), {
         lastLogin: serverTimestamp(),
+      });
+
+      // Log activity
+      await ActivityLogService.logActivity(userData.id, 'login', {
+        role: userData.role,
+        station: userData.station
       });
 
       return {
@@ -209,6 +310,12 @@ export class BundleService {
     try {
       const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
 
+      // Check if bundle exists first
+      const bundleDoc = await getDoc(bundleRef);
+      if (!bundleDoc.exists()) {
+        return { success: false, error: `Bundle ${bundleId} not found` };
+      }
+
       await updateDoc(bundleRef, {
         assignedOperator: operatorId,
         currentOperatorId: operatorId,
@@ -220,9 +327,15 @@ export class BundleService {
 
       // Update operator's current bundle
       const operatorRef = doc(db, COLLECTIONS.OPERATORS, operatorId);
-      await updateDoc(operatorRef, {
-        currentBundle: bundleId,
-      });
+      const operatorDoc = await getDoc(operatorRef);
+      
+      if (operatorDoc.exists()) {
+        await updateDoc(operatorRef, {
+          currentBundle: bundleId,
+        });
+      } else {
+        console.warn(`Operator ${operatorId} not found, skipping operator update`);
+      }
 
       // Create notification for operator
       await NotificationService.createNotification({

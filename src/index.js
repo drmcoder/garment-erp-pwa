@@ -3,6 +3,15 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
+// Suppress defaultProps warnings from external libraries
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  if (typeof args[0] === 'string' && args[0].includes('Support for defaultProps will be removed from function components')) {
+    return; // Suppress this specific warning
+  }
+  originalWarn.apply(console, args);
+};
+
 // Enhanced Service Worker Registration
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {

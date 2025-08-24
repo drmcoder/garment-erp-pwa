@@ -716,6 +716,22 @@ export const LanguageProvider = ({ children }) => {
     return num.toString();
   };
 
+  // Format currency
+  const formatCurrency = (amount) => {
+    if (typeof amount !== 'number') {
+      amount = parseFloat(amount) || 0;
+    }
+    
+    const formattedAmount = amount.toFixed(2);
+    
+    if (currentLanguage === 'np') {
+      const nepaliAmount = formatNumber(formattedAmount);
+      return `रु. ${nepaliAmount}`;
+    }
+    
+    return `Rs. ${formattedAmount}`;
+  };
+
   // Size-related translations
   const getSizeLabel = (articleNumber, size) => {
     // For numeric sizes, keep as is
@@ -736,6 +752,7 @@ export const LanguageProvider = ({ children }) => {
     formatTime,
     formatDate,
     formatNumber,
+    formatCurrency,
     getSizeLabel,
     sizeUtils,
     sizeConfigurations,

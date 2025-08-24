@@ -33,12 +33,24 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
       console.log('- Bundle Articles:', bundles.map(b => b.articleNumber));
 
       bundles.forEach(bundle => {
-        // Check if template is applicable based on garment category or universal templates
-        const isApplicable = template.articleType === wipData?.garmentCategory || 
-                           template.articleType === 'universal' ||
-                           template.articleNumbers === null ||
-                           !template.articleNumbers ||
-                           template.id === 'universal-garment-template'; // Force universal template to work
+        // Enhanced compatibility check for custom templates
+        const isUniversalTemplate = template.articleType === 'universal' || 
+                                   template.id === 'universal-garment-template';
+        
+        const matchesGarmentCategory = template.articleType === wipData?.garmentCategory;
+        
+        const isCustomTemplate = template.customTemplate === true || template.id.startsWith('custom-');
+        
+        // Custom templates are compatible with any garment category unless they specify specific articles
+        const customTemplateApplicable = isCustomTemplate && 
+                                        (!template.articleNumbers || 
+                                         template.articleNumbers === null || 
+                                         template.articleNumbers.length === 0 ||
+                                         template.articleNumbers.includes(bundle.articleNumber));
+
+        const isApplicable = isUniversalTemplate || 
+                           matchesGarmentCategory || 
+                           customTemplateApplicable;
 
         // Debug logging
         console.log('Bundle compatibility check:');
@@ -46,8 +58,10 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
         console.log('- WIP Garment Category:', wipData?.garmentCategory);
         console.log('- Template Type:', template.articleType);
         console.log('- Template ID:', template.id);
-        console.log('- Category Match:', template.articleType === wipData?.garmentCategory);
-        console.log('- Is Universal:', template.articleType === 'universal');
+        console.log('- Is Custom Template:', isCustomTemplate);
+        console.log('- Category Match:', matchesGarmentCategory);
+        console.log('- Is Universal:', isUniversalTemplate);
+        console.log('- Custom Template Applicable:', customTemplateApplicable);
         console.log('- Is Applicable:', isApplicable);
         console.log('- Bundle Details:', {
           id: bundle.id,

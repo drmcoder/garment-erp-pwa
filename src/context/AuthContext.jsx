@@ -3,6 +3,7 @@
 
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { LanguageContext } from './LanguageContext';
+import { ActivityLogService } from '../services/firebase-services';
 
 export const AuthContext = createContext();
 
@@ -383,6 +384,13 @@ export const AuthProvider = ({ children }) => {
       setUser(foundUser);
       setIsAuthenticated(true);
       
+      // Log activity
+      await ActivityLogService.logActivity(foundUser.id, 'login', {
+        role: foundUser.role,
+        station: foundUser.station || 'unknown',
+        timestamp: new Date().toISOString()
+      });
+      
       return { success: true, user: foundUser };
     } catch (error) {
       throw new Error(error.message);
@@ -397,6 +405,15 @@ export const AuthProvider = ({ children }) => {
     try {
       // Simulate API call to invalidate token
       await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Log activity before clearing user data
+      if (user) {
+        await ActivityLogService.logActivity(user.id, 'logout', {
+          role: user.role,
+          station: user.station || 'unknown',
+          timestamp: new Date().toISOString()
+        });
+      }
       
       // Clear all storage
       localStorage.removeItem('garmentErpUser');

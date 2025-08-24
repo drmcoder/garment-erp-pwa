@@ -17,6 +17,10 @@ import WIPImportSimplified from "./components/supervisor/WIPImportSimplified";
 import SystemSettings from "./components/admin/SystemSettings";
 import UserManagement from "./components/admin/UserManagement";
 import TemplateBuilder from "./components/supervisor/TemplateBuilder";
+import AIProductionAnalytics from "./components/analytics/AIProductionAnalytics";
+import PayrollSystem from "./components/management/PayrollSystem";
+import { PermissionGate, usePermissions, PermissionsProvider } from "./context/PermissionsContext";
+import { PERMISSIONS } from "./services/permissions-service";
 
 // Login Component
 const LoginScreen = () => {
@@ -66,6 +70,7 @@ const LoginScreen = () => {
       password: 'password123' // Auto-fill default password
     }));
     setShowDropdown(false);
+    setManualEntry(false);
   };
 
   const handleUsernameClick = () => {
@@ -226,8 +231,10 @@ const LoginScreen = () => {
                 name="password"
                 type="password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password (password123)"
+                className={`appearance-none rounded-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm ${
+                  credentials.password === 'password123' ? 'border-green-300 bg-green-50' : 'border-gray-300'
+                }`}
+                placeholder={credentials.password === 'password123' ? "Auto-filled password" : "Password (password123)"}
                 value={credentials.password}
                 onChange={(e) =>
                   setCredentials({ ...credentials, password: e.target.value })
@@ -638,6 +645,7 @@ const OperatorDashboard = ({ onNavigate }) => {
 // Main App Content based on user role
 const AppContent = () => {
   const { user } = useAuth();
+  const { canAccessView } = usePermissions();
   const [currentView, setCurrentView] = useState("dashboard");
 
   if (!user) return null;
@@ -659,34 +667,58 @@ const AppContent = () => {
       switch (currentView) {
         case "wip-import":
           return (
-            <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-              <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
-                <WIPImportSimplified 
-                  onImport={(result) => {
-                    console.log('WIP Import completed:', result);
-                    setCurrentView('dashboard');
-                  }}
-                  onCancel={() => setCurrentView('dashboard')}
-                />
+            <PermissionGate permission={PERMISSIONS.WIP_IMPORT}>
+              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden relative">
+                  {/* Close button */}
+                  <button
+                    onClick={() => setCurrentView('dashboard')}
+                    className="absolute top-4 right-4 z-10 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                    title="Close"
+                  >
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                  <WIPImportSimplified 
+                    onImport={(result) => {
+                      console.log('WIP Import completed:', result);
+                      setCurrentView('dashboard');
+                    }}
+                    onCancel={() => setCurrentView('dashboard')}
+                  />
+                </div>
               </div>
-            </div>
+            </PermissionGate>
           );
         case "work-assignment":
-          return <WorkAssignment />;
+          return (
+            <PermissionGate permission={PERMISSIONS.WORK_ASSIGN}>
+              <WorkAssignment />
+            </PermissionGate>
+          );
         case "user-management":
-          return <UserManagement />;
+          return (
+            <PermissionGate permission={PERMISSIONS.USER_VIEW_ALL}>
+              <UserManagement />
+            </PermissionGate>
+          );
         case "template-builder":
-          return <TemplateBuilder 
-            onTemplateCreated={(template) => {
-              console.log('Template created:', template);
-              // Save to localStorage or database
-              const savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
-              savedTemplates.push(template);
-              localStorage.setItem('customTemplates', JSON.stringify(savedTemplates));
-              setCurrentView('dashboard');
-            }}
-            onCancel={() => setCurrentView('dashboard')}
-          />;
+          return (
+            <PermissionGate permissions={[PERMISSIONS.WIP_IMPORT, PERMISSIONS.WORK_ASSIGN]}>
+              <TemplateBuilder 
+                onTemplateCreated={(template) => {
+                  console.log('Template created:', template);
+                  // Save to localStorage or database
+                  const savedTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+                  savedTemplates.push(template);
+                  localStorage.setItem('customTemplates', JSON.stringify(savedTemplates));
+                  setCurrentView('dashboard');
+                }}
+                onCancel={() => setCurrentView('dashboard')}
+              />
+            </PermissionGate>
+          );
         case "dashboard":
         default:
           return <SupervisorDashboard />;
@@ -697,7 +729,23 @@ const AppContent = () => {
     if (user.role === "management") {
       switch (currentView) {
         case "settings":
-          return <SystemSettings />;
+          return (
+            <PermissionGate permission={PERMISSIONS.SETTINGS_VIEW}>
+              <SystemSettings />
+            </PermissionGate>
+          );
+        case "analytics":
+          return (
+            <PermissionGate permission={PERMISSIONS.ANALYTICS_VIEW}>
+              <AIProductionAnalytics />
+            </PermissionGate>
+          );
+        case "payroll":
+          return (
+            <PermissionGate permission={PERMISSIONS.PAYROLL_VIEW}>
+              <PayrollSystem />
+            </PermissionGate>
+          );
         case "dashboard":
         default:
           return (
@@ -712,7 +760,7 @@ const AppContent = () => {
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <button
                     onClick={() => setCurrentView("settings")}
                     className="bg-blue-600 text-white p-6 rounded-lg hover:bg-blue-700 transition-colors text-left"
@@ -724,11 +772,27 @@ const AppContent = () => {
                     </div>
                   </button>
                   
-                  <div className="bg-gray-100 p-6 rounded-lg text-center">
-                    <div className="text-3xl mb-2">📊</div>
-                    <div className="text-xl font-semibold text-gray-600">Reports & Analytics</div>
-                    <div className="text-gray-500 mt-1">Coming Soon</div>
-                  </div>
+                  <button
+                    onClick={() => setCurrentView("analytics")}
+                    className="bg-purple-600 text-white p-6 rounded-lg hover:bg-purple-700 transition-colors text-left"
+                  >
+                    <div className="text-3xl mb-2">🧠</div>
+                    <div className="text-xl font-semibold">AI Analytics</div>
+                    <div className="text-purple-200 mt-1">
+                      Production insights and predictions
+                    </div>
+                  </button>
+
+                  <button
+                    onClick={() => setCurrentView("payroll")}
+                    className="bg-green-600 text-white p-6 rounded-lg hover:bg-green-700 transition-colors text-left"
+                  >
+                    <div className="text-3xl mb-2">💰</div>
+                    <div className="text-xl font-semibold">Payroll System</div>
+                    <div className="text-green-200 mt-1">
+                      Manage operator payments and incentives
+                    </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -748,12 +812,12 @@ const AppContent = () => {
 
       {/* Navigation Tabs for Operators */}
       {user.role === "operator" && (
-        <div className="bg-white border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex space-x-8">
+        <div className="bg-white border-b sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+            <nav className="flex space-x-2 sm:space-x-8 overflow-x-auto">
               <button
                 onClick={() => setCurrentView("dashboard")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   currentView === "dashboard"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -763,7 +827,7 @@ const AppContent = () => {
               </button>
               <button
                 onClick={() => setCurrentView("self-assignment")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   currentView === "self-assignment"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -778,12 +842,12 @@ const AppContent = () => {
 
       {/* Navigation Tabs for Supervisors */}
       {user.role === "supervisor" && (
-        <div className="bg-white border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex space-x-8">
+        <div className="bg-white border-b sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+            <nav className="flex space-x-1 sm:space-x-4 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setCurrentView("dashboard")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   currentView === "dashboard"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -793,27 +857,27 @@ const AppContent = () => {
               </button>
               <button
                 onClick={() => setCurrentView("wip-import")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   currentView === "wip-import"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
-                📝 WIP Import
+                📝 WIP
               </button>
               <button
                 onClick={() => setCurrentView("work-assignment")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   currentView === "work-assignment"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
-                🎯 Work Assignment
+                🎯 Assign
               </button>
               <button
                 onClick={() => setCurrentView("user-management")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   currentView === "user-management"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -823,7 +887,7 @@ const AppContent = () => {
               </button>
               <button
                 onClick={() => setCurrentView("template-builder")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   currentView === "template-builder"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -838,12 +902,12 @@ const AppContent = () => {
 
       {/* Navigation Tabs for Management */}
       {user.role === "management" && (
-        <div className="bg-white border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <nav className="flex space-x-8">
+        <div className="bg-white border-b sticky top-0 z-40">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+            <nav className="flex space-x-1 sm:space-x-6 overflow-x-auto scrollbar-hide">
               <button
                 onClick={() => setCurrentView("dashboard")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   currentView === "dashboard"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
@@ -852,14 +916,34 @@ const AppContent = () => {
                 📊 Dashboard
               </button>
               <button
+                onClick={() => setCurrentView("analytics")}
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
+                  currentView === "analytics"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                🧠 AI Analytics
+              </button>
+              <button
+                onClick={() => setCurrentView("payroll")}
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
+                  currentView === "payroll"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                💰 Payroll
+              </button>
+              <button
                 onClick={() => setCurrentView("settings")}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
                   currentView === "settings"
                     ? "border-indigo-500 text-indigo-600"
                     : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                 }`}
               >
-                ⚙️ System Settings
+                ⚙️ Settings
               </button>
             </nav>
           </div>
@@ -895,11 +979,13 @@ const AppWithProviders = () => {
     <LanguageProvider>
       <GlobalErrorProvider>
         <AuthProvider>
-          <SystemProvider>
-            <NotificationProvider>
-              <App />
-            </NotificationProvider>
-          </SystemProvider>
+          <PermissionsProvider>
+            <SystemProvider>
+              <NotificationProvider>
+                <App />
+              </NotificationProvider>
+            </SystemProvider>
+          </PermissionsProvider>
         </AuthProvider>
       </GlobalErrorProvider>
     </LanguageProvider>

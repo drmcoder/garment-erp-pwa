@@ -7,6 +7,79 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   const isNepali = currentLanguage === 'np';
 
+  // English to Nepali translation mapping for common sewing operations
+  const engToNepaliTranslations = {
+    // Common sewing operations
+    'cut': 'काट्ने',
+    'cutting': 'काट्ने',
+    'sew': 'सिलाई',
+    'sewing': 'सिलाई',
+    'stitch': 'टाँका',
+    'stitching': 'टाँका',
+    'attach': 'जोड्ने',
+    'attaching': 'जोड्ने',
+    'join': 'जोड्ने',
+    'joining': 'जोड्ने',
+    'hem': 'हेम',
+    'hemming': 'हेम',
+    'fold': 'तह लगाउने',
+    'folding': 'तह लगाउने',
+    'seam': 'सिम',
+    'seaming': 'सिम',
+    'overlock': 'ओभरलक',
+    'overlocking': 'ओभरलक',
+    'collar': 'कलर',
+    'sleeve': 'बाहुला',
+    'placket': 'प्लाकेट',
+    'pocket': 'खल्ती',
+    'button': 'बटन',
+    'buttonhole': 'बटनहोल',
+    'zipper': 'जिपर',
+    'elastic': 'रबर',
+    'waistband': 'कम्मर पट्टी',
+    'shoulder': 'काँध',
+    'side': 'छेउ',
+    'front': 'अगाडि',
+    'back': 'पछाडि',
+    'top': 'माथि',
+    'bottom': 'तल',
+    'finish': 'समाप्त',
+    'finishing': 'समाप्त गर्ने',
+    'press': 'प्रेस',
+    'pressing': 'प्रेस गर्ने',
+    'iron': 'इस्त्री',
+    'ironing': 'इस्त्री गर्ने',
+    'trim': 'काट्ने',
+    'trimming': 'काट्ने',
+    'clean': 'सफा',
+    'cleaning': 'सफा गर्ने',
+    'check': 'जाँच',
+    'checking': 'जाँच गर्ने',
+    'inspect': 'निरीक्षण',
+    'inspection': 'निरीक्षण'
+  };
+
+  // Auto-translate English text to Nepali
+  const autoTranslateToNepali = (englishText) => {
+    if (!englishText || typeof englishText !== 'string') return '';
+    
+    const lowercaseText = englishText.toLowerCase().trim();
+    
+    // Check for direct translations
+    if (engToNepaliTranslations[lowercaseText]) {
+      return engToNepaliTranslations[lowercaseText];
+    }
+    
+    // Check for partial matches and word substitutions
+    let translated = englishText;
+    Object.keys(engToNepaliTranslations).forEach(englishWord => {
+      const regex = new RegExp(`\\b${englishWord}\\b`, 'gi');
+      translated = translated.replace(regex, engToNepaliTranslations[englishWord]);
+    });
+    
+    return translated === englishText ? '' : translated;
+  };
+
   const [template, setTemplate] = useState(() => {
     if (editingTemplate) {
       return {
@@ -204,7 +277,17 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
                 <input
                   type="text"
                   value={template.name}
-                  onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    setTemplate(prev => {
+                      const autoTranslated = autoTranslateToNepali(newName);
+                      return {
+                        ...prev,
+                        name: newName,
+                        nameNp: autoTranslated || prev.nameNp
+                      };
+                    });
+                  }}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="Plazo 5810 Process"
                 />
@@ -213,12 +296,13 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {isNepali ? 'टेम्प्लेट नाम (नेपाली)' : 'Template Name (Nepali)'}
+                  <span className="text-xs text-blue-600 ml-2">✨ Auto-translated</span>
                 </label>
                 <input
                   type="text"
                   value={template.nameNp}
                   onChange={(e) => setTemplate(prev => ({ ...prev, nameNp: e.target.value }))}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-blue-50"
                   placeholder="प्लाजो ५८१० प्रक्रिया"
                 />
               </div>
@@ -258,7 +342,17 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
                 <input
                   type="text"
                   value={currentOperation.name}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, name: e.target.value }))}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    setCurrentOperation(prev => {
+                      const autoTranslated = autoTranslateToNepali(newName);
+                      return {
+                        ...prev,
+                        name: newName,
+                        nameNp: autoTranslated || prev.nameNp
+                      };
+                    });
+                  }}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="Waistband Preparation"
                 />
@@ -267,12 +361,13 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {isNepali ? 'अपरेसन नाम (नेपाली)' : 'Operation Name (Nepali)'}
+                  <span className="text-xs text-blue-600 ml-2">✨ Auto-translated</span>
                 </label>
                 <input
                   type="text"
                   value={currentOperation.nameNp}
                   onChange={(e) => setCurrentOperation(prev => ({ ...prev, nameNp: e.target.value }))}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-blue-50"
                   placeholder="कम्मर बन्ड तयारी"
                 />
               </div>
