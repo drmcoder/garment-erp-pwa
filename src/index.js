@@ -3,13 +3,34 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
-// Suppress defaultProps warnings from external libraries
+// Suppress defaultProps warnings from external libraries (particularly nepali-datepicker-reactjs)
 const originalWarn = console.warn;
+const originalError = console.error;
+
+// Suppress specific React warnings from external libraries
 console.warn = (...args) => {
-  if (typeof args[0] === 'string' && args[0].includes('Support for defaultProps will be removed from function components')) {
-    return; // Suppress this specific warning
+  if (typeof args[0] === 'string') {
+    // Suppress defaultProps warning from external libraries
+    if (args[0].includes('Support for defaultProps will be removed from function components')) {
+      return;
+    }
+    // Suppress NepaliDatePickerWrapper specific warnings
+    if (args[0].includes('NepaliDatePickerWrapper: Support for defaultProps')) {
+      return;
+    }
   }
   originalWarn.apply(console, args);
+};
+
+// Also suppress any related errors
+console.error = (...args) => {
+  if (typeof args[0] === 'string') {
+    // Suppress defaultProps errors from external libraries
+    if (args[0].includes('defaultProps will be removed from function components')) {
+      return;
+    }
+  }
+  originalError.apply(console, args);
 };
 
 // Enhanced Service Worker Registration

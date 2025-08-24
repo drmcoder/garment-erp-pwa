@@ -1,17 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { NepaliDatePicker } from 'nepali-datepicker-reactjs';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from './GlobalErrorHandler';
 import 'nepali-datepicker-reactjs/dist/index.css';
 
+// Clean wrapper for external library to avoid warnings
+const SafeNepaliDatePicker = React.memo((props) => {
+  return <NepaliDatePicker {...props} />;
+});
+
 const CustomNepaliDatePicker = ({ 
   value, 
   onChange, 
-  placeholder,
+  placeholder = '',
   className = '',
   required = false,
   disabled = false,
-  label,
+  label = '',
   showTodayButton = true,
   ...props 
 }) => {
@@ -110,7 +115,7 @@ const CustomNepaliDatePicker = ({
       )}
       
       <div className="relative">
-        <NepaliDatePicker
+        <SafeNepaliDatePicker
           inputClassName={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${className}`}
           value={parseNepaliDate(internalValue)}
           onChange={handleDateChange}
