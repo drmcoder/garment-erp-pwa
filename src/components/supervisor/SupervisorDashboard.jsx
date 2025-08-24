@@ -5,7 +5,9 @@ import BundleFlowTracker from './BundleFlowTracker';
 import WIPStatusBoard from './WIPStatusBoard';
 import WIPImportSimplified from './WIPImportSimplified';
 import WIPDataManager from './WIPDataManager';
+import WIPProgressTracker from './WIPProgressTracker';
 import ProcessTemplateManager from './ProcessTemplateManager';
+import WorkAssignmentManager from './WorkAssignmentManager';
 import { 
   BarChart3, 
   Users, 
@@ -25,6 +27,8 @@ const SupervisorDashboard = () => {
   const [showWIPImport, setShowWIPImport] = useState(false);
   const [showWIPManager, setShowWIPManager] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [showWorkAssignment, setShowWorkAssignment] = useState(false);
+  const [showWIPProgress, setShowWIPProgress] = useState(false);
   const [stats, setStats] = useState({
     totalOperators: 12,
     activeOperators: 10,
@@ -258,13 +262,29 @@ const SupervisorDashboard = () => {
               </div>
             </button>
 
-            <button className="flex flex-col items-center p-4 border-2 border-dashed border-orange-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-colors">
-              <div className="text-3xl mb-2">⚡</div>
+            <button 
+              onClick={() => setShowWorkAssignment(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-orange-300 rounded-lg hover:border-orange-500 hover:bg-orange-50 transition-colors"
+            >
+              <div className="text-3xl mb-2">👥</div>
               <div className="text-sm font-medium text-gray-900 text-center">
-                {isNepali ? 'लाइभ मोनिटरिङ' : 'Live Monitoring'}
+                {isNepali ? 'काम असाइनमेन्ट' : 'Work Assignment'}
               </div>
               <div className="text-xs text-gray-600 mt-1 text-center">
-                {isNepali ? 'रियल-टाइम उत्पादन ट्र्याकिङ' : 'Real-time production tracking'}
+                {isNepali ? 'अपरेटरहरूलाई काम असाइन गर्नुहोस्' : 'Assign work to operators'}
+              </div>
+            </button>
+
+            <button 
+              onClick={() => setShowWIPProgress(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-green-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
+            >
+              <div className="text-3xl mb-2">📈</div>
+              <div className="text-sm font-medium text-gray-900 text-center">
+                {isNepali ? 'प्रगति ट्र्याकर' : 'Progress Tracker'}
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {isNepali ? 'लट र बन्डलको प्रगति हेर्नुहोस्' : 'Track lot and bundle progress'}
               </div>
             </button>
           </div>
@@ -412,9 +432,58 @@ const SupervisorDashboard = () => {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
             <WIPImportSimplified 
               onImport={(result) => {
-                console.log('WIP Import completed:', result);
+                console.log('🔥 SUPERVISOR DASHBOARD - WIP IMPORT COMPLETED CALLBACK');
+                console.log('📋 Import Result:', JSON.stringify(result, null, 2));
+                
+                // Save WIP data to localStorage for WIPDataManager
+                if (result.wipData) {
+                  console.log('💾 Saving WIP data to localStorage...');
+                  const existingEntries = JSON.parse(localStorage.getItem('wipEntries') || '[]');
+                  console.log('📊 Existing WIP entries count:', existingEntries.length);
+                  
+                  const wipEntry = {
+                    ...result.wipData,
+                    id: Date.now(),
+                    status: 'completed',
+                    createdAt: new Date().toISOString(),
+                    updatedAt: new Date().toISOString(),
+                    bundles: result.bundles,
+                    workItems: result.workItems,
+                    assignments: result.assignments,
+                    template: result.template
+                  };
+                  const updatedEntries = [wipEntry, ...existingEntries];
+                  localStorage.setItem('wipEntries', JSON.stringify(updatedEntries));
+                  console.log('✅ WIP entry saved. New total:', updatedEntries.length);
+                }
+                
+                // Save work items to localStorage for work assignment components
+                if (result.workItems && result.workItems.length > 0) {
+                  console.log('💾 Saving work items to localStorage...');
+                  const existingWorkItems = JSON.parse(localStorage.getItem('workItems') || '[]');
+                  console.log('📊 Existing work items count:', existingWorkItems.length);
+                  
+                  const newWorkItems = result.workItems.map(item => ({
+                    ...item,
+                    wipId: result.wipData?.id || Date.now(),
+                    createdAt: new Date().toISOString()
+                  }));
+                  const updatedWorkItems = [...newWorkItems, ...existingWorkItems];
+                  localStorage.setItem('workItems', JSON.stringify(updatedWorkItems));
+                  console.log('✅ Work items saved. New total:', updatedWorkItems.length);
+                }
+                
+                console.log('🔄 Closing WIP import dialog...');
                 setShowWIPImport(false);
-                // You can add success notification here
+                
+                // Show success notification
+                const successMessage = isNepali 
+                  ? `सफलतापूर्वक सम्पन्न! ${result.bundles?.length || 0} बन्डल र ${result.workItems?.length || 0} काम आइटम सिर्जना गरियो।`
+                  : `Successfully completed! Created ${result.bundles?.length || 0} bundles and ${result.workItems?.length || 0} work items.`;
+                
+                console.log('🎉 Success message:', successMessage);
+                alert(successMessage);
+                console.log('✅ SUPERVISOR DASHBOARD - WIP IMPORT CALLBACK COMPLETED');
               }}
               onCancel={() => setShowWIPImport(false)}
             />
@@ -428,6 +497,12 @@ const SupervisorDashboard = () => {
         />
       )}
 
+      {showWIPProgress && (
+        <WIPProgressTracker
+          onClose={() => setShowWIPProgress(false)}
+        />
+      )}
+
       {showTemplateManager && (
         <ProcessTemplateManager
           onTemplateSelect={(template) => {
@@ -435,6 +510,12 @@ const SupervisorDashboard = () => {
             setShowTemplateManager(false);
           }}
           onClose={() => setShowTemplateManager(false)}
+        />
+      )}
+
+      {showWorkAssignment && (
+        <WorkAssignmentManager
+          onClose={() => setShowWorkAssignment(false)}
         />
       )}
     </div>

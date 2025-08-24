@@ -2,6 +2,7 @@
 // AI-Powered Production Analytics with Predictive Insights
 
 import React, { useState, useEffect } from "react";
+import BackButton from '../common/BackButton';
 import {
   BarChart,
   Bar,
@@ -48,7 +49,7 @@ import {
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 
-const AIProductionAnalytics = () => {
+const AIProductionAnalytics = ({ onBack }) => {
   const { t, currentLanguage, formatNumber } = useLanguage();
 
   // State Management
@@ -722,14 +723,25 @@ const AIProductionAnalytics = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2 flex items-center">
-              <Brain className="w-8 h-8 mr-3 text-blue-600" />
-              AI उत्पादन विश्लेषण
-            </h1>
-            <p className="text-gray-600">
-              कृत्रिम बुद्धिमत्ता संचालित उत्पादन अन्तर्दृष्टि र पूर्वानुमान
-            </p>
+          <div className="flex items-center space-x-4">
+            {onBack && (
+              <BackButton 
+                onClick={onBack} 
+                text={currentLanguage === "np" ? 'फिर्ता' : 'Back'} 
+              />
+            )}
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2 flex items-center">
+                <Brain className="w-8 h-8 mr-3 text-blue-600" />
+                🧠 {currentLanguage === "np" ? "AI उत्पादन विश्लेषण" : "AI Production Analytics"}
+              </h1>
+              <p className="text-gray-600">
+                {currentLanguage === "np" 
+                  ? "कृत्रिम बुद्धिमत्ता संचालित उत्पादन अन्तर्दृष्टि र पूर्वानुमान"
+                  : "AI-powered production insights and predictions"
+                }
+              </p>
+            </div>
           </div>
 
           <div className="flex space-x-3 mt-4 lg:mt-0">

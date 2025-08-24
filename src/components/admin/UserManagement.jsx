@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import BackButton from '../common/BackButton';
 
-const UserManagement = () => {
+const UserManagement = ({ onBack }) => {
   const { currentLanguage } = useLanguage();
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   const isNepali = currentLanguage === 'np';
@@ -207,16 +208,24 @@ const UserManagement = () => {
         {/* Header */}
         <div className="p-6 border-b">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                👥 {isNepali ? 'प्रयोगकर्ता व्यवस्थापन' : 'User Management'}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {isNepali 
-                  ? 'अपरेटर, सुपरवाइजर र प्रशासकहरूको खाता व्यवस्थापन'
-                  : 'Manage operator, supervisor and admin accounts'
+            <div className="flex items-center space-x-4">
+              {onBack && (
+                <BackButton 
+                  onClick={onBack} 
+                  text={isNepali ? 'फिर्ता' : 'Back'} 
+                />
+              )}
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  👥 {isNepali ? 'प्रयोगकर्ता व्यवस्थापन' : 'User Management'}
+                </h1>
+                <p className="text-gray-600 mt-1">
+                  {isNepali 
+                    ? 'अपरेटर, सुपरवाइजर र प्रशासकहरूको खाता व्यवस्थापन'
+                    : 'Manage operator, supervisor and admin accounts'
                 }
               </p>
+              </div>
             </div>
             <button
               onClick={() => setShowCreateForm(true)}

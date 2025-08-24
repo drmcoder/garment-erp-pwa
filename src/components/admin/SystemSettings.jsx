@@ -5,8 +5,9 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
+import BackButton from '../common/BackButton';
 
-const SystemSettings = () => {
+const SystemSettings = ({ onBack }) => {
   const { isNepali } = useContext(LanguageContext);
   const { showNotification } = useContext(NotificationContext);
   
@@ -115,15 +116,25 @@ const SystemSettings = () => {
       <div className="bg-white rounded-lg shadow-sm border">
         {/* Header */}
         <div className="p-6 border-b">
-          <h1 className="text-2xl font-bold text-gray-900">
-            ⚙️ {isNepali ? 'सिस्टम सेटिङ्ग्स' : 'System Settings'}
-          </h1>
-          <p className="text-gray-600 mt-1">
-            {isNepali 
-              ? 'उत्पादन लाइन र सिस्टम कन्फिगरेसन प्रबन्धन गर्नुहोस्'
-              : 'Configure production line and system settings'
-            }
-          </p>
+          <div className="flex items-center space-x-4 mb-4">
+            {onBack && (
+              <BackButton 
+                onClick={onBack} 
+                text={isNepali ? 'फिर्ता' : 'Back'} 
+              />
+            )}
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                ⚙️ {isNepali ? 'सिस्टम सेटिङ्ग्स' : 'System Settings'}
+              </h1>
+              <p className="text-gray-600 mt-1">
+                {isNepali 
+                  ? 'उत्पादन लाइन र सिस्टम कन्फिगरेसन प्रबन्धन गर्नुहोस्'
+                  : 'Configure production line and system settings'
+                }
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="p-6 space-y-8">

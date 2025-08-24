@@ -33,15 +33,20 @@ const WIPImportSimplified = ({ onImport, onCancel }) => {
 
   const handleAssignmentComplete = (assignments) => {
     // Final step - assignments are complete
-    if (onImport) {
-      onImport({
-        wipData,
-        bundles,
-        workItems,
-        assignments,
-        template: selectedTemplate
-      });
-    }
+    setCurrentView('success');
+    
+    // Auto-close after showing success
+    setTimeout(() => {
+      if (onImport) {
+        onImport({
+          wipData,
+          bundles,
+          workItems,
+          assignments,
+          template: selectedTemplate
+        });
+      }
+    }, 3000);
   };
 
   return (
@@ -81,6 +86,79 @@ const WIPImportSimplified = ({ onImport, onCancel }) => {
           onAssignmentComplete={handleAssignmentComplete}
           onCancel={() => setCurrentView('bundle')}
         />
+      )}
+
+      {/* Success/Congratulations Screen */}
+      {currentView === 'success' && (
+        <div className="h-full flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50">
+          <div className="text-center max-w-md mx-auto p-8">
+            {/* Success Animation */}
+            <div className="relative mb-6">
+              <div className="w-32 h-32 mx-auto bg-green-500 rounded-full flex items-center justify-center animate-bounce">
+                <svg className="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              
+              {/* Confetti Effect */}
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-6xl animate-pulse">🎉</div>
+              </div>
+            </div>
+
+            {/* Congratulations Message */}
+            <h1 className="text-3xl font-bold text-green-600 mb-4">
+              {currentLanguage === 'np' ? '🎊 बधाई छ!' : '🎊 Congratulations!'}
+            </h1>
+            
+            <p className="text-lg text-gray-700 mb-6">
+              {currentLanguage === 'np' 
+                ? 'WIP डेटा सफलतापूर्वक अपलोड र प्रसंस्करण भयो!'
+                : 'WIP data successfully uploaded and processed!'
+              }
+            </p>
+
+            {/* Statistics */}
+            <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div>
+                  <div className="text-2xl font-bold text-blue-600">{bundles?.length || 0}</div>
+                  <div className="text-sm text-gray-600">
+                    {currentLanguage === 'np' ? 'बन्डलहरू' : 'Bundles'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-purple-600">{workItems?.length || 0}</div>
+                  <div className="text-sm text-gray-600">
+                    {currentLanguage === 'np' ? 'काम आइटमहरू' : 'Work Items'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-green-600">
+                    {bundles?.reduce((sum, b) => sum + b.pieces, 0) || 0}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    {currentLanguage === 'np' ? 'कुल पिसहरू' : 'Total Pieces'}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-orange-600">{selectedTemplate?.name ? '1' : '0'}</div>
+                  <div className="text-sm text-gray-600">
+                    {currentLanguage === 'np' ? 'टेम्प्लेट' : 'Template'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Auto-closing message */}
+            <div className="text-sm text-gray-500 animate-pulse">
+              {currentLanguage === 'np' 
+                ? '३ सेकेन्डमा स्वचालित रूपमा बन्द हुनेछ...'
+                : 'Auto-closing in 3 seconds...'
+              }
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

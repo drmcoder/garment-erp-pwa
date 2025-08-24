@@ -450,14 +450,21 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
     const loadTemplates = () => {
       try {
         const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+        const deletedDefaultTemplates = JSON.parse(localStorage.getItem('deletedDefaultTemplates') || '[]');
         console.log('Loading custom templates:', customTemplates);
+        console.log('Deleted default templates:', deletedDefaultTemplates);
         
-        // Combine default templates with custom templates
-        const combinedTemplates = [...defaultTemplates, ...customTemplates];
+        // Filter out deleted default templates
+        const availableDefaultTemplates = defaultTemplates.filter(template => 
+          !deletedDefaultTemplates.includes(template.id)
+        );
+        
+        // Combine available defaults with custom templates
+        const combinedTemplates = [...availableDefaultTemplates, ...customTemplates];
         setTemplates(combinedTemplates);
         
         addError({
-          message: `Loaded ${customTemplates.length} custom templates`,
+          message: `Loaded ${customTemplates.length} custom templates, ${availableDefaultTemplates.length} default templates`,
           component: 'ProcessTemplateManager',
           action: 'Load Templates'
         }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
@@ -578,11 +585,18 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
           // Remove from local state
           setTemplates(prev => prev.filter(t => t.id !== templateId));
           
-          // Remove from localStorage for custom templates
           if (deletedTemplate.customTemplate) {
+            // Remove from custom templates in localStorage
             const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
             const updatedCustomTemplates = customTemplates.filter(t => t.id !== templateId);
             localStorage.setItem('customTemplates', JSON.stringify(updatedCustomTemplates));
+          } else {
+            // Track deleted default template
+            const deletedDefaults = JSON.parse(localStorage.getItem('deletedDefaultTemplates') || '[]');
+            if (!deletedDefaults.includes(templateId)) {
+              deletedDefaults.push(templateId);
+              localStorage.setItem('deletedDefaultTemplates', JSON.stringify(deletedDefaults));
+            }
           }
           
           // Clear selection if deleted template was selected

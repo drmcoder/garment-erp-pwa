@@ -15,8 +15,12 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
   const handleTemplateSelect = (template) => {
     setSelectedTemplate(template);
     setShowTemplateManager(false);
-    processBundlesWithTemplate(template);
     setCurrentStep(2);
+    
+    // Small delay to show the processing screen, then process
+    setTimeout(() => {
+      processBundlesWithTemplate(template);
+    }, 500);
   };
 
   const processBundlesWithTemplate = (template) => {
@@ -32,7 +36,7 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
       console.log('- Bundle Count:', bundles.length);
       console.log('- Bundle Articles:', bundles.map(b => b.articleNumber));
 
-      bundles.forEach(bundle => {
+      bundles.forEach((bundle, bundleIndex) => {
         // Enhanced compatibility check for custom templates
         const isUniversalTemplate = template.articleType === 'universal' || 
                                    template.id === 'universal-garment-template';
@@ -53,27 +57,17 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
                            matchesGarmentCategory || 
                            customTemplateApplicable;
 
-        // Debug logging
-        console.log('Bundle compatibility check:');
-        console.log('- Bundle Article:', bundle.articleNumber);
-        console.log('- WIP Data Available:', !!wipData);
-        console.log('- Template Type:', template.articleType);
-        console.log('- Template ID:', template.id);
-        console.log('- Is Custom Template:', isCustomTemplate);
-        console.log('- Category Match:', matchesGarmentCategory);
-        console.log('- Is Universal:', isUniversalTemplate);
-        console.log('- Custom Template Applicable:', customTemplateApplicable);
-        console.log('- Is Applicable:', isApplicable);
-        console.log('- Bundle Details:', {
-          id: bundle.id,
-          bundleId: bundle.bundleId,
-          articleNumber: bundle.articleNumber,
-          color: bundle.color,
-          size: bundle.size
-        });
+        // Minimal debug logging (only for first 3 bundles)
+        if (bundleIndex < 3) {
+          console.log(`Bundle ${bundleIndex + 1}/${bundles.length}: ${bundle.bundleId} [${bundle.articleNumber}] - Applicable: ${isApplicable}`);
+        }
 
         if (isApplicable) {
-          console.log(`Creating work items for bundle ${bundle.bundleId} with ${template.operations.length} operations`);
+          // Only log for first few bundles to avoid performance issues
+          if (bundleIndex < 3) {
+            console.log(`Creating work items for bundle ${bundle.bundleId} with ${template.operations.length} operations`);
+          }
+          
           // Create work items for each operation in the template
           template.operations.forEach(operation => {
             const workItem = {
@@ -102,7 +96,6 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
               icon: operation.icon
             };
 
-            console.log('Created work item:', workItem);
             allWorkItems.push(workItem);
           });
         }

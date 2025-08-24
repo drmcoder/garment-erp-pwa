@@ -276,10 +276,15 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
   };
 
   const handleSubmit = () => {
+    console.log('🔥 WIP MANUAL ENTRY - SUBMIT BUTTON CLICKED');
+    console.log('📋 Current WIP Data before validation:', JSON.stringify(wipData, null, 2));
+    console.log('📊 Data validation starting...');
+    
     try {
       // Validation
       if (wipData.rolls.length === 0) {
         const errorMessage = currentLanguage === 'np' ? 'कम्तीमा एक रोल आवश्यक छ' : 'At least one roll is required';
+        console.log('❌ VALIDATION FAILED: No rolls found');
         addError({
           message: errorMessage,
           component: 'WIPManualEntry',
@@ -291,6 +296,9 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
 
       if (!wipData.lotNumber || !wipData.fabricName) {
         const errorMessage = currentLanguage === 'np' ? 'लट नम्बर र कपडाको नाम आवश्यक छ' : 'Lot number and fabric name are required';
+        console.log('❌ VALIDATION FAILED: Missing lot number or fabric name');
+        console.log('- Lot Number:', wipData.lotNumber);
+        console.log('- Fabric Name:', wipData.fabricName);
         addError({
           message: errorMessage,
           component: 'WIPManualEntry',
@@ -302,6 +310,8 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
 
       if (wipData.parsedStyles.some(style => !style.articleNumber || !style.styleName)) {
         const errorMessage = currentLanguage === 'np' ? 'सबै लेख नम्बर र स्टाइल नाम भर्नुहोस्' : 'Please fill all article numbers and style names';
+        console.log('❌ VALIDATION FAILED: Missing article data');
+        console.log('- Parsed Styles:', wipData.parsedStyles);
         addError({
           message: errorMessage,
           component: 'WIPManualEntry',
@@ -311,9 +321,23 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
         return;
       }
 
+      console.log('✅ ALL VALIDATIONS PASSED');
+
+      // Add calculated totals
+      const totalPieces = wipData.rolls.reduce((sum, roll) => sum + (roll.pieces || 0), 0);
+      const finalWipData = {
+        ...wipData,
+        totalRolls: wipData.rolls.length,
+        totalPieces: totalPieces,
+        createdAt: isEditing ? wipData.createdAt : new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      console.log('✅ Final WIP Data prepared:', JSON.stringify(finalWipData, null, 2));
+      console.log('🚀 Calling onImport callback with final data...');
+      
       // Success
-      console.log('WIP Data submitted successfully:', wipData);
-      onImport(wipData);
+      onImport(finalWipData);
       
     } catch (error) {
       addError({

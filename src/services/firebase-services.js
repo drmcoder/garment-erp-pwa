@@ -340,18 +340,20 @@ export class BundleService {
   // Get available bundles for assignment
   static async getAvailableBundles(machineType = null) {
     try {
-      let bundleQuery = query(
-        collection(db, COLLECTIONS.BUNDLES),
-        where("status", "==", "pending"),
-        orderBy("priority", "desc"),
-        orderBy("createdAt", "asc")
-      );
-
-      if (machineType) {
+      let bundleQuery;
+      
+      if (machineType && machineType !== 'all') {
         bundleQuery = query(
           collection(db, COLLECTIONS.BUNDLES),
-          where("status", "==", "pending"),
+          where("status", "in", ["pending", "ready", "waiting"]),
           where("machineType", "==", machineType),
+          orderBy("priority", "desc"),
+          orderBy("createdAt", "asc")
+        );
+      } else {
+        bundleQuery = query(
+          collection(db, COLLECTIONS.BUNDLES),
+          where("status", "in", ["pending", "ready", "waiting"]),
           orderBy("priority", "desc"),
           orderBy("createdAt", "asc")
         );

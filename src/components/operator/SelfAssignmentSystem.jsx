@@ -61,10 +61,10 @@ const SelfAssignmentSystem = () => {
   const loadAvailableWork = useCallback(async () => {
     setLoading(true);
     try {
-      // Get ONLY bundles compatible with operator's assigned machine
-      const operatorMachine = user?.machine;
+      // Get bundles compatible with operator's assigned machine
+      const operatorMachine = user?.machine || user?.assignedMachines?.[0] || 'overlock';
       if (!operatorMachine) {
-        throw new Error('No machine assigned to operator');
+        console.warn('No machine assigned to operator, showing all available work');
       }
       
       console.log(`🔍 Loading work for operator machine: ${operatorMachine}`);
@@ -337,13 +337,23 @@ const SelfAssignmentSystem = () => {
               <label className="block text-sm font-medium mb-2">
                 {isNepali ? "तपाईंको मेसिन" : "Your Assigned Machine"}
               </label>
-              <div className="w-full p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 font-medium">
-                🔧 {user?.machine || 'No machine assigned'}
+              <div className={`w-full p-3 border rounded-md font-medium ${
+                user?.machine || user?.assignedMachines?.[0] 
+                  ? 'bg-blue-50 border-blue-200 text-blue-800'
+                  : 'bg-orange-50 border-orange-200 text-orange-800'
+              }`}>
+                🔧 {user?.machine || user?.assignedMachines?.[0] || 'Default (Overlock)'}
               </div>
               <p className="text-xs text-gray-500 mt-1">
                 {isNepali 
-                  ? "तपाईं केवल आफ्नो मेसिनका कामहरू देख्न सक्नुहुन्छ"
-                  : "You can only see work for your assigned machine"
+                  ? (user?.machine || user?.assignedMachines?.[0] 
+                      ? "तपाईंको मेसिनका कामहरू देखाउँदै"
+                      : "कुनै मेसिन असाइन नभएको, डिफल्ट देखाउँदै"
+                    )
+                  : (user?.machine || user?.assignedMachines?.[0]
+                      ? "Showing work for your assigned machine"
+                      : "No machine assigned, showing default work"
+                    )
                 }
               </p>
             </div>

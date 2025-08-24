@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { AuthContext } from '../../context/AuthContext';
+import BackButton from '../common/BackButton';
 import { 
   universalDelete, 
   DELETE_PERMISSIONS, 
@@ -18,7 +19,7 @@ import {
 } from '../../config/firebase';
 import { COLLECTIONS } from '../../config/firebase';
 
-const MachineManagement = ({ onStatsUpdate }) => {
+const MachineManagement = ({ onStatsUpdate, onBack }) => {
   const { currentLanguage } = useLanguage();
   const { user } = useContext(AuthContext);
   const [machines, setMachines] = useState([]);
@@ -98,8 +99,82 @@ const MachineManagement = ({ onStatsUpdate }) => {
       // Fallback to localStorage if Firebase fails
       try {
         const savedMachines = JSON.parse(localStorage.getItem('machines') || '[]');
-        setMachines(savedMachines);
-        console.log('📦 Loaded machines from localStorage as fallback');
+        
+        // If no machines exist, add sample machines
+        if (savedMachines.length === 0) {
+          const sampleMachines = [
+            {
+              id: 'overlock_001',
+              name: 'Overlock Machine #1',
+              type: 'Overlock',
+              brand: 'Juki',
+              model: 'MO-6814S',
+              serialNumber: 'OVL001',
+              status: 'active',
+              location: 'Line A',
+              assignedOperator: 'ram.singh',
+              specifications: {
+                maxSpeed: '7000',
+                needleType: 'DC×27',
+                threadCount: '4',
+                power: '550W'
+              },
+              maintenanceSchedule: 'monthly',
+              lastMaintenance: '2024-01-15',
+              nextMaintenance: '2024-02-15',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'single_needle_001',
+              name: 'Single Needle Machine #1',
+              type: 'Single Needle',
+              brand: 'Brother',
+              model: 'S-1000A-3',
+              serialNumber: 'SN001',
+              status: 'active',
+              location: 'Line B',
+              assignedOperator: 'sita.devi',
+              specifications: {
+                maxSpeed: '5500',
+                needleType: 'DP×5',
+                threadCount: '1',
+                power: '400W'
+              },
+              maintenanceSchedule: 'weekly',
+              lastMaintenance: '2024-01-20',
+              nextMaintenance: '2024-01-27',
+              createdAt: new Date().toISOString()
+            },
+            {
+              id: 'flatlock_001',
+              name: 'Flatlock Machine #1',
+              type: 'Flat Lock',
+              brand: 'Pegasus',
+              model: 'M752-13',
+              serialNumber: 'FL001',
+              status: 'active',
+              location: 'Line C',
+              assignedOperator: '',
+              specifications: {
+                maxSpeed: '6500',
+                needleType: 'DC×27',
+                threadCount: '3',
+                power: '500W'
+              },
+              maintenanceSchedule: 'monthly',
+              lastMaintenance: '2024-01-10',
+              nextMaintenance: '2024-02-10',
+              createdAt: new Date().toISOString()
+            }
+          ];
+          
+          localStorage.setItem('machines', JSON.stringify(sampleMachines));
+          setMachines(sampleMachines);
+          console.log('✨ Created sample machines for demo');
+        } else {
+          setMachines(savedMachines);
+          console.log('📦 Loaded machines from localStorage as fallback');
+        }
       } catch (localError) {
         console.error('Error loading from localStorage:', localError);
       }
@@ -631,7 +706,29 @@ const MachineManagement = ({ onStatsUpdate }) => {
 
   return (
     <div className="space-y-6">
-      {/* Header Actions */}
+      {/* Header with Back Button */}
+      <div className="flex items-center justify-between border-b border-gray-200 pb-4">
+        <div className="flex items-center space-x-4">
+          {onBack && (
+            <BackButton 
+              onClick={onBack} 
+              text={currentLanguage === 'np' ? 'फिर्ता' : 'Back to Dashboard'} 
+            />
+          )}
+          <h1 className="text-2xl font-bold text-gray-900">
+            {currentLanguage === 'np' ? '🔧 मेसिन व्यवस्थापन' : '🔧 Machine Management'}
+          </h1>
+        </div>
+        
+        <button
+          onClick={() => setIsCreating(true)}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+        >
+          {currentLanguage === 'np' ? '+ नयाँ मेसिन' : '+ Add Machine'}
+        </button>
+      </div>
+
+      {/* Search and Filter Actions */}
       <div className="flex items-center justify-between">
         <div className="flex space-x-4">
           <input

@@ -72,8 +72,12 @@ const WIPDataManager = ({ onClose }) => {
   }, [wipEntries, searchTerm, statusFilter, dateFilter]);
 
   const loadWIPEntries = () => {
+    console.log('🔥 WIP DATA MANAGER - LOADING ENTRIES');
     try {
       const savedEntries = JSON.parse(localStorage.getItem('wipEntries') || '[]');
+      console.log('📊 Raw entries from localStorage:', savedEntries.length);
+      console.log('📋 Raw entries data:', JSON.stringify(savedEntries, null, 2));
+      
       // Add status and metadata to existing entries if not present
       const enrichedEntries = savedEntries.map(entry => ({
         ...entry,
@@ -85,6 +89,9 @@ const WIPDataManager = ({ onClose }) => {
         totalRolls: entry.totalRolls || entry.rolls?.length || 0
       }));
       
+      console.log('✅ Enriched entries:', enrichedEntries.length);
+      console.log('📋 Enriched entries data:', JSON.stringify(enrichedEntries, null, 2));
+      
       setWipEntries(enrichedEntries);
       
       addError({
@@ -92,6 +99,8 @@ const WIPDataManager = ({ onClose }) => {
         component: 'WIPDataManager',
         action: 'Load Entries'
       }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+      
+      console.log('✅ WIP DATA MANAGER - ENTRIES LOADED SUCCESSFULLY');
       
     } catch (error) {
       addError({
@@ -117,6 +126,9 @@ const WIPDataManager = ({ onClose }) => {
   };
 
   const handleCreateWIP = (wipData) => {
+    console.log('🔥 WIP DATA MANAGER - CREATE WIP CALLED');
+    console.log('📋 Received WIP Data:', JSON.stringify(wipData, null, 2));
+    
     const newEntry = {
       ...wipData,
       id: Date.now(),
@@ -125,10 +137,16 @@ const WIPDataManager = ({ onClose }) => {
       updatedAt: new Date().toISOString()
     };
     
+    console.log('📊 New WIP Entry created:', JSON.stringify(newEntry, null, 2));
+    
     const updatedEntries = [newEntry, ...wipEntries];
+    console.log('💾 Updating WIP entries list. New count:', updatedEntries.length);
+    
     setWipEntries(updatedEntries);
     saveWIPEntries(updatedEntries);
     
+    console.log('💾 WIP entries saved to localStorage');
+    console.log('🔄 Switching view back to list');
     setView('list');
     
     addError({
@@ -136,6 +154,8 @@ const WIPDataManager = ({ onClose }) => {
       component: 'WIPDataManager',
       action: 'Create WIP'
     }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+    
+    console.log('✅ WIP DATA MANAGER - CREATE WIP COMPLETED');
   };
 
   const handleUpdateWIP = (updatedData) => {

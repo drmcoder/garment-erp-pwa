@@ -6,6 +6,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { BundleService, OperatorService, WorkAssignmentService } from '../../services/firebase-services';
+import { assignWorkItemToOperator, startWorkItem, completeWorkItem } from '../../utils/progressManager';
 
 const WorkAssignment = () => {
   const { user } = useContext(AuthContext);
@@ -102,36 +103,72 @@ const WorkAssignment = () => {
 
   const loadOperators = async () => {
     try {
+      // Try Firebase first
       const result = await OperatorService.getActiveOperators();
+      let operators = [];
       
-      if (result.success) {
-        // Map Firebase data to component format
-        const mappedOperators = result.operators.map(operator => ({
-          ...operator,
-          name: isNepali ? operator.name : operator.nameEn,
-          speciality: operator.machine || operator.speciality,
-          specialityNepali: operator.machine,
-          status: operator.currentBundle ? 'working' : 'available',
-          efficiency: operator.efficiency || 85,
-          qualityScore: operator.qualityScore || 95,
-          currentWorkload: operator.currentWorkload || 0,
-          maxWorkload: operator.maxWorkload || 3,
-          skills: operator.skills || [],
-          todayPieces: operator.todayStats?.piecesCompleted || 0,
-          estimatedFinishTime: operator.estimatedFinishTime || null
-        }));
-
-        setOperators(mappedOperators);
+      if (result.success && result.operators.length > 0) {
+        operators = result.operators;
+        console.log('Loaded operators from Firebase:', operators.length);
       } else {
-        throw new Error(result.error || 'Failed to load operators');
+        // Fallback to localStorage if Firebase is empty
+        const localOperators = JSON.parse(localStorage.getItem('operators') || '[]');
+        operators = localOperators.filter(op => op.status === 'active');
+        console.log('Loaded operators from localStorage:', operators.length);
       }
+
+      // Map data to component format
+      const mappedOperators = operators.map(operator => ({
+        ...operator,
+        name: isNepali ? operator.name : operator.nameEn || operator.name,
+        speciality: operator.assignedMachines?.[0] || operator.machine || operator.speciality || 'General',
+        specialityNepali: operator.assignedMachines?.[0] || operator.machine || 'सामान्य',
+        status: operator.currentBundle ? 'working' : 'available',
+        efficiency: operator.efficiency || operator.productivity?.averageTime || 85,
+        qualityScore: operator.qualityScore || operator.productivity?.qualityScore || 95,
+        currentWorkload: operator.currentWorkload || 0,
+        maxWorkload: operator.maxWorkload || 3,
+        skills: operator.skills || [],
+        todayPieces: operator.todayStats?.piecesCompleted || operator.productivity?.completedBundles || 0,
+        estimatedFinishTime: operator.estimatedFinishTime || null,
+        station: operator.station || `Station-${operator.id?.slice(-2) || '01'}`
+      }));
+
+      setOperators(mappedOperators);
+      console.log('Final mapped operators:', mappedOperators.length);
 
     } catch (error) {
       console.error('Failed to load operators:', error);
-      showNotification(
-        isNepali ? 'ऑपरेटर लोड गर्न समस्या भयो' : 'Failed to load operators',
-        'error'
-      );
+      // Try localStorage as final fallback
+      try {
+        const localOperators = JSON.parse(localStorage.getItem('operators') || '[]');
+        const activeOperators = localOperators.filter(op => op.status === 'active');
+        
+        const mappedOperators = activeOperators.map(operator => ({
+          ...operator,
+          name: operator.name,
+          speciality: operator.assignedMachines?.[0] || 'General',
+          specialityNepali: operator.assignedMachines?.[0] || 'सामान्य',
+          status: 'available',
+          efficiency: 85,
+          qualityScore: 95,
+          currentWorkload: 0,
+          maxWorkload: 3,
+          skills: [],
+          todayPieces: 0,
+          estimatedFinishTime: null,
+          station: `Station-${operator.id?.slice(-2) || '01'}`
+        }));
+        
+        setOperators(mappedOperators);
+        console.log('Loaded from localStorage fallback:', mappedOperators.length);
+      } catch (localError) {
+        console.error('LocalStorage fallback also failed:', localError);
+        showNotification(
+          isNepali ? 'ऑपरेटर लोड गर्न समस्या भयो' : 'Failed to load operators',
+          'error'
+        );
+      }
     }
   };
 
@@ -314,47 +351,79 @@ const WorkAssignment = () => {
   const assignWorkToOperator = async (bundle, operator) => {
     setLoading(true);
     try {
-      // Assign bundle using Firebase service
-      const assignResult = await BundleService.assignBundle(bundle.id, operator.id, user?.id || 'supervisor_01');
+      // Check if this is a localStorage-based work item or Firebase bundle
+      const isWorkItem = bundle.operationName && bundle.bundleId;
       
-      if (!assignResult.success) {
-        throw new Error(assignResult.error || 'Assignment failed');
+      if (isWorkItem) {
+        // Handle work item assignment using progress manager
+        console.log('Assigning work item:', bundle.id, 'to operator:', operator.id);
+        
+        const assignResult = assignWorkItemToOperator(bundle.id, operator.id, operator.name);
+        
+        if (!assignResult.success) {
+          throw new Error(assignResult.error || 'Failed to assign work item');
+        }
+        
+        // Update local state
+        setOperators(prev => prev.map(op => 
+          op.id === operator.id 
+            ? { ...op, currentWorkload: op.currentWorkload + 1, status: 'working' }
+            : op
+        ));
+
+        // Remove work item from available list
+        setAvailableBundles(prev => prev.filter(b => b.id !== bundle.id));
+
+        showNotification(
+          isNepali 
+            ? `${bundle.operationName} ${operator.name} लाई तोकियो`
+            : `${bundle.operationName} assigned to ${operator.name}`,
+          'success'
+        );
+        
+      } else {
+        // Handle traditional bundle assignment (Firebase)
+        const assignResult = await BundleService.assignBundle(bundle.id, operator.id, user?.id || 'supervisor_01');
+        
+        if (!assignResult.success) {
+          throw new Error(assignResult.error || 'Assignment failed');
+        }
+
+        // Create assignment record
+        const assignmentData = {
+          bundleId: bundle.id,
+          operatorId: operator.id,
+          operatorName: operator.name,
+          articleNumber: bundle.articleNumber,
+          operation: bundle.operation,
+          assignedBy: user?.id || 'supervisor_01'
+        };
+
+        await WorkAssignmentService.createAssignmentRecord(assignmentData);
+
+        // Update operator workload
+        await OperatorService.updateOperatorWorkload(operator.id, 1);
+
+        // Update local state
+        setOperators(prev => prev.map(op => 
+          op.id === operator.id 
+            ? { ...op, currentWorkload: op.currentWorkload + 1, status: 'working' }
+            : op
+        ));
+
+        // Remove bundle from available list
+        setAvailableBundles(prev => prev.filter(b => b.id !== bundle.id));
+
+        // Reload assignment history
+        loadAssignmentHistory();
+
+        showNotification(
+          isNepali 
+            ? `${bundle.articleNumber} ${operator.name} लाई तोकियो`
+            : `${bundle.articleNumber} assigned to ${operator.name}`,
+          'success'
+        );
       }
-
-      // Create assignment record
-      const assignmentData = {
-        bundleId: bundle.id,
-        operatorId: operator.id,
-        operatorName: operator.name,
-        articleNumber: bundle.articleNumber,
-        operation: bundle.operation,
-        assignedBy: user?.id || 'supervisor_01'
-      };
-
-      await WorkAssignmentService.createAssignmentRecord(assignmentData);
-
-      // Update operator workload
-      await OperatorService.updateOperatorWorkload(operator.id, 1);
-
-      // Update local state
-      setOperators(prev => prev.map(op => 
-        op.id === operator.id 
-          ? { ...op, currentWorkload: op.currentWorkload + 1, status: 'working' }
-          : op
-      ));
-
-      // Remove bundle from available list
-      setAvailableBundles(prev => prev.filter(b => b.id !== bundle.id));
-
-      // Reload assignment history
-      loadAssignmentHistory();
-
-      showNotification(
-        isNepali 
-          ? `${bundle.articleNumber} ${operator.name} लाई तोकियो`
-          : `${bundle.articleNumber} assigned to ${operator.name}`,
-        'success'
-      );
 
     } catch (error) {
       console.error('Assignment error:', error);

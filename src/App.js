@@ -16,6 +16,7 @@ import WorkAssignment from "./components/supervisor/WorkAssignment";
 import WIPImportSimplified from "./components/supervisor/WIPImportSimplified";
 import SystemSettings from "./components/admin/SystemSettings";
 import UserManagement from "./components/admin/UserManagement";
+import MachineManagement from "./components/admin/MachineManagement";
 import TemplateBuilder from "./components/supervisor/TemplateBuilder";
 import AIProductionAnalytics from "./components/analytics/AIProductionAnalytics";
 import PayrollSystem from "./components/management/PayrollSystem";
@@ -726,24 +727,36 @@ const AppContent = () => {
     }
 
     // Manager and admin views
-    if (user.role === "management") {
+    if (user.role === "management" || user.role === "manager") {
       switch (currentView) {
         case "settings":
           return (
             <PermissionGate permission={PERMISSIONS.SETTINGS_VIEW}>
-              <SystemSettings />
+              <SystemSettings onBack={() => setCurrentView("dashboard")} />
             </PermissionGate>
           );
         case "analytics":
           return (
             <PermissionGate permission={PERMISSIONS.ANALYTICS_VIEW}>
-              <AIProductionAnalytics />
+              <AIProductionAnalytics onBack={() => setCurrentView("dashboard")} />
             </PermissionGate>
           );
         case "payroll":
           return (
             <PermissionGate permission={PERMISSIONS.PAYROLL_VIEW}>
-              <PayrollSystem />
+              <PayrollSystem onBack={() => setCurrentView("dashboard")} />
+            </PermissionGate>
+          );
+        case "users":
+          return (
+            <PermissionGate permission={PERMISSIONS.USER_MANAGEMENT}>
+              <UserManagement onBack={() => setCurrentView("dashboard")} />
+            </PermissionGate>
+          );
+        case "machines":
+          return (
+            <PermissionGate permission={PERMISSIONS.SETTINGS_VIEW}>
+              <MachineManagement onBack={() => setCurrentView("dashboard")} />
             </PermissionGate>
           );
         case "dashboard":
@@ -760,7 +773,8 @@ const AppContent = () => {
                   </p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                  {/* First Row - Main Features */}
                   <button
                     onClick={() => setCurrentView("settings")}
                     className="bg-blue-600 text-white p-6 rounded-lg hover:bg-blue-700 transition-colors text-left"
@@ -791,6 +805,30 @@ const AppContent = () => {
                     <div className="text-xl font-semibold">Payroll System</div>
                     <div className="text-green-200 mt-1">
                       Manage operator payments and incentives
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setCurrentView("users")}
+                    className="bg-orange-600 text-white p-6 rounded-lg hover:bg-orange-700 transition-colors text-left"
+                  >
+                    <div className="text-3xl mb-2">👥</div>
+                    <div className="text-xl font-semibold">User Management</div>
+                    <div className="text-orange-200 mt-1">
+                      Manage operators and assign machines
+                    </div>
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <button
+                    onClick={() => setCurrentView("machines")}
+                    className="bg-indigo-600 text-white p-6 rounded-lg hover:bg-indigo-700 transition-colors text-left"
+                  >
+                    <div className="text-3xl mb-2">🔧</div>
+                    <div className="text-xl font-semibold">Machine Management</div>
+                    <div className="text-indigo-200 mt-1">
+                      Add, edit and configure machines
                     </div>
                   </button>
                 </div>

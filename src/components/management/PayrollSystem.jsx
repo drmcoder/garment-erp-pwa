@@ -2,6 +2,7 @@
 // Advanced Payroll & Wage Calculation System
 
 import React, { useState, useEffect } from "react";
+import BackButton from '../common/BackButton';
 import {
   Calculator,
   Download,
@@ -33,7 +34,7 @@ import {
 import { enUS } from "date-fns/locale";
 import NepaliDate from "nepali-date-converter";
 
-const PayrollSystem = () => {
+const PayrollSystem = ({ onBack }) => {
   const { t, currentLanguage, formatNumber } = useLanguage();
   const isNepali = currentLanguage === "np";
 
@@ -550,17 +551,25 @@ const PayrollSystem = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
-              {currentLanguage === "np"
-                ? "पेरोल व्यवस्थापन"
-                : "Payroll Management"}
-            </h1>
-            <p className="text-gray-600">
-              {currentLanguage === "np"
-                ? "मासिक तलब गणना र पेस्लिप जेनेरेसन"
+          <div className="flex items-center space-x-4">
+            {onBack && (
+              <BackButton 
+                onClick={onBack} 
+                text={currentLanguage === "np" ? 'फिर्ता' : 'Back'} 
+              />
+            )}
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
+                💰 {currentLanguage === "np"
+                  ? "पेरोल व्यवस्थापन"
+                  : "Payroll Management"}
+              </h1>
+              <p className="text-gray-600">
+                {currentLanguage === "np"
+                  ? "मासिक तलब गणना र पेस्लिप जेनेरेसन"
                 : "Monthly wage calculation and payslip generation"}
-            </p>
+              </p>
+            </div>
           </div>
 
           <div className="flex space-x-3 mt-4 lg:mt-0">

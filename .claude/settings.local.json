@@ -36,7 +36,8 @@
       "Bash(firebase login:*)",
       "Bash(firebase deploy:*)",
       "Bash(BROWSER=none PORT=3001 npm start)",
-      "Bash(firebase use:*)"
+      "Bash(firebase use:*)",
+      "WebFetch(domain:localhost)"
     ],
     "deny": [],
     "ask": []
