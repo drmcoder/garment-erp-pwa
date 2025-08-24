@@ -15,35 +15,65 @@ const getTodayNepaliDate = () => {
   return `${nepaliYear}/${nepaliMonth.toString().padStart(2, '0')}/${nepaliDay.toString().padStart(2, '0')}`;
 };
 
-const WIPManualEntry = ({ onImport, onCancel }) => {
+const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = false }) => {
   const { currentLanguage } = useLanguage();
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   
   const [currentStep, setCurrentStep] = useState(1); // 1: Basic Info, 2: Articles, 3: Rolls, 4: Preview
-  const [wipData, setWipData] = useState({
-    // Basic Information
-    lotNumber: '',
-    nepaliDate: getTodayNepaliDate(),
-    fabricName: '',
-    fabricWidth: '',
-    fabricStore: '',
-    rollCount: 1, // Number of rolls to create
-    garmentCategory: 'polo-tshirt', // Default category for process template
+  const [wipData, setWipData] = useState(() => {
+    if (isEditing && initialData) {
+      return {
+        // Basic Information
+        lotNumber: initialData.lotNumber || '',
+        nepaliDate: initialData.nepaliDate || getTodayNepaliDate(),
+        fabricName: initialData.fabricName || '',
+        fabricWidth: initialData.fabricWidth || '',
+        fabricStore: initialData.fabricStore || '',
+        rollCount: initialData.rollCount || initialData.rolls?.length || 1,
+        garmentCategory: initialData.garmentCategory || 'polo-tshirt',
+        
+        // Articles and Styles
+        parsedStyles: initialData.parsedStyles?.length > 0 ? initialData.parsedStyles : [
+          { articleNumber: '', styleName: '' }
+        ],
+        
+        // Article Sizes Configuration
+        articleSizes: initialData.articleSizes || {},
+        
+        // Rolls Data
+        rolls: initialData.rolls || [],
+        
+        // Calculated fields
+        totalRolls: initialData.totalRolls || initialData.rolls?.length || 0,
+        totalPieces: initialData.totalPieces || 0
+      };
+    }
     
-    // Articles and Styles
-    parsedStyles: [
-      { articleNumber: '', styleName: '' }
-    ],
-    
-    // Article Sizes Configuration
-    articleSizes: {},
-    
-    // Rolls Data
-    rolls: [],
-    
-    // Calculated fields
-    totalRolls: 0,
-    totalPieces: 0
+    return {
+      // Basic Information
+      lotNumber: '',
+      nepaliDate: getTodayNepaliDate(),
+      fabricName: '',
+      fabricWidth: '',
+      fabricStore: '',
+      rollCount: 1, // Number of rolls to create
+      garmentCategory: 'polo-tshirt', // Default category for process template
+      
+      // Articles and Styles
+      parsedStyles: [
+        { articleNumber: '', styleName: '' }
+      ],
+      
+      // Article Sizes Configuration
+      articleSizes: {},
+      
+      // Rolls Data
+      rolls: [],
+      
+      // Calculated fields
+      totalRolls: 0,
+      totalPieces: 0
+    };
   });
 
   const [currentRoll, setCurrentRoll] = useState({
@@ -344,10 +374,19 @@ const WIPManualEntry = ({ onImport, onCancel }) => {
             </button>
             <div className="text-center">
               <h1 className="text-xl font-bold text-gray-800">
-                {currentLanguage === 'np' ? 'म्यानुअल WIP एन्ट्री' : 'Manual WIP Entry'}
+                {isEditing 
+                  ? (currentLanguage === 'np' ? 'WIP डेटा सम्पादन' : 'Edit WIP Data')
+                  : (currentLanguage === 'np' ? 'म्यानुअल WIP एन्ट्री' : 'Manual WIP Entry')
+                }
               </h1>
               <p className="text-sm text-gray-600">
-                {currentLanguage === 'np' ? 'रोल-आधारित उत्पादन डेटा' : 'Roll-based Production Data'}
+                {isEditing
+                  ? (currentLanguage === 'np' 
+                    ? `लट ${wipData.lotNumber} सम्पादन गर्दै`
+                    : `Editing Lot ${wipData.lotNumber}`
+                  )
+                  : (currentLanguage === 'np' ? 'रोल-आधारित उत्पादन डेटा' : 'Roll-based Production Data')
+                }
               </p>
             </div>
             <div className="w-10" /> {/* Spacer */}
@@ -862,7 +901,10 @@ const WIPManualEntry = ({ onImport, onCancel }) => {
                 onClick={handleSubmit}
                 className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700"
               >
-                {currentLanguage === 'np' ? 'WIP सुरक्षित गर्नुहोस्' : 'Save WIP'}
+                {isEditing 
+                  ? (currentLanguage === 'np' ? 'WIP अपडेट गर्नुहोस्' : 'Update WIP')
+                  : (currentLanguage === 'np' ? 'WIP सुरक्षित गर्नुहोस्' : 'Save WIP')
+                }
               </button>
             )}
           </div>

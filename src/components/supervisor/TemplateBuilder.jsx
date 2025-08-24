@@ -2,16 +2,26 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 
-const TemplateBuilder = ({ onTemplateCreated, onCancel }) => {
+const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTemplateUpdated }) => {
   const { currentLanguage } = useLanguage();
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   const isNepali = currentLanguage === 'np';
 
-  const [template, setTemplate] = useState({
-    name: '',
-    nameNp: '',
-    articleNumber: '',
-    operations: []
+  const [template, setTemplate] = useState(() => {
+    if (editingTemplate) {
+      return {
+        name: editingTemplate.name || '',
+        nameNp: editingTemplate.nameNp || '',
+        articleNumber: editingTemplate.articleNumbers?.[0] || '',
+        operations: editingTemplate.operations || []
+      };
+    }
+    return {
+      name: '',
+      nameNp: '',
+      articleNumber: '',
+      operations: []
+    };
   });
 
   const [currentOperation, setCurrentOperation] = useState({
@@ -28,7 +38,11 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel }) => {
     { id: 'cutting', nameEn: 'Cutting Machine', nameNp: 'काट्ने मेसिन', icon: '✂️' },
     { id: 'overlock', nameEn: 'Overlock Machine', nameNp: 'ओभरलक मेसिन', icon: '🧵' },
     { id: 'singleNeedle', nameEn: 'Single Needle', nameNp: 'एकल सुई', icon: '🪡' },
+    { id: 'flatlock', nameEn: 'Flatlock Machine', nameNp: 'फ्ल्याटलक मेसिन', icon: '📏' },
     { id: 'buttonhole', nameEn: 'Buttonhole Machine', nameNp: 'बटनहोल मेसिन', icon: '⚫' },
+    { id: 'interlock', nameEn: 'Interlock Machine', nameNp: 'इन्टरलक मेसिन', icon: '🔗' },
+    { id: 'coverstitch', nameEn: 'Coverstitch Machine', nameNp: 'कभरस्टिच मेसिन', icon: '🪢' },
+    { id: 'zigzag', nameEn: 'Zigzag Machine', nameNp: 'जिगज्याग मेसिन', icon: '⚡' },
     { id: 'manual', nameEn: 'Manual Work', nameNp: 'म्यानुअल काम', icon: '👐' }
   ];
 
@@ -88,35 +102,62 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel }) => {
       addError({
         message: isNepali ? 'टेम्प्लेट नाम, आर्टिकल नम्बर र कम्तीमा एक अपरेसन चाहिन्छ' : 'Template name, article number and at least one operation required',
         component: 'TemplateBuilder',
-        action: 'Create Template'
+        action: editingTemplate ? 'Update Template' : 'Create Template'
       }, ERROR_TYPES.VALIDATION, ERROR_SEVERITY.MEDIUM);
       return;
     }
 
-    const finalTemplate = {
-      id: `custom-${template.articleNumber}-${Date.now()}`,
-      name: template.name,
-      nameNp: template.nameNp || template.name,
-      articleType: 'custom',
-      articleNumbers: [template.articleNumber],
-      operations: template.operations,
-      totalOperations: template.operations.length,
-      estimatedTotalTime: template.operations.reduce((sum, op) => sum + op.estimatedTimePerPiece, 0),
-      createdAt: new Date(),
-      customTemplate: true
-    };
+    if (editingTemplate) {
+      // Update existing template
+      const updatedTemplate = {
+        ...editingTemplate,
+        name: template.name,
+        nameNp: template.nameNp || template.name,
+        articleNumbers: [template.articleNumber],
+        operations: template.operations,
+        totalOperations: template.operations.length,
+        estimatedTotalTime: template.operations.reduce((sum, op) => sum + op.estimatedTimePerPiece, 0),
+        updatedAt: new Date()
+      };
 
-    if (onTemplateCreated) {
-      onTemplateCreated(finalTemplate);
+      if (onTemplateUpdated) {
+        onTemplateUpdated(updatedTemplate);
+      }
+
+      addError({
+        message: isNepali 
+          ? `${template.name} टेम्प्लेट अपडेट गरियो` 
+          : `Template "${template.name}" updated successfully`,
+        component: 'TemplateBuilder',
+        action: 'Update Template'
+      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+    } else {
+      // Create new template
+      const finalTemplate = {
+        id: `custom-${template.articleNumber}-${Date.now()}`,
+        name: template.name,
+        nameNp: template.nameNp || template.name,
+        articleType: 'custom',
+        articleNumbers: [template.articleNumber],
+        operations: template.operations,
+        totalOperations: template.operations.length,
+        estimatedTotalTime: template.operations.reduce((sum, op) => sum + op.estimatedTimePerPiece, 0),
+        createdAt: new Date(),
+        customTemplate: true
+      };
+
+      if (onTemplateCreated) {
+        onTemplateCreated(finalTemplate);
+      }
+
+      addError({
+        message: isNepali 
+          ? `${template.name} टेम्प्लेट सिर्जना गरियो` 
+          : `Template "${template.name}" created successfully`,
+        component: 'TemplateBuilder',
+        action: 'Create Template'
+      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
     }
-
-    addError({
-      message: isNepali 
-        ? `${template.name} टेम्प्लेट सिर्जना गरियो` 
-        : `Template "${template.name}" created successfully`,
-      component: 'TemplateBuilder',
-      action: 'Create Template'
-    }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
   };
 
   const getMachineIcon = (machineType) => {
@@ -129,12 +170,21 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel }) => {
         {/* Header */}
         <div className="p-6 border-b">
           <h1 className="text-2xl font-bold text-gray-900">
-            🛠️ {isNepali ? 'टेम्प्लेट निर्माता' : 'Template Builder'}
+            🛠️ {editingTemplate 
+              ? (isNepali ? 'टेम्प्लेट सम्पादन' : 'Edit Template')
+              : (isNepali ? 'टेम्प्लेट निर्माता' : 'Template Builder')
+            }
           </h1>
           <p className="text-gray-600 mt-1">
-            {isNepali 
-              ? 'नयाँ गार्मेन्ट डिजाइनको लागि सिलाई प्रक्रिया टेम्प्लेट बनाउनुहोस्'
-              : 'Create sewing process template for new garment design'
+            {editingTemplate 
+              ? (isNepali 
+                ? 'गार्मेन्ट डिजाइनको सिलाई प्रक्रिया टेम्प्लेट सम्पादन गर्नुहोस्'
+                : 'Edit sewing process template for garment design'
+              )
+              : (isNepali 
+                ? 'नयाँ गार्मेन्ट डिजाइनको लागि सिलाई प्रक्रिया टेम्प्लेट बनाउनुहोस्'
+                : 'Create sewing process template for new garment design'
+              )
             }
           </p>
         </div>
@@ -406,7 +456,10 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel }) => {
               disabled={!template.name || !template.articleNumber || template.operations.length === 0}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              💾 {isNepali ? 'टेम्प्लेट बनाउनुहोस्' : 'Create Template'}
+              💾 {editingTemplate 
+                ? (isNepali ? 'टेम्प्लेट अपडेट गर्नुहोस्' : 'Update Template')
+                : (isNepali ? 'टेम्प्लेट बनाउनुहोस्' : 'Create Template')
+              }
             </button>
           </div>
         </div>

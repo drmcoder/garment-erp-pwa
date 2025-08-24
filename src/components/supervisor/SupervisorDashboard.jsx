@@ -4,6 +4,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import BundleFlowTracker from './BundleFlowTracker';
 import WIPStatusBoard from './WIPStatusBoard';
 import WIPImportSimplified from './WIPImportSimplified';
+import WIPDataManager from './WIPDataManager';
+import ProcessTemplateManager from './ProcessTemplateManager';
 import { 
   BarChart3, 
   Users, 
@@ -21,6 +23,8 @@ const SupervisorDashboard = () => {
   const [showBundleTracker, setShowBundleTracker] = useState(false);
   const [showWIPBoard, setShowWIPBoard] = useState(false);
   const [showWIPImport, setShowWIPImport] = useState(false);
+  const [showWIPManager, setShowWIPManager] = useState(false);
+  const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [stats, setStats] = useState({
     totalOperators: 12,
     activeOperators: 10,
@@ -188,7 +192,7 @@ const SupervisorDashboard = () => {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">
             {isNepali ? '🚀 त्वरित कार्यहरू' : '🚀 Quick Actions'}
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <button
               onClick={() => setShowWIPBoard(true)}
               className="flex flex-col items-center p-4 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
@@ -225,6 +229,32 @@ const SupervisorDashboard = () => {
               </div>
               <div className="text-xs text-gray-600 mt-1 text-center">
                 {isNepali ? 'उत्पादन डेटा र बंडल बनाउनुहोस्' : 'Create production data and bundles'}
+              </div>
+            </button>
+
+            <button
+              onClick={() => setShowWIPManager(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors"
+            >
+              <div className="text-3xl mb-2">📊</div>
+              <div className="text-sm font-medium text-gray-900 text-center">
+                {isNepali ? 'WIP डेटा प्रबन्धन' : 'WIP Data Manager'}
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {isNepali ? 'एन्ट्री हेर्नुहोस्, सम्पादन र प्रबन्धन गर्नुहोस्' : 'View, edit and manage entries'}
+              </div>
+            </button>
+
+            <button
+              onClick={() => setShowTemplateManager(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-indigo-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-colors"
+            >
+              <div className="text-3xl mb-2">🛠️</div>
+              <div className="text-sm font-medium text-gray-900 text-center">
+                {isNepali ? 'टेम्प्लेट प्रबन्धन' : 'Template Manager'}
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {isNepali ? 'प्रक्रिया टेम्प्लेट सिर्जना र सम्पादन' : 'Create and edit process templates'}
               </div>
             </button>
 
@@ -390,6 +420,22 @@ const SupervisorDashboard = () => {
             />
           </div>
         </div>
+      )}
+
+      {showWIPManager && (
+        <WIPDataManager
+          onClose={() => setShowWIPManager(false)}
+        />
+      )}
+
+      {showTemplateManager && (
+        <ProcessTemplateManager
+          onTemplateSelect={(template) => {
+            console.log('Template selected:', template);
+            setShowTemplateManager(false);
+          }}
+          onClose={() => setShowTemplateManager(false)}
+        />
       )}
     </div>
   );

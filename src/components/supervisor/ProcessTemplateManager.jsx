@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import TemplateBuilder from './TemplateBuilder';
 
 const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
   const { currentLanguage } = useLanguage();
@@ -9,11 +10,8 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showCreateNew, setShowCreateNew] = useState(false);
-  const [newTemplate, setNewTemplate] = useState({
-    name: '',
-    articleType: '',
-    operations: []
-  });
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
 
   // Predefined process templates
   const defaultTemplates = [
@@ -467,6 +465,9 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
       'flatlock': 'bg-green-100 text-green-800',
       'singleNeedle': 'bg-purple-100 text-purple-800',
       'buttonhole': 'bg-orange-100 text-orange-800',
+      'interlock': 'bg-indigo-100 text-indigo-800',
+      'coverstitch': 'bg-teal-100 text-teal-800',
+      'zigzag': 'bg-pink-100 text-pink-800',
       'manual': 'bg-gray-100 text-gray-800'
     };
     return colors[machineType] || 'bg-gray-100 text-gray-800';
@@ -487,36 +488,121 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
     }
   };
 
-  const handleCreateTemplate = () => {
-    try {
-      const template = {
-        ...newTemplate,
-        id: `custom-${Date.now()}`,
-        createdAt: new Date(),
-        totalOperations: newTemplate.operations.length,
-        estimatedTotalTime: newTemplate.operations.reduce((sum, op) => sum + op.estimatedTimePerPiece, 0)
-      };
 
-      setTemplates(prev => [...prev, template]);
+  const handleEditTemplate = (template) => {
+    setEditingTemplate(template);
+    setShowCreateNew(true);
+  };
+
+  const handleTemplateUpdated = (updatedTemplate) => {
+    try {
+      // Update in templates array
+      setTemplates(prev => prev.map(t => t.id === updatedTemplate.id ? updatedTemplate : t));
+
+      // Update in localStorage if it's a custom template
+      if (updatedTemplate.customTemplate) {
+        const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+        const updatedCustomTemplates = customTemplates.map(t => 
+          t.id === updatedTemplate.id ? updatedTemplate : t
+        );
+        localStorage.setItem('customTemplates', JSON.stringify(updatedCustomTemplates));
+      }
+
       setShowCreateNew(false);
-      setNewTemplate({ name: '', articleType: '', operations: [] });
+      setEditingTemplate(null);
 
       addError({
-        message: currentLanguage === 'np' ? 'टेम्प्लेट सिर्जना गरियो' : 'Template created successfully',
+        message: currentLanguage === 'np' ? 'टेम्प्लेट अपडेट गरियो' : 'Template updated successfully',
         component: 'ProcessTemplateManager',
-        action: 'Create Template',
-        data: { templateId: template.id }
+        action: 'Update Template',
+        data: { templateId: updatedTemplate.id }
       }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
 
     } catch (error) {
       addError({
-        message: 'Failed to create template',
+        message: 'Failed to update template',
         component: 'ProcessTemplateManager',
-        action: 'Create Template',
+        action: 'Update Template',
         data: { error: error.message }
       }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
     }
   };
+
+
+  const handleDeleteTemplate = (templateId) => {
+    setShowDeleteConfirm(templateId);
+  };
+
+  const confirmDeleteTemplate = () => {
+    try {
+      const templateToDelete = templates.find(t => t.id === showDeleteConfirm);
+      
+      // Remove from templates array
+      setTemplates(prev => prev.filter(t => t.id !== showDeleteConfirm));
+
+      // Remove from localStorage if it's a custom template
+      if (templateToDelete?.customTemplate) {
+        const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+        const updatedCustomTemplates = customTemplates.filter(t => t.id !== showDeleteConfirm);
+        localStorage.setItem('customTemplates', JSON.stringify(updatedCustomTemplates));
+      }
+
+      if (selectedTemplate?.id === showDeleteConfirm) {
+        setSelectedTemplate(null);
+      }
+
+      setShowDeleteConfirm(null);
+
+      addError({
+        message: currentLanguage === 'np' ? 'टेम्प्लेट मेटाइयो' : 'Template deleted successfully',
+        component: 'ProcessTemplateManager',
+        action: 'Delete Template',
+        data: { templateId: showDeleteConfirm }
+      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+
+    } catch (error) {
+      addError({
+        message: 'Failed to delete template',
+        component: 'ProcessTemplateManager',
+        action: 'Delete Template',
+        data: { error: error.message }
+      }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+    }
+  };
+
+  // Show TemplateBuilder when creating new or editing
+  if (showCreateNew) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+          <TemplateBuilder
+            onTemplateCreated={(template) => {
+              // Add to templates list and localStorage
+              const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+              customTemplates.push(template);
+              localStorage.setItem('customTemplates', JSON.stringify(customTemplates));
+              
+              setTemplates(prev => [...prev, template]);
+              setShowCreateNew(false);
+              setEditingTemplate(null);
+              
+              addError({
+                message: currentLanguage === 'np' ? 'टेम्प्लेट सिर्जना गरियो' : 'Template created successfully',
+                component: 'ProcessTemplateManager',
+                action: 'Create Template'
+              }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+            }}
+            onCancel={() => {
+              setShowCreateNew(false);
+              setEditingTemplate(null);
+            }}
+            editingTemplate={editingTemplate}
+            onTemplateUpdated={handleTemplateUpdated}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -557,13 +643,49 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
               >
                 {/* Template Header */}
                 <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-xl font-bold text-gray-800">{template.name}</h3>
-                    <p className="text-gray-600">{template.articleNumbers?.join(', ')}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-2xl font-bold text-purple-600">{template.totalOperations}</div>
-                    <div className="text-sm text-gray-600">{currentLanguage === 'np' ? 'सञ्चालनहरू' : 'operations'}</div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-800">{template.name}</h3>
+                        <p className="text-gray-600">{template.articleNumbers?.join(', ')}</p>
+                        {template.customTemplate && (
+                          <span className="inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full mt-1">
+                            {currentLanguage === 'np' ? 'कस्टम' : 'Custom'}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-purple-600">{template.totalOperations}</div>
+                          <div className="text-sm text-gray-600">{currentLanguage === 'np' ? 'सञ्चालनहरू' : 'operations'}</div>
+                        </div>
+                        {/* Edit/Delete buttons only for custom templates */}
+                        {template.customTemplate && (
+                          <div className="flex flex-col space-y-1">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEditTemplate(template);
+                              }}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title={currentLanguage === 'np' ? 'सम्पादन गर्नुहोस्' : 'Edit Template'}
+                            >
+                              ✏️
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteTemplate(template.id);
+                              }}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title={currentLanguage === 'np' ? 'मेटाउनुहोस्' : 'Delete Template'}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -687,6 +809,37 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
             </div>
           </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">
+                🗑️ {currentLanguage === 'np' ? 'टेम्प्लेट मेटाउनुहोस्' : 'Delete Template'}
+              </h3>
+              <p className="text-gray-600 mb-6">
+                {currentLanguage === 'np' 
+                  ? 'के तपाईं यो टेम्प्लेट मेटाउन निश्चित हुनुहुन्छ? यो कार्य फिर्ता गर्न सकिदैन।'
+                  : 'Are you sure you want to delete this template? This action cannot be undone.'
+                }
+              </p>
+              <div className="flex justify-end space-x-4">
+                <button
+                  onClick={() => setShowDeleteConfirm(null)}
+                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
+                >
+                  {currentLanguage === 'np' ? 'रद्द गर्नुहोस्' : 'Cancel'}
+                </button>
+                <button
+                  onClick={confirmDeleteTemplate}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  {currentLanguage === 'np' ? 'मेटाउनुहोस्' : 'Delete'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
