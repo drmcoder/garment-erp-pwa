@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { 
+  db, 
+  collection, 
+  doc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDocs, 
+  onSnapshot, 
+  serverTimestamp 
+} from '../../config/firebase';
+import { COLLECTIONS } from '../../config/firebase';
 
 const MachineManagement = ({ onStatsUpdate }) => {
   const { currentLanguage } = useLanguage();
@@ -48,27 +60,93 @@ const MachineManagement = ({ onStatsUpdate }) => {
   ];
 
   useEffect(() => {
-    loadData();
-  }, []);
+    // Set up real-time listener for machines
+    const machinesRef = collection(db, COLLECTIONS.MACHINE_CONFIGS);
+    const unsubscribe = onSnapshot(machinesRef, (snapshot) => {
+      const machinesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setMachines(machinesData);
+      console.log(`🔄 Real-time update: ${machinesData.length} machines loaded`);
+      if (onStatsUpdate) onStatsUpdate();
+    }, (error) => {
+      console.error('❌ Error in real-time listener:', error);
+      // Fallback to manual load
+      loadData();
+    });
 
-  const loadData = () => {
+    return () => unsubscribe();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadData = async () => {
     try {
-      const savedMachines = JSON.parse(localStorage.getItem('machines') || '[]');
-      setMachines(savedMachines);
+      console.log('🔍 Loading machine data from Firebase...');
+      const machinesRef = collection(db, COLLECTIONS.MACHINE_CONFIGS);
+      const snapshot = await getDocs(machinesRef);
+      const machinesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      setMachines(machinesData);
+      console.log(`✅ Loaded ${machinesData.length} machines from Firebase`);
       
       if (onStatsUpdate) onStatsUpdate();
     } catch (error) {
-      console.error('Error loading machine data:', error);
+      console.error('❌ Error loading machine data from Firebase:', error);
+      // Fallback to localStorage if Firebase fails
+      try {
+        const savedMachines = JSON.parse(localStorage.getItem('machines') || '[]');
+        setMachines(savedMachines);
+        console.log('📦 Loaded machines from localStorage as fallback');
+      } catch (localError) {
+        console.error('Error loading from localStorage:', localError);
+      }
     }
   };
 
-  const saveMachines = (updatedMachines) => {
+  const saveMachineToFirebase = async (machineData, isUpdate = false, machineId = null) => {
     try {
-      localStorage.setItem('machines', JSON.stringify(updatedMachines));
-      setMachines(updatedMachines);
-      if (onStatsUpdate) onStatsUpdate();
+      console.log('🔍 Saving machine to Firebase:', { isUpdate, machineId });
+      
+      const dataToSave = {
+        ...machineData,
+        updatedAt: serverTimestamp(),
+        ...(isUpdate ? {} : { createdAt: serverTimestamp() })
+      };
+
+      let result;
+      if (isUpdate && machineId) {
+        await updateDoc(doc(db, COLLECTIONS.MACHINE_CONFIGS, machineId), dataToSave);
+        result = machineId;
+        console.log(`✅ Machine updated in Firebase: ${machineId}`);
+      } else {
+        const docRef = await addDoc(collection(db, COLLECTIONS.MACHINE_CONFIGS), dataToSave);
+        result = docRef.id;
+        console.log(`✅ Machine added to Firebase: ${result}`);
+      }
+      
+      // Reload data after save
+      await loadData();
+      return result;
     } catch (error) {
-      console.error('Error saving machines:', error);
+      console.error('❌ Error saving machine to Firebase:', error);
+      // Fallback to localStorage
+      try {
+        const currentMachines = JSON.parse(localStorage.getItem('machines') || '[]');
+        let updatedMachines;
+        
+        if (isUpdate && machineId) {
+          updatedMachines = currentMachines.map(m => m.id === machineId ? { ...machineData, id: machineId } : m);
+        } else {
+          updatedMachines = [...currentMachines, machineData];
+        }
+        
+        localStorage.setItem('machines', JSON.stringify(updatedMachines));
+        setMachines(updatedMachines);
+        console.log('📦 Saved to localStorage as fallback');
+        
+        if (onStatsUpdate) onStatsUpdate();
+        return machineData.id;
+      } catch (localError) {
+        console.error('Error saving to localStorage:', localError);
+        throw error;
+      }
     }
   };
 
@@ -101,74 +179,102 @@ const MachineManagement = ({ onStatsUpdate }) => {
     return date.toISOString().split('T')[0];
   };
 
-  const handleCreateMachine = () => {
+  const handleCreateMachine = async () => {
     if (!newMachine.name || !newMachine.type) {
       alert('Machine name and type are required');
       return;
     }
 
-    const machine = {
-      ...newMachine,
-      id: generateMachineId(),
-      createdAt: new Date().toISOString(),
-      nextMaintenance: calculateNextMaintenance(newMachine.lastMaintenance, newMachine.maintenanceSchedule),
-      performance: {
-        totalHours: 0,
-        totalProduction: 0,
-        efficiency: 100,
-        downtime: 0,
-        lastUsed: null
-      }
-    };
+    try {
+      const machine = {
+        ...newMachine,
+        id: generateMachineId(),
+        nextMaintenance: calculateNextMaintenance(newMachine.lastMaintenance, newMachine.maintenanceSchedule),
+        performance: {
+          totalHours: 0,
+          totalProduction: 0,
+          efficiency: 100,
+          downtime: 0,
+          lastUsed: null
+        }
+      };
 
-    const updatedMachines = [...machines, machine];
-    saveMachines(updatedMachines);
+      await saveMachineToFirebase(machine, false);
 
-    // Reset form
-    setNewMachine({
-      id: '',
-      name: '',
-      type: 'Single Needle',
-      brand: '',
-      model: '',
-      serialNumber: '',
-      purchaseDate: '',
-      status: 'active',
-      location: '',
-      assignedOperator: '',
-      maintenanceSchedule: 'monthly',
-      lastMaintenance: '',
-      nextMaintenance: '',
-      specifications: {
-        maxSpeed: '',
-        needleType: '',
-        threadCount: '',
-        power: ''
-      },
-      notes: ''
-    });
+      // Reset form
+      setNewMachine({
+        id: '',
+        name: '',
+        type: 'Single Needle',
+        brand: '',
+        model: '',
+        serialNumber: '',
+        purchaseDate: '',
+        status: 'active',
+        location: '',
+        assignedOperator: '',
+        maintenanceSchedule: 'monthly',
+        lastMaintenance: '',
+        nextMaintenance: '',
+        specifications: {
+          maxSpeed: '',
+          needleType: '',
+          threadCount: '',
+          power: ''
+        },
+        notes: ''
+      });
 
-    setIsCreating(false);
-    alert('Machine added successfully!');
+      setIsCreating(false);
+      alert('Machine added successfully!');
+    } catch (error) {
+      alert('Error adding machine. Please try again.');
+    }
   };
 
-  const handleUpdateMachine = () => {
-    const updatedMachine = {
-      ...editingMachine,
-      nextMaintenance: calculateNextMaintenance(editingMachine.lastMaintenance, editingMachine.maintenanceSchedule)
-    };
+  const handleUpdateMachine = async () => {
+    try {
+      const updatedMachine = {
+        ...editingMachine,
+        nextMaintenance: calculateNextMaintenance(editingMachine.lastMaintenance, editingMachine.maintenanceSchedule)
+      };
 
-    const updatedMachines = machines.map(machine => 
-      machine.id === updatedMachine.id ? updatedMachine : machine
-    );
-    saveMachines(updatedMachines);
-    setEditingMachine(null);
+      await saveMachineToFirebase(updatedMachine, true, editingMachine.id);
+      setEditingMachine(null);
+      alert('Machine updated successfully!');
+    } catch (error) {
+      alert('Error updating machine. Please try again.');
+    }
   };
 
-  const handleDeleteMachine = (machineId) => {
+  const handleDeleteMachine = async (machineId) => {
     if (confirm('Are you sure you want to delete this machine?')) {
-      const updatedMachines = machines.filter(machine => machine.id !== machineId);
-      saveMachines(updatedMachines);
+      try {
+        console.log('🔍 Deleting machine from Firebase:', machineId);
+        await deleteDoc(doc(db, COLLECTIONS.MACHINE_CONFIGS, machineId));
+        console.log('✅ Machine deleted from Firebase');
+        
+        // Reload data after delete
+        await loadData();
+        alert('Machine deleted successfully!');
+      } catch (error) {
+        console.error('❌ Error deleting machine from Firebase:', error);
+        
+        // Fallback to localStorage
+        try {
+          const currentMachines = JSON.parse(localStorage.getItem('machines') || '[]');
+          const updatedMachines = currentMachines.filter(machine => machine.id !== machineId);
+          localStorage.setItem('machines', JSON.stringify(updatedMachines));
+          setMachines(updatedMachines);
+          console.log('📦 Deleted from localStorage as fallback');
+          
+          if (onStatsUpdate) onStatsUpdate();
+          alert('Machine deleted successfully!');
+        } catch (localError) {
+          console.error('Error deleting from localStorage:', localError);
+          alert('Error deleting machine. Please try again.');
+        }
+      }
     }
   };
 

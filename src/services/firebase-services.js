@@ -26,6 +26,10 @@ import {
 export class ActivityLogService {
   static async logActivity(userId, action, details = {}) {
     try {
+      console.log('🔍 Attempting to log activity:', { userId, action, details });
+      const currentUser = auth.currentUser;
+      console.log('🔍 Current auth user:', currentUser?.uid);
+      
       await addDoc(collection(db, 'activity_logs'), {
         userId,
         action,
@@ -33,8 +37,15 @@ export class ActivityLogService {
         timestamp: serverTimestamp(),
         ip: await this.getClientIP()
       });
+      console.log('✅ Activity logged successfully');
     } catch (error) {
-      console.error('Error logging activity:', error);
+      console.error('❌ Error logging activity:', {
+        code: error.code,
+        message: error.message,
+        userId,
+        action,
+        isAuthenticated: !!auth.currentUser
+      });
     }
   }
 
@@ -65,18 +76,61 @@ export class ActivityLogService {
   }
 }
 
+// Firebase Connection Test Service  
+export class ConnectionTestService {
+  static async testFirestoreConnection() {
+    try {
+      console.log('🔍 Testing Firestore connection...');
+      const currentUser = auth.currentUser;
+      console.log('🔍 Current auth user:', currentUser?.uid);
+      
+      // Try to read from a simple collection
+      const testRef = collection(db, 'connection_test');
+      const testDoc = await getDocs(testRef);
+      console.log('✅ Firestore connection successful');
+      
+      // Try a simple write operation
+      await addDoc(collection(db, 'connection_test'), {
+        test: true,
+        timestamp: serverTimestamp(),
+        user: currentUser?.uid || 'anonymous'
+      });
+      console.log('✅ Firestore write operation successful');
+      
+      return { success: true, authenticated: !!currentUser };
+    } catch (error) {
+      console.error('❌ Firestore connection test failed:', {
+        code: error.code,
+        message: error.message,
+        isAuthenticated: !!auth.currentUser
+      });
+      return { success: false, error: error.message, authenticated: !!auth.currentUser };
+    }
+  }
+}
+
 // Enhanced Data Persistence Service
 export class DataPersistenceService {
   static async saveWorkSession(data) {
     try {
+      console.log('🔍 Attempting to save work session:', data);
+      const currentUser = auth.currentUser;
+      console.log('🔍 Current auth user:', currentUser?.uid);
+      
       const docRef = await addDoc(collection(db, 'work_sessions'), {
         ...data,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       });
+      console.log('✅ Work session saved successfully:', docRef.id);
       return docRef.id;
     } catch (error) {
-      console.error('Error saving work session:', error);
+      console.error('❌ Error saving work session:', {
+        code: error.code,
+        message: error.message,
+        data,
+        isAuthenticated: !!auth.currentUser
+      });
       throw error;
     }
   }
