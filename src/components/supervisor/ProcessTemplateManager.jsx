@@ -1,10 +1,29 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { AuthContext } from '../../context/AuthContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 import TemplateBuilder from './TemplateBuilder';
+import { 
+  universalDelete, 
+  DELETE_PERMISSIONS, 
+  DeleteConfirmationModal 
+} from '../../utils/deleteUtils';
+import { 
+  db, 
+  collection, 
+  doc, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  getDocs, 
+  onSnapshot, 
+  serverTimestamp 
+} from '../../config/firebase';
+import { COLLECTIONS } from '../../config/firebase';
 
 const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
   const { currentLanguage } = useLanguage();
+  const { user } = useContext(AuthContext);
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   
   const [templates, setTemplates] = useState([]);
@@ -12,6 +31,7 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
   const [showCreateNew, setShowCreateNew] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   // Predefined process templates
   const defaultTemplates = [
@@ -529,44 +549,74 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
   };
 
 
-  const handleDeleteTemplate = (templateId) => {
-    setShowDeleteConfirm(templateId);
-  };
 
-  const confirmDeleteTemplate = () => {
+  const handleDeleteTemplate = async (templateId) => {
+    const templateToDelete = templates.find(t => t.id === templateId);
+    if (!templateToDelete) return;
+
+    setDeleteLoading(true);
+    
     try {
-      const templateToDelete = templates.find(t => t.id === showDeleteConfirm);
+      const result = await universalDelete({
+        item: templateToDelete,
+        itemName: currentLanguage === 'np' ? 'टेम्प्लेट' : 'Template',
+        user,
+        permissionLevel: templateToDelete.customTemplate ? DELETE_PERMISSIONS.OWNER_ONLY : DELETE_PERMISSIONS.SUPERVISOR_PLUS,
+        permissionOptions: { allowedRoles: ['management', 'admin', 'supervisor'] },
+        language: currentLanguage === 'np' ? 'np' : 'en',
+        collectionName: templateToDelete.customTemplate ? COLLECTIONS.ARTICLE_TEMPLATES : null,
+        deleteOptions: {
+          checkDependencies: [
+            {
+              collection: COLLECTIONS.BUNDLES,
+              field: 'templateId',
+              name: currentLanguage === 'np' ? 'बन्डलहरू' : 'bundles'
+            }
+          ]
+        },
+        onSuccess: (deletedTemplate) => {
+          // Remove from local state
+          setTemplates(prev => prev.filter(t => t.id !== templateId));
+          
+          // Remove from localStorage for custom templates
+          if (deletedTemplate.customTemplate) {
+            const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
+            const updatedCustomTemplates = customTemplates.filter(t => t.id !== templateId);
+            localStorage.setItem('customTemplates', JSON.stringify(updatedCustomTemplates));
+          }
+          
+          // Clear selection if deleted template was selected
+          if (selectedTemplate?.id === templateId) {
+            setSelectedTemplate(null);
+          }
+          
+          addError({
+            message: currentLanguage === 'np' ? 'टेम्प्लेट सफलतापूर्वक मेटाइयो' : 'Template deleted successfully',
+            component: 'ProcessTemplateManager',
+            action: 'Delete Template',
+            data: { templateId }
+          }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+        },
+        onError: (errorMessage) => {
+          addError({
+            message: errorMessage,
+            component: 'ProcessTemplateManager',
+            action: 'Delete Template',
+            data: { templateId, error: errorMessage }
+          }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+        }
+      });
       
-      // Remove from templates array
-      setTemplates(prev => prev.filter(t => t.id !== showDeleteConfirm));
-
-      // Remove from localStorage if it's a custom template
-      if (templateToDelete?.customTemplate) {
-        const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
-        const updatedCustomTemplates = customTemplates.filter(t => t.id !== showDeleteConfirm);
-        localStorage.setItem('customTemplates', JSON.stringify(updatedCustomTemplates));
-      }
-
-      if (selectedTemplate?.id === showDeleteConfirm) {
-        setSelectedTemplate(null);
-      }
-
-      setShowDeleteConfirm(null);
-
-      addError({
-        message: currentLanguage === 'np' ? 'टेम्प्लेट मेटाइयो' : 'Template deleted successfully',
-        component: 'ProcessTemplateManager',
-        action: 'Delete Template',
-        data: { templateId: showDeleteConfirm }
-      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
-
     } catch (error) {
+      console.error('Error in handleDeleteTemplate:', error);
       addError({
-        message: 'Failed to delete template',
+        message: currentLanguage === 'np' ? 'टेम्प्लेट मेटाउन समस्या भयो' : 'Failed to delete template',
         component: 'ProcessTemplateManager',
         action: 'Delete Template',
-        data: { error: error.message }
+        data: { templateId, error: error.message }
       }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -671,19 +721,22 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
                           >
                             ✏️
                           </button>
-                          {/* Only allow delete for custom templates */}
-                          {template.customTemplate && (
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteTemplate(template.id);
-                              }}
-                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                              title={currentLanguage === 'np' ? 'मेटाउनुहोस्' : 'Delete Template'}
-                            >
-                              🗑️
-                            </button>
-                          )}
+                          {/* Delete button with permission check */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteTemplate(template.id);
+                            }}
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              deleteLoading 
+                                ? 'text-gray-400 cursor-not-allowed' 
+                                : 'text-red-600 hover:bg-red-50'
+                            }`}
+                            disabled={deleteLoading}
+                            title={currentLanguage === 'np' ? 'मेटाउनुहोस्' : 'Delete Template'}
+                          >
+                            {deleteLoading ? '⏳' : '🗑️'}
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -811,36 +864,23 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
           </div>
         </div>
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirm && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">
-                🗑️ {currentLanguage === 'np' ? 'टेम्प्लेट मेटाउनुहोस्' : 'Delete Template'}
-              </h3>
-              <p className="text-gray-600 mb-6">
-                {currentLanguage === 'np' 
-                  ? 'के तपाईं यो टेम्प्लेट मेटाउन निश्चित हुनुहुन्छ? यो कार्य फिर्ता गर्न सकिदैन।'
-                  : 'Are you sure you want to delete this template? This action cannot be undone.'
-                }
-              </p>
-              <div className="flex justify-end space-x-4">
-                <button
-                  onClick={() => setShowDeleteConfirm(null)}
-                  className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-colors"
-                >
-                  {currentLanguage === 'np' ? 'रद्द गर्नुहोस्' : 'Cancel'}
-                </button>
-                <button
-                  onClick={confirmDeleteTemplate}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                >
-                  {currentLanguage === 'np' ? 'मेटाउनुहोस्' : 'Delete'}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Enhanced Delete Confirmation Modal */}
+        <DeleteConfirmationModal
+          isOpen={showDeleteConfirm !== null}
+          onClose={() => setShowDeleteConfirm(null)}
+          onConfirm={() => {
+            const templateId = showDeleteConfirm;
+            setShowDeleteConfirm(null);
+            handleDeleteTemplate(templateId);
+          }}
+          itemName={currentLanguage === 'np' ? 'टेम्प्लेट' : 'Template'}
+          language={currentLanguage === 'np' ? 'np' : 'en'}
+          customMessage={
+            currentLanguage === 'np'
+              ? 'यो टेम्प्लेट मेटाउनुभयो भने यससँग जोडिएका सबै बन्डलहरूमा असर पर्नेछ।'
+              : 'Deleting this template will affect all bundles that use it.'
+          }
+        />
       </div>
     </div>
   );

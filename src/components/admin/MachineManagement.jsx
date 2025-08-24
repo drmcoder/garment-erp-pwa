@@ -1,12 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { AuthContext } from '../../context/AuthContext';
+import { 
+  universalDelete, 
+  DELETE_PERMISSIONS, 
+  DeleteConfirmationModal 
+} from '../../utils/deleteUtils';
 import { 
   db, 
   collection, 
   doc, 
   addDoc, 
   updateDoc, 
-  deleteDoc, 
   getDocs, 
   onSnapshot, 
   serverTimestamp 
@@ -15,6 +20,7 @@ import { COLLECTIONS } from '../../config/firebase';
 
 const MachineManagement = ({ onStatsUpdate }) => {
   const { currentLanguage } = useLanguage();
+  const { user } = useContext(AuthContext);
   const [machines, setMachines] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingMachine, setEditingMachine] = useState(null);
@@ -248,33 +254,69 @@ const MachineManagement = ({ onStatsUpdate }) => {
   };
 
   const handleDeleteMachine = async (machineId) => {
-    if (confirm('Are you sure you want to delete this machine?')) {
-      try {
-        console.log('🔍 Deleting machine from Firebase:', machineId);
-        await deleteDoc(doc(db, COLLECTIONS.MACHINE_CONFIGS, machineId));
-        console.log('✅ Machine deleted from Firebase');
-        
-        // Reload data after delete
-        await loadData();
-        alert('Machine deleted successfully!');
-      } catch (error) {
-        console.error('❌ Error deleting machine from Firebase:', error);
-        
-        // Fallback to localStorage
-        try {
-          const currentMachines = JSON.parse(localStorage.getItem('machines') || '[]');
-          const updatedMachines = currentMachines.filter(machine => machine.id !== machineId);
-          localStorage.setItem('machines', JSON.stringify(updatedMachines));
-          setMachines(updatedMachines);
-          console.log('📦 Deleted from localStorage as fallback');
+    const machineToDelete = machines.find(m => m.id === machineId);
+    if (!machineToDelete) return;
+
+    try {
+      await universalDelete({
+        item: machineToDelete,
+        itemName: currentLanguage === 'np' ? 'मेसिन' : 'Machine',
+        user,
+        permissionLevel: DELETE_PERMISSIONS.ADMIN_ONLY,
+        permissionOptions: { allowedRoles: ['management', 'admin'] },
+        language: currentLanguage === 'np' ? 'np' : 'en',
+        collectionName: COLLECTIONS.MACHINE_CONFIGS,
+        deleteOptions: {
+          checkDependencies: [
+            {
+              collection: COLLECTIONS.BUNDLES,
+              field: 'assignedMachine',
+              name: currentLanguage === 'np' ? 'बन्डलहरू' : 'bundles'
+            },
+            {
+              collection: COLLECTIONS.WORK_ASSIGNMENTS,
+              field: 'machineId',
+              name: currentLanguage === 'np' ? 'काम असाइनमेन्टहरू' : 'work assignments'
+            }
+          ]
+        },
+        onSuccess: async () => {
+          console.log('✅ Machine deleted successfully from Firebase');
+          // Reload data after delete
+          await loadData();
           
-          if (onStatsUpdate) onStatsUpdate();
-          alert('Machine deleted successfully!');
-        } catch (localError) {
-          console.error('Error deleting from localStorage:', localError);
-          alert('Error deleting machine. Please try again.');
+          // Fallback: also remove from localStorage
+          try {
+            const currentMachines = JSON.parse(localStorage.getItem('machines') || '[]');
+            const updatedMachines = currentMachines.filter(machine => machine.id !== machineId);
+            localStorage.setItem('machines', JSON.stringify(updatedMachines));
+          } catch (localError) {
+            console.error('Error updating localStorage:', localError);
+          }
+        },
+        onError: async (errorMessage) => {
+          console.error('❌ Error deleting machine from Firebase:', errorMessage);
+          
+          // Fallback to localStorage
+          try {
+            const currentMachines = JSON.parse(localStorage.getItem('machines') || '[]');
+            const updatedMachines = currentMachines.filter(machine => machine.id !== machineId);
+            localStorage.setItem('machines', JSON.stringify(updatedMachines));
+            setMachines(updatedMachines);
+            console.log('📦 Deleted from localStorage as fallback');
+            
+            if (onStatsUpdate) onStatsUpdate();
+            alert(currentLanguage === 'np' ? 'मेसिन सफलतापूर्वक मेटाइयो!' : 'Machine deleted successfully!');
+          } catch (localError) {
+            console.error('Error deleting from localStorage:', localError);
+            alert(currentLanguage === 'np' ? 'मेसिन मेटाउन त्रुटि भयो।' : 'Error deleting machine. Please try again.');
+          }
         }
-      }
+      });
+      
+    } catch (error) {
+      console.error('Error in handleDeleteMachine:', error);
+      alert(currentLanguage === 'np' ? 'मेसिन मेटाउन त्रुटि भयो।' : 'Error deleting machine. Please try again.');
     }
   };
 
