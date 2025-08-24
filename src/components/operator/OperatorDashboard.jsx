@@ -88,8 +88,9 @@ const OperatorDashboard = () => {
     try {
       console.log("📊 Loading operator data for:", user.id);
 
-      // Load operator's assigned bundles
-      const bundlesResult = await BundleService.getOperatorBundles(user.id);
+      // Load operator's assigned bundles with machine filtering
+      const operatorMachine = user?.machine;
+      const bundlesResult = await BundleService.getOperatorBundles(user.id, operatorMachine);
 
       if (bundlesResult.success) {
         const bundles = bundlesResult.bundles;

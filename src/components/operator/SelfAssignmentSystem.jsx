@@ -61,8 +61,14 @@ const SelfAssignmentSystem = () => {
   const loadAvailableWork = useCallback(async () => {
     setLoading(true);
     try {
-      // Get ALL available bundles first, then filter by machine type
-      const result = await BundleService.getAvailableBundles();
+      // Get ONLY bundles compatible with operator's assigned machine
+      const operatorMachine = user?.machine;
+      if (!operatorMachine) {
+        throw new Error('No machine assigned to operator');
+      }
+      
+      console.log(`🔍 Loading work for operator machine: ${operatorMachine}`);
+      const result = await BundleService.getAvailableBundles(operatorMachine);
 
       if (result.success) {
         // Map Firebase data to component format with AI recommendations
@@ -87,35 +93,11 @@ const SelfAssignmentSystem = () => {
           recommendations: generateRecommendations(bundle, user)
         }));
 
-        // CRITICAL: Filter by operator's machine speciality FIRST
-        if (user && user.machine) {
-          const operatorMachine = user.machine;
-          const machineMatches = {
-            'overlock': ['overlock', 'ओभरलक', 'Overlock'],
-            'flatlock': ['flatlock', 'फ्ल्यालक', 'Flatlock'], 
-            'singleNeedle': ['singleNeedle', 'single_needle', 'एकल सुई', 'Single Needle'],
-            'buttonhole': ['buttonhole', 'बटनहोल', 'Buttonhole']
-          };
-          
-          const allowedMachineTypes = machineMatches[operatorMachine] || [operatorMachine];
-          filteredWork = filteredWork.filter(work => {
-            return allowedMachineTypes.includes(work.machineType) || 
-                   work.machineType === operatorMachine;
-          });
-        }
+        // Work is already filtered by machine at service level
+        console.log(`✅ Loaded ${filteredWork.length} work items for ${operatorMachine} machine`);
 
-        // Apply filters
-        if (filter.machineType !== "all") {
-          filteredWork = filteredWork.filter(
-            (work) => work.machineType === filter.machineType
-          );
-        }
-
-        if (filter.priority !== "all") {
-          filteredWork = filteredWork.filter(
-            (work) => work.priority === filter.priority
-          );
-        }
+        // Work is already filtered by machine type at service level
+        // No additional filtering needed for operators
 
         // Sort by recommendation match score
         filteredWork.sort(
@@ -226,10 +208,35 @@ const SelfAssignmentSystem = () => {
         throw new Error(assignResult.error || 'Self-assignment failed');
       }
 
+      // Calculate estimated earnings
+      const estimatedEarning = selectedWork.rate * selectedWork.pieces;
+
+      // Report to supervisor
+      try {
+        await BundleService.logActivity(user.id, 'SELF_ASSIGN_WORK', {
+          bundleId: selectedWork.id,
+          articleNumber: selectedWork.articleNumber,
+          articleName: selectedWork.articleName,
+          color: selectedWork.color,
+          pieces: selectedWork.pieces,
+          rate: selectedWork.rate,
+          estimatedEarning: estimatedEarning,
+          estimatedTime: selectedWork.estimatedTime,
+          machineType: selectedWork.machineType,
+          operatorName: user.name,
+          assignedAt: new Date().toISOString(),
+          supervisorReported: true
+        });
+
+        console.log('✅ Self-assignment reported to supervisor');
+      } catch (reportError) {
+        console.error('❌ Failed to report to supervisor:', reportError);
+      }
+
       showNotification(
         isNepali
-          ? `काम स्वीकार गरियो! लेख ${selectedWork.articleNumber} - ${selectedWork.operation}`
-          : `Work accepted! Article ${selectedWork.articleNumber} - ${selectedWork.englishOperation}`,
+          ? `काम स्वीकार गरियो! अनुमानित आम्दानी: रु ${estimatedEarning}`
+          : `Work accepted! Estimated earning: Rs ${estimatedEarning}`,
         "success"
       );
 
@@ -296,32 +303,23 @@ const SelfAssignmentSystem = () => {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-sm border p-6 sticky top-4">
             <h3 className="text-lg font-semibold mb-4">
-              {isNepali ? "🔍 फिल्टर गर्नुहोस्" : "🔍 Filter Work"}
+              {isNepali ? "🔧 तपाईंको मेसिन" : "🔧 Your Machine"}
             </h3>
 
-            {/* Machine Type Filter */}
+            {/* Assigned Machine Display */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">
-                {isNepali ? "मेसिनको प्रकार" : "Machine Type"}
+                {isNepali ? "तपाईंको मेसिन" : "Your Assigned Machine"}
               </label>
-              <select
-                value={filter.machineType}
-                onChange={(e) =>
-                  setFilter({ ...filter, machineType: e.target.value })
+              <div className="w-full p-3 bg-blue-50 border border-blue-200 rounded-md text-blue-800 font-medium">
+                🔧 {user?.machine || 'No machine assigned'}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {isNepali 
+                  ? "तपाईं केवल आफ्नो मेसिनका कामहरू देख्न सक्नुहुन्छ"
+                  : "You can only see work for your assigned machine"
                 }
-                className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">
-                  {isNepali ? "सबै मेसिन" : "All Machines"}
-                </option>
-                <option value="ओभरलक">{isNepali ? "ओभरलक" : "Overlock"}</option>
-                <option value="फ्ल्यालक">
-                  {isNepali ? "फ्ल्यालक" : "Flatlock"}
-                </option>
-                <option value="एकल सुई">
-                  {isNepali ? "एकल सुई" : "Single Needle"}
-                </option>
-              </select>
+              </p>
             </div>
 
             {/* Priority Filter */}
@@ -425,38 +423,23 @@ const SelfAssignmentSystem = () => {
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
+                      {/* Article and Lot Info */}
+                      <div className="flex items-center space-x-3 mb-3">
                         <h3 className="text-lg font-semibold text-gray-900">
                           {isNepali ? work.articleName : work.englishName}
                         </h3>
-                        <span className="text-sm text-gray-500">
+                        <span className="text-sm bg-gray-100 px-2 py-1 rounded">
                           #{work.articleNumber}
-                        </span>
-                        <span
-                          className={`px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(
-                            isNepali ? work.priority : work.englishPriority
-                          )}`}
-                        >
-                          {isNepali ? work.priority : work.englishPriority}
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      {/* Essential Work Details */}
+                      <div className="grid grid-cols-2 gap-4 text-sm">
                         <div>
                           <span className="text-gray-500">
-                            {isNepali ? "काम:" : "Operation:"}
+                            {isNepali ? "रङ:" : "Color:"}
                           </span>
-                          <div className="font-medium">
-                            {isNepali ? work.operation : work.englishOperation}
-                          </div>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">
-                            {isNepali ? "रङ/साइज:" : "Color/Size:"}
-                          </span>
-                          <div className="font-medium">
-                            {work.color} / {work.size}
-                          </div>
+                          <div className="font-medium">{work.color}</div>
                         </div>
                         <div>
                           <span className="text-gray-500">
@@ -466,28 +449,16 @@ const SelfAssignmentSystem = () => {
                             {work.pieces} {isNepali ? "वटा" : "pcs"}
                           </div>
                         </div>
-                        <div>
-                          <span className="text-gray-500">
-                            {isNepali ? "मेसिन:" : "Machine:"}
-                          </span>
-                          <div className="font-medium">
-                            {isNepali ? work.machineType : work.englishMachine}
-                          </div>
-                        </div>
                       </div>
                     </div>
 
-                    {/* Recommendation Score */}
-                    <div
-                      className={`ml-4 px-3 py-2 rounded-lg text-center ${getMatchColor(
-                        work.recommendations.match
-                      )}`}
-                    >
-                      <div className="text-lg font-bold">
-                        {work.recommendations.match}%
+                    {/* Rate and Time Display */}
+                    <div className="ml-4 text-right">
+                      <div className="text-lg font-bold text-green-600">
+                        रु {work.rate}
                       </div>
-                      <div className="text-xs">
-                        {isNepali ? "मिल्छ" : "Match"}
+                      <div className="text-sm text-gray-500">
+                        {work.estimatedTime} {isNepali ? "मिनेट" : "min"}
                       </div>
                     </div>
                   </div>

@@ -302,16 +302,28 @@ export class BundleService {
   }
 
   // Get bundles for specific operator
-  static async getOperatorBundles(operatorId) {
+  static async getOperatorBundles(operatorId, machineType = null) {
     try {
-      const bundlesSnapshot = await getDocs(
-        query(
+      // Base query for operator's assigned bundles
+      let bundleQuery = query(
+        collection(db, COLLECTIONS.BUNDLES),
+        where("assignedOperator", "==", operatorId),
+        orderBy("priority", "desc"),
+        orderBy("createdAt", "asc")
+      );
+
+      // If machine type is specified, add machine filter for extra security
+      if (machineType) {
+        bundleQuery = query(
           collection(db, COLLECTIONS.BUNDLES),
           where("assignedOperator", "==", operatorId),
+          where("machineType", "==", machineType),
           orderBy("priority", "desc"),
           orderBy("createdAt", "asc")
-        )
-      );
+        );
+      }
+
+      const bundlesSnapshot = await getDocs(bundleQuery);
 
       const bundles = bundlesSnapshot.docs.map((doc) => ({
         id: doc.id,
