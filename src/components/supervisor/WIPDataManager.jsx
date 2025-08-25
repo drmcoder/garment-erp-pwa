@@ -79,10 +79,12 @@ const WIPDataManager = ({ onClose }) => {
       console.log('🔍 WIP DATA MANAGER - Full result from service:', result);
       console.log('🔍 WIP DATA MANAGER - result.success:', result?.success);
       console.log('🔍 WIP DATA MANAGER - result.entries:', result?.entries);
-      console.log('🔍 WIP DATA MANAGER - Array.isArray(result.entries):', Array.isArray(result?.entries));
+      console.log('🔍 WIP DATA MANAGER - result.wipEntries:', result?.wipEntries);
+      console.log('🔍 WIP DATA MANAGER - Array.isArray(result.wipEntries):', Array.isArray(result?.wipEntries));
       
-      if (result.success && result.entries && Array.isArray(result.entries)) {
-        const enrichedEntries = result.entries.map(entry => ({
+      // Fix: Service returns 'wipEntries', not 'entries'
+      if (result.success && result.wipEntries && Array.isArray(result.wipEntries)) {
+        const enrichedEntries = result.wipEntries.map(entry => ({
           ...entry,
           id: entry.id,
           status: entry.status || 'active',

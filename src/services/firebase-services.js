@@ -883,7 +883,7 @@ export class QualityService {
 
 // Operator Service for work assignment system
 export class OperatorService {
-  // Get all active operators
+  // Get all active operators with machine assignments from User Management
   static async getActiveOperators() {
     try {
       const operatorsSnapshot = await getDocs(
@@ -893,10 +893,35 @@ export class OperatorService {
         )
       );
 
-      const operators = operatorsSnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      const operators = operatorsSnapshot.docs
+        .map((doc) => {
+          const userData = doc.data();
+          return {
+            id: doc.id,
+            username: userData.username,
+            name: userData.name || userData.nameEn,
+            nameNp: userData.nameNepali || userData.name,
+            nameEn: userData.nameEn || userData.name,
+            photo: userData.photo || '👨‍🏭',
+            role: 'operator',
+            station: userData.station,
+            stationNp: userData.stationNp || userData.station,
+            // Get machine assignment from User Management data
+            machine: userData.assignedMachine || (userData.machines && userData.machines[0]) || 'manual',
+            machines: userData.assignedMachine ? [userData.assignedMachine] : userData.machines || ['manual'],
+            skillLevel: userData.skillLevel || 'medium',
+            efficiency: userData.efficiency || 75,
+            currentLoad: userData.currentLoad || 0,
+            maxLoad: userData.maxLoad || 5,
+            status: userData.active !== false ? 'available' : 'inactive',
+            active: userData.active !== false,
+            createdAt: userData.createdAt?.toDate() || new Date()
+          };
+        })
+        .filter(operator => operator.active); // Only return active operators
+
+      console.log('🔍 OperatorService.getActiveOperators loaded operators with machines:', operators.length);
+      console.log('🔍 Sample operator with machine assignment:', operators[0]);
 
       return { success: true, operators };
     } catch (error) {

@@ -18,6 +18,10 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
   // Load operators from props or API - no mock data
 
   useEffect(() => {
+    console.log('🔍 WorkAssignmentBoard received operators:', operators?.length || 0);
+    if (operators && operators.length > 0) {
+      console.log('🔍 Sample operator structure in Board:', operators[0]);
+    }
     setAvailableOperators(operators || []);
   }, [operators]);
 
@@ -119,18 +123,30 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
 
   const handleBulkAssign = () => {
     try {
-      // Auto-assign based on machine type and operator availability
+      // Smart auto-assign based on priority, machine type, and operator workload
       const autoAssignments = [];
       
       const readyItems = workItems.filter(item => item.status === 'ready');
       
-      readyItems.forEach(item => {
+      // Sort items by priority (urgency, piece count, estimated time)
+      const sortedItems = readyItems.sort((a, b) => {
+        // Priority calculation: higher piece count + shorter time = higher priority
+        const priorityA = (a.pieces || 0) - (a.estimatedTime || 0) / 60; // pieces minus hours
+        const priorityB = (b.pieces || 0) - (b.estimatedTime || 0) / 60;
+        return priorityB - priorityA;
+      });
+      
+      sortedItems.forEach(item => {
         const compatibleOps = getCompatibleOperators(item.machineType)
           .filter(op => op.status === 'available' && op.currentLoad < op.maxLoad)
           .sort((a, b) => {
-            // Sort by efficiency and current load
-            const scoreA = a.efficiency - (a.currentLoad * 10);
-            const scoreB = b.efficiency - (b.currentLoad * 10);
+            // Smart scoring: efficiency, low workload, and experience
+            const workloadPenaltyA = (a.currentLoad / a.maxLoad) * 30; // up to 30% penalty for high workload
+            const workloadPenaltyB = (b.currentLoad / b.maxLoad) * 30;
+            
+            const scoreA = (a.efficiency || 70) - workloadPenaltyA;
+            const scoreB = (b.efficiency || 70) - workloadPenaltyB;
+            
             return scoreB - scoreA;
           });
 
@@ -202,11 +218,15 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
           <div className="flex items-center justify-between">
             <button
               onClick={onCancel}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 hover:text-gray-800"
+              title={currentLanguage === 'np' ? 'बन्द गर्नुहोस्' : 'Close'}
             >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
+              <span className="text-sm font-medium">
+                {currentLanguage === 'np' ? 'बन्द गर्नुहोस्' : 'Close'}
+              </span>
             </button>
             
             <div className="text-center">
@@ -221,9 +241,11 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
             <div className="flex space-x-2">
               <button
                 onClick={handleBulkAssign}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                title={currentLanguage === 'np' ? 'स्मार्ट प्राथमिकता र कार्यभारको आधारमा काम असाइन गर्नुहोस्' : 'Smart assign based on priority and workload'}
               >
-                🤖 {currentLanguage === 'np' ? 'स्वत: असाइन' : 'Auto Assign'}
+                <span>🧠</span>
+                <span>{currentLanguage === 'np' ? 'स्मार्ट असाइन' : 'Smart Assign'}</span>
               </button>
             </div>
           </div>
@@ -381,7 +403,20 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
               </h3>
               
               <div className="space-y-3">
-                {availableOperators.map(operator => {
+                {availableOperators.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <div className="text-4xl mb-4">👥</div>
+                    <p className="text-lg font-medium mb-2">
+                      {currentLanguage === 'np' ? 'कुनै अपरेटर फेला परेन' : 'No operators found'}
+                    </p>
+                    <p className="text-sm">
+                      {currentLanguage === 'np' 
+                        ? 'पहिले User Management मा गएर अपरेटर बनाउनुहोस्।'
+                        : 'Please create operators in User Management first.'
+                      }
+                    </p>
+                  </div>
+                ) : availableOperators.map(operator => {
                   const isCompatible = selectedWorkItems.length === 0 || 
                     selectedWorkItems.every(item => item.machineType === operator.machine);
                   

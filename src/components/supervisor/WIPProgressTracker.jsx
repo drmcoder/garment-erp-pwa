@@ -31,19 +31,28 @@ const WIPProgressTracker = ({ onClose }) => {
       let savedWipEntries = [];
       let savedWorkItems = [];
       
-      if (wipResult.success) {
-        savedWipEntries = wipResult.entries;
+      // Fix: Service returns 'wipEntries', not 'entries'
+      if (wipResult.success && wipResult.wipEntries && Array.isArray(wipResult.wipEntries)) {
+        savedWipEntries = wipResult.wipEntries;
         console.log('✅ Loaded WIP entries:', savedWipEntries.length);
+      } else {
+        console.warn('⚠️ WIP entries not found or not an array:', wipResult);
+        savedWipEntries = [];
       }
       
-      if (workItemsResult.success) {
+      if (workItemsResult.success && workItemsResult.workItems && Array.isArray(workItemsResult.workItems)) {
         savedWorkItems = workItemsResult.workItems;
         console.log('✅ Loaded work items:', savedWorkItems.length);
+      } else {
+        console.warn('⚠️ Work items not found or not an array:', workItemsResult);
+        savedWorkItems = [];
       }
       
       // Enhance WIP entries with progress calculations
-      const enhancedWipEntries = savedWipEntries.map(wip => {
-        const wipWorkItems = savedWorkItems.filter(item => item.lotNumber === wip.lotNumber);
+      const enhancedWipEntries = (savedWipEntries || []).map(wip => {
+        const wipWorkItems = (savedWorkItems || []).filter(item => 
+          item && item.lotNumber && wip && wip.lotNumber && item.lotNumber === wip.lotNumber
+        );
         const progress = calculateWIPProgress(wip, wipWorkItems);
         
         return {
@@ -74,7 +83,7 @@ const WIPProgressTracker = ({ onClose }) => {
   };
 
   const calculateWIPProgress = (wip, wipWorkItems) => {
-    if (!wipWorkItems.length) {
+    if (!wipWorkItems || !Array.isArray(wipWorkItems) || !wipWorkItems.length) {
       return {
         totalOperations: 0,
         completedOperations: 0,
@@ -414,7 +423,7 @@ const WIPProgressTracker = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden flex flex-col">
         
         {/* Header */}
         <div className="bg-gradient-to-r from-green-600 to-green-700 text-white p-6">
@@ -438,7 +447,7 @@ const WIPProgressTracker = ({ onClose }) => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 max-h-full">
           {selectedLot ? (
             <DetailedLotView lot={selectedLot} />
           ) : (

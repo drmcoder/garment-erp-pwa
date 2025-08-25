@@ -275,13 +275,14 @@ const SupervisorDashboard = () => {
                 console.log('🔄 Loading WIP data for Status Board...');
                 try {
                   const wipResult = await WIPService.getAllWIPEntries();
-                  if (wipResult.success && wipResult.entries && wipResult.entries.length > 0) {
+                  // Fix: Service returns 'wipEntries', not 'entries'
+                  if (wipResult.success && wipResult.wipEntries && wipResult.wipEntries.length > 0) {
                     // Transform WIP entries to the format WIPStatusBoard expects
                     const transformedWipData = {
                       colors: []
                     };
                     
-                    wipResult.entries.forEach(wipEntry => {
+                    wipResult.wipEntries.forEach(wipEntry => {
                       if (wipEntry.rolls && wipEntry.rolls.length > 0) {
                         wipEntry.rolls.forEach(roll => {
                           const existingColor = transformedWipData.colors.find(c => c.name === roll.colorName);

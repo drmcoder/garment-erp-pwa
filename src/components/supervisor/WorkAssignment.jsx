@@ -701,6 +701,48 @@ const WorkAssignment = () => {
     });
   };
 
+  // Enhanced relative time formatting function
+  const formatRelativeTime = (dateString) => {
+    if (!dateString) return '';
+    
+    try {
+      const date = new Date(dateString);
+      const now = new Date();
+      
+      // Check if the date is valid
+      if (isNaN(date.getTime())) {
+        return isNepali ? 'अमान्य मिति' : 'Invalid Date';
+      }
+      
+      const diffMs = now.getTime() - date.getTime();
+      const diffMinutes = Math.floor(diffMs / (1000 * 60));
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffMinutes < 1) {
+        return isNepali ? 'अहिले' : 'Just now';
+      } else if (diffMinutes < 60) {
+        return isNepali ? `${diffMinutes} मिनेट अगाडि` : `${diffMinutes} min ago`;
+      } else if (diffHours < 24) {
+        return isNepali ? `${diffHours} घण्टा अगाडि` : `${diffHours} hours ago`;
+      } else if (diffDays === 1) {
+        return isNepali ? 'हिजो' : 'Yesterday';
+      } else if (diffDays < 7) {
+        return isNepali ? `${diffDays} दिन अगाडि` : `${diffDays} days ago`;
+      } else {
+        // For older dates, show the actual date
+        return date.toLocaleDateString(isNepali ? 'ne-NP' : 'en-US', {
+          month: 'short',
+          day: 'numeric',
+          ...(diffDays > 365 && { year: 'numeric' })
+        });
+      }
+    } catch (error) {
+      console.warn('Error formatting relative time:', error);
+      return isNepali ? 'अमान्य मिति' : 'Invalid Date';
+    }
+  };
+
   const SmartAssignModal = ({ show, onClose, onAssign }) => {
     const [smartAssignments, setSmartAssignments] = useState([]);
     
@@ -1185,7 +1227,7 @@ const WorkAssignment = () => {
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-gray-500">
-                      {formatTime(assignment.assignedAt)}
+                      {formatRelativeTime(assignment.assignedAt)}
                     </div>
                     <div className={`text-xs px-2 py-1 rounded ${
                       assignment.status === 'completed' ? 'bg-green-100 text-green-800' :

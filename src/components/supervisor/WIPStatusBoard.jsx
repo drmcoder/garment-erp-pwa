@@ -58,9 +58,12 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
 
   // Calculate completion percentages
   const calculateProgress = (color, step) => {
+    if (!color?.status || !color.status[step]) {
+      return 0;
+    }
     const status = color.status[step];
-    const total = status.completed + status.inProgress + status.pending;
-    return total > 0 ? (status.completed / total) * 100 : 0;
+    const total = (status.completed || 0) + (status.inProgress || 0) + (status.pending || 0);
+    return total > 0 ? ((status.completed || 0) / total) * 100 : 0;
   };
 
   const getProgressColor = (percentage) => {
@@ -71,12 +74,19 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
   };
 
   const getTotalsByStep = (step) => {
+    if (!data?.colors || !Array.isArray(data.colors)) {
+      return { completed: 0, inProgress: 0, pending: 0 };
+    }
+    
     return data.colors.reduce((total, color) => {
+      if (!color?.status || !color.status[step]) {
+        return total;
+      }
       const status = color.status[step];
       return {
-        completed: total.completed + status.completed,
-        inProgress: total.inProgress + status.inProgress,
-        pending: total.pending + status.pending
+        completed: total.completed + (status.completed || 0),
+        inProgress: total.inProgress + (status.inProgress || 0),
+        pending: total.pending + (status.pending || 0)
       };
     }, { completed: 0, inProgress: 0, pending: 0 });
   };
@@ -147,7 +157,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
               </h3>
               
               <div className="space-y-6">
-                {data.colors.map((color, colorIndex) => (
+                {data.colors && Array.isArray(data.colors) ? data.colors.map((color, colorIndex) => (
                   <div key={colorIndex} className="bg-white border rounded-lg p-4">
                     {/* Color Header */}
                     <div className="flex items-center justify-between mb-4">
@@ -155,7 +165,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                         <div className="w-4 h-4 rounded-full bg-gradient-to-r from-blue-400 to-blue-600"></div>
                         <h4 className="text-lg font-semibold text-gray-800">{color.name}</h4>
                         <span className="text-sm text-gray-600">
-                          {Object.values(color.pieces).reduce((sum, pieces) => sum + pieces, 0)} {currentLanguage === 'np' ? 'टुक्रा' : 'pieces'}
+                          {color.pieces ? Object.values(color.pieces).reduce((sum, pieces) => sum + (pieces || 0), 0) : 0} {currentLanguage === 'np' ? 'टुक्रा' : 'pieces'}
                         </span>
                       </div>
                       
@@ -165,15 +175,21 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                         <div className="w-32 bg-gray-200 rounded-full h-2">
                           <div 
                             className={`h-2 rounded-full ${getProgressColor(
-                              data.processSteps.reduce((avg, step) => avg + calculateProgress(color, step), 0) / data.processSteps.length
+                              data.processSteps && data.processSteps.length > 0 
+                                ? data.processSteps.reduce((avg, step) => avg + calculateProgress(color, step), 0) / data.processSteps.length
+                                : 0
                             )}`}
                             style={{
-                              width: `${data.processSteps.reduce((avg, step) => avg + calculateProgress(color, step), 0) / data.processSteps.length}%`
+                              width: `${data.processSteps && data.processSteps.length > 0 
+                                ? data.processSteps.reduce((avg, step) => avg + calculateProgress(color, step), 0) / data.processSteps.length
+                                : 0}%`
                             }}
                           ></div>
                         </div>
                         <span className="text-sm font-medium">
-                          {Math.round(data.processSteps.reduce((avg, step) => avg + calculateProgress(color, step), 0) / data.processSteps.length)}%
+                          {data.processSteps && data.processSteps.length > 0 
+                            ? Math.round(data.processSteps.reduce((avg, step) => avg + calculateProgress(color, step), 0) / data.processSteps.length)
+                            : 0}%
                         </span>
                       </div>
                     </div>
@@ -201,9 +217,12 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                         {currentLanguage === 'np' ? 'प्रक्रिया चरणहरू:' : 'Process Steps:'}
                       </h5>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {data.processSteps.map((step, stepIndex) => {
+                        {data.processSteps && Array.isArray(data.processSteps) ? data.processSteps.map((step, stepIndex) => {
+                          if (!color?.status || !color.status[step]) {
+                            return null;
+                          }
                           const status = color.status[step];
-                          const total = status.completed + status.inProgress + status.pending;
+                          const total = (status.completed || 0) + (status.inProgress || 0) + (status.pending || 0);
                           const progress = calculateProgress(color, step);
                           
                           return (
@@ -221,17 +240,25 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                               </div>
                               
                               <div className="flex justify-between text-xs">
-                                <span className="text-green-600">✅ {status.completed}</span>
-                                <span className="text-yellow-600">⏳ {status.inProgress}</span>
-                                <span className="text-gray-500">⏸️ {status.pending}</span>
+                                <span className="text-green-600">✅ {status.completed || 0}</span>
+                                <span className="text-yellow-600">⏳ {status.inProgress || 0}</span>
+                                <span className="text-gray-500">⏸️ {status.pending || 0}</span>
                               </div>
                             </div>
                           );
-                        })}
+                        }) : (
+                          <div className="col-span-full text-center py-4 text-gray-500">
+                            {currentLanguage === 'np' ? 'कुनै प्रक्रिया चरणहरू फेला परेनन्' : 'No process steps found'}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <div className="text-center py-8 text-gray-500">
+                    {currentLanguage === 'np' ? 'कुनै रङ डेटा फेला परेन' : 'No color data found'}
+                  </div>
+                )}
               </div>
             </div>
           )}

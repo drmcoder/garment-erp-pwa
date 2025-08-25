@@ -65,11 +65,13 @@ const WorkAssignmentManager = ({ onClose }) => {
     try {
       const result = await OperatorService.getActiveOperators();
       
-      if (result.success) {
-        setOperators(result.operators);
+      if (result.success && result.operators && result.operators.length > 0) {
         console.log('✅ Loaded operators for work assignment:', result.operators.length);
+        console.log('🔍 Sample operator structure:', result.operators[0]);
+        setOperators(result.operators);
       } else {
         console.warn('⚠️ No operators found');
+        console.log('Result details:', result);
         setOperators([]);
       }
       
