@@ -19,9 +19,15 @@ import {
   Download,
   Bell,
   Zap,
+  X,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { 
+  ProductionService,
+  OperatorService,
+  BundleService
+} from "../../services/firebase-services";
 
 const SupervisorDashboard = () => {
   const { user, getUserDisplayInfo } = useAuth();
@@ -41,6 +47,8 @@ const SupervisorDashboard = () => {
   const [efficiencyAlerts, setEfficiencyAlerts] = useState([]);
   const [selectedStation, setSelectedStation] = useState(null);
   const [showWorkAssignment, setShowWorkAssignment] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const userInfo = getUserDisplayInfo();
 
@@ -52,52 +60,156 @@ const SupervisorDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Load real-time data from localStorage/Firebase
+  // Load real-time data from Firestore
   useEffect(() => {
-    const loadDashboardData = () => {
+    const loadDashboardData = async () => {
       try {
-        // No localStorage data loading - use empty arrays
-        const savedLineData = [];
-        const savedOperators = [];
-        const savedBundles = [];
+        setLoading(true);
+        setError(null);
         
-        // Process and combine data for line monitoring
-        const lineDataWithOperators = savedLineData.map(station => {
-          const stationOperators = savedOperators.filter(op => 
-            op.machineType === station.type && op.isActive
+        // Fetch data in parallel
+        const [operatorsResult, bundlesResult, statsResult] = await Promise.all([
+          OperatorService.getActiveOperators(),
+          BundleService.getAllBundles(),
+          ProductionService.getTodayStats()
+        ]);
+        
+        if (!operatorsResult.success) {
+          throw new Error(`Failed to load operators: ${operatorsResult.error}`);
+        }
+        
+        if (!bundlesResult.success) {
+          throw new Error(`Failed to load bundles: ${bundlesResult.error}`);
+        }
+        
+        if (!statsResult.success) {
+          throw new Error(`Failed to load stats: ${statsResult.error}`);
+        }
+        
+        const operators = operatorsResult.operators || [];
+        const bundles = bundlesResult.bundles || [];
+        const stats = statsResult.stats || {};
+        
+        // Process operators into station format
+        const stationsMap = new Map();
+        
+        operators.forEach(operator => {
+          const stationKey = `${operator.machineType}-${operator.station || '1'}`;
+          if (!stationsMap.has(stationKey)) {
+            stationsMap.set(stationKey, {
+              id: stationKey,
+              station: operator.machineType === 'overlock' ? 'ओभरलक स्टेसन' :
+                     operator.machineType === 'flatlock' ? 'फ्ल्यालक स्टेसन' :
+                     operator.machineType === 'single-needle' ? 'एकल सुई स्टेसन' :
+                     operator.machineType,
+              stationEn: operator.machineType === 'overlock' ? 'Overlock Station' :
+                        operator.machineType === 'flatlock' ? 'Flatlock Station' :
+                        operator.machineType === 'single-needle' ? 'Single Needle Station' :
+                        operator.machineType,
+              operator: operator.name,
+              operatorEn: operator.nameEn || operator.name,
+              status: operator.isActive ? 'active' : 'idle',
+              efficiency: operator.efficiency || 0,
+              currentWork: null,
+              nextWork: null
+            });
+          }
+          
+          // Find current bundle for this operator
+          const currentBundle = bundles.find(b => 
+            b.assignedOperator === operator.id && 
+            (b.status === 'assigned' || b.status === 'in-progress')
           );
           
-          return {
-            ...station,
-            operators: stationOperators
-          };
+          if (currentBundle) {
+            const station = stationsMap.get(stationKey);
+            station.currentWork = {
+              article: currentBundle.article,
+              articleName: currentBundle.articleName || currentBundle.article,
+              color: currentBundle.color || 'N/A',
+              size: currentBundle.size,
+              operation: currentBundle.currentOperation || 'sewing',
+              pieces: currentBundle.pieces,
+              completed: currentBundle.completedPieces || 0,
+              estimatedTime: Math.max(1, Math.round((currentBundle.pieces - (currentBundle.completedPieces || 0)) * 0.5))
+            };
+            
+            if (currentBundle.status === 'in-progress') {
+              station.status = 'active';
+            } else {
+              station.status = 'idle';
+            }
+          }
         });
         
-        setLineData(lineDataWithOperators);
+        const lineDataArray = Array.from(stationsMap.values());
         
-        // Calculate production stats from real data
-        const totalOperators = savedOperators.length;
-        const activeOperators = savedOperators.filter(op => op.isActive).length;
-        const totalBundles = savedBundles.length;
-        const completedBundles = savedBundles.filter(b => b.status === 'completed').length;
+        // Calculate production statistics
+        const totalOperators = operators.length;
+        const activeOperators = operators.filter(op => op.isActive).length;
+        const totalBundles = bundles.length;
+        const completedBundles = bundles.filter(b => b.status === 'completed').length;
+        const inProgressBundles = bundles.filter(b => b.status === 'in-progress').length;
+        const assignedBundles = bundles.filter(b => b.status === 'assigned').length;
         
-        setProductionStats({
-          totalProduction: savedBundles.reduce((sum, b) => sum + (b.completedPieces || 0), 0),
-          targetProduction: savedBundles.reduce((sum, b) => sum + (b.pieces || 0), 0),
-          efficiency: totalBundles > 0 ? Math.round((completedBundles / totalBundles) * 100) : 0,
-          qualityScore: 95, // This should come from quality data
+        const totalProduction = bundles.reduce((sum, b) => sum + (b.completedPieces || 0), 0);
+        const targetProduction = bundles.reduce((sum, b) => sum + (b.pieces || 0), 0);
+        
+        const calculatedStats = {
+          totalProduction,
+          targetProduction: targetProduction || 5000,
+          efficiency: targetProduction > 0 ? Math.round((totalProduction / targetProduction) * 100) : 0,
+          qualityScore: stats.qualityScore || 95,
           activeOperators,
           totalOperators,
           completedBundles,
-          pendingBundles: totalBundles - completedBundles,
+          pendingBundles: totalBundles - completedBundles - inProgressBundles - assignedBundles
+        };
+        
+        // Generate efficiency alerts based on real data
+        const alerts = [];
+        let alertId = 1;
+        
+        // Find idle stations
+        lineDataArray.forEach(station => {
+          if (station.status === 'idle' && !station.currentWork) {
+            alerts.push({
+              id: alertId++,
+              type: 'idle-station',
+              station: station.station,
+              stationEn: station.stationEn,
+              operator: station.operator,
+              idleTime: 15, // This would come from real-time tracking
+              priority: 'high'
+            });
+          }
+          
+          // Find low efficiency stations
+          if (station.efficiency > 0 && station.efficiency < 80) {
+            alerts.push({
+              id: alertId++,
+              type: 'efficiency-drop',
+              station: station.station,
+              stationEn: station.stationEn,
+              operator: station.operator,
+              currentEfficiency: station.efficiency,
+              targetEfficiency: 85,
+              suggestedAction: 'training',
+              priority: 'medium'
+            });
+          }
         });
         
-        // Initialize efficiency alerts as empty
-        setEfficiencyAlerts([]);
+        // Update state
+        setLineData(lineDataArray);
+        setProductionStats(calculatedStats);
+        setEfficiencyAlerts(alerts);
         
       } catch (error) {
         console.error('Error loading dashboard data:', error);
-        // Initialize with empty data on error
+        setError(error.message);
+        
+        // Set empty data on error
         setLineData([]);
         setProductionStats({
           totalProduction: 0,
@@ -110,10 +222,17 @@ const SupervisorDashboard = () => {
           pendingBundles: 0,
         });
         setEfficiencyAlerts([]);
+      } finally {
+        setLoading(false);
       }
     };
     
     loadDashboardData();
+    
+    // Set up auto-refresh every 30 seconds
+    const refreshInterval = setInterval(loadDashboardData, 30000);
+    
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const getStatusColor = (status) => {
@@ -138,195 +257,49 @@ const SupervisorDashboard = () => {
     return "text-red-600";
   };
 
-  const LineMonitoringView = () => (
-        stationEn: "Overlock Station 1",
-        operator: "राम सिंह",
-        operatorEn: "Ram Singh",
-        currentWork: {
-          article: "8085",
-          articleName: "Polo T-Shirt",
-          color: "Blue-1",
-          size: "XL",
-          operation: "sideSeam",
-          pieces: 30,
-          completed: 25,
-          estimatedTime: 5,
-        },
-        status: "active",
-        efficiency: 85,
-        nextWork: {
-          article: "2233",
-          size: "2XL",
-          pieces: 28,
-        },
-      },
-      {
-        id: "flatlock-1",
-        station: "फ्ल्यालक स्टेसन १",
-        stationEn: "Flatlock Station 1",
-        operator: "सीता देवी",
-        operatorEn: "Sita Devi",
-        currentWork: {
-          article: "2233",
-          articleName: "Round Neck T-Shirt",
-          color: "Green-1",
-          size: "2XL",
-          operation: "hemFold",
-          pieces: 28,
-          completed: 17,
-          estimatedTime: 12,
-        },
-        status: "active",
-        efficiency: 92,
-        nextWork: {
-          article: "6635",
-          size: "L",
-          pieces: 40,
-        },
-      },
-      {
-        id: "single-needle-1",
-        station: "एकल सुई स्टेसन १",
-        stationEn: "Single Needle Station 1",
-        operator: "हरि बहादुर",
-        operatorEn: "Hari Bahadur",
-        currentWork: {
-          article: "6635",
-          articleName: "3-Button Tops",
-          color: "White-1",
-          size: "L",
-          operation: "placket",
-          pieces: 40,
-          completed: 28,
-          estimatedTime: 8,
-        },
-        status: "active",
-        efficiency: 78,
-        nextWork: {
-          article: "1020",
-          size: "26",
-          pieces: 25,
-        },
-      },
-      {
-        id: "overlock-2",
-        station: "ओभरलक स्टेसन २",
-        stationEn: "Overlock Station 2",
-        operator: "श्याम पोखरेल",
-        operatorEn: "Shyam Pokhrel",
-        currentWork: null,
-        status: "idle",
-        efficiency: 0,
-        idleTime: 15,
-        nextWork: {
-          article: "9001",
-          size: "5XL",
-          pieces: 20,
-        },
-      },
-      {
-        id: "flatlock-2",
-        station: "फ्ल्यालक स्टेसन २",
-        stationEn: "Flatlock Station 2",
-        operator: "गीता शर्मा",
-        operatorEn: "Gita Sharma",
-        currentWork: {
-          article: "8085",
-          articleName: "Polo T-Shirt",
-          color: "Blue-1",
-          size: "L",
-          operation: "topStitch",
-          pieces: 32,
-          completed: 10,
-          estimatedTime: 20,
-        },
-        status: "active",
-        efficiency: 88,
-        nextWork: null,
-      },
-      {
-        id: "single-needle-2",
-        station: "एकल सुई स्टेसन २",
-        stationEn: "Single Needle Station 2",
-        operator: "मिना तामाङ",
-        operatorEn: "Mina Tamang",
-        currentWork: null,
-        status: "break",
-        breakTimeRemaining: 10,
-        efficiency: 65,
-        nextWork: {
-          article: "1020",
-          size: "28",
-          pieces: 30,
-        },
-      },
-    ]);
-
-    setProductionStats({
-      totalProduction: 3750,
-      targetProduction: 5000,
-      efficiency: 75,
-      qualityScore: 96,
-      activeOperators: 48,
-      totalOperators: 50,
-      completedBundles: 85,
-      pendingBundles: 43,
-    });
-
-    setEfficiencyAlerts([
-      {
-        id: 1,
-        type: "idle-station",
-        station: "ओभरलक स्टेसन २",
-        stationEn: "Overlock Station 2",
-        operator: "श्याम पोखरेल",
-        idleTime: 15,
-        suggestedWork: {
-          article: "2233",
-          size: "2XL",
-          pieces: 28,
-          operation: "sideSeam",
-          impact: "+80%",
-        },
-        priority: "high",
-      },
-      {
-        id: 2,
-        type: "efficiency-drop",
-        station: "एकल सुई स्टेसन १",
-        stationEn: "Single Needle Station 1",
-        operator: "हरि बहादुर",
-        currentEfficiency: 78,
-        targetEfficiency: 85,
-        suggestedAction: "training",
-        priority: "medium",
-      },
-    ]);
-  }, []);
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "active":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "idle":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "break":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "maintenance":
-        return "bg-purple-100 text-purple-800 border-purple-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+  // Helper function to get greeting
+  const getTimeBasedGreeting = () => {
+    const hour = new Date().getHours();
+    if (currentLanguage === "np") {
+      if (hour < 12) return "शुभ प्रभात";
+      if (hour < 17) return "नमस्कार";
+      return "शुभ संध्या";
+    } else {
+      if (hour < 12) return "Good Morning";
+      if (hour < 17) return "Good Afternoon";
+      return "Good Evening";
     }
   };
 
-  const getEfficiencyColor = (efficiency) => {
-    if (efficiency >= 90) return "text-green-600";
-    if (efficiency >= 80) return "text-blue-600";
-    if (efficiency >= 70) return "text-yellow-600";
-    return "text-red-600";
-  };
+  const LineMonitoringView = () => {
+    if (loading) {
+      return (
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-2 text-gray-600">Loading line data...</p>
+        </div>
+      );
+    }
 
-  const LineMonitoringView = () => (
+    if (error) {
+      return (
+        <div className="text-center py-8">
+          <div className="text-red-600 mb-2">⚠️ Error loading data</div>
+          <p className="text-gray-600">{error}</p>
+        </div>
+      );
+    }
+
+    if (lineData.length === 0) {
+      return (
+        <div className="text-center py-8">
+          <Package className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+          <p className="text-gray-600">No stations found</p>
+        </div>
+      );
+    }
+
+    return (
     <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
       {lineData.map((station) => (
         <div

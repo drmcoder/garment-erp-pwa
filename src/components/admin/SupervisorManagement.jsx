@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { OperatorService } from '../../services/firebase-services';
+import { db, collection, getDocs, COLLECTIONS } from '../../config/firebase';
 
 const SupervisorManagement = ({ onStatsUpdate }) => {
   const { currentLanguage } = useLanguage();
@@ -37,11 +39,16 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     try {
       // No localStorage loading - use empty arrays
-      const savedSupervisors = [];
-      const savedOperators = [];
+      const [supervisorsSnapshot, operatorsResult] = await Promise.all([
+        getDocs(collection(db, COLLECTIONS.SUPERVISORS)),
+        OperatorService.getActiveOperators()
+      ]);
+      
+      const savedSupervisors = supervisorsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const savedOperators = operatorsResult.success ? operatorsResult.operators : [];
       
       setSupervisors(savedSupervisors);
       setOperators(savedOperators);

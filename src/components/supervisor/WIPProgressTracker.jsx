@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import { WIPService } from '../../services/firebase-services';
 
 const WIPProgressTracker = ({ onClose }) => {
   const { currentLanguage } = useLanguage();
@@ -17,11 +18,28 @@ const WIPProgressTracker = ({ onClose }) => {
     loadProgressData();
   }, []);
 
-  const loadProgressData = () => {
+  const loadProgressData = async () => {
     try {
-      // No localStorage loading - use empty arrays
-      const savedWipEntries = [];
-      const savedWorkItems = [];
+      console.log('🔄 Loading WIP progress data from Firestore...');
+      
+      // Load WIP entries and work items from Firestore
+      const [wipResult, workItemsResult] = await Promise.all([
+        WIPService.getAllWIPEntries(),
+        WIPService.getWorkItemsFromWIP()
+      ]);
+      
+      let savedWipEntries = [];
+      let savedWorkItems = [];
+      
+      if (wipResult.success) {
+        savedWipEntries = wipResult.entries;
+        console.log('✅ Loaded WIP entries:', savedWipEntries.length);
+      }
+      
+      if (workItemsResult.success) {
+        savedWorkItems = workItemsResult.workItems;
+        console.log('✅ Loaded work items:', savedWorkItems.length);
+      }
       
       // Enhance WIP entries with progress calculations
       const enhancedWipEntries = savedWipEntries.map(wip => {
@@ -37,7 +55,15 @@ const WIPProgressTracker = ({ onClose }) => {
 
       setWipEntries(enhancedWipEntries);
       setWorkItems(savedWorkItems);
+      
+      addError({
+        message: `${isNepali ? 'लोड गरियो' : 'Loaded'} ${enhancedWipEntries.length} ${isNepali ? 'WIP एन्ट्री' : 'WIP entries'}`,
+        component: 'WIPProgressTracker',
+        action: 'Load Data'
+      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+      
     } catch (error) {
+      console.error('❌ Error loading progress data:', error);
       addError({
         message: 'Failed to load progress data',
         component: 'WIPProgressTracker',
@@ -445,7 +471,23 @@ const WIPProgressTracker = ({ onClose }) => {
               {filteredWipEntries.length === 0 ? (
                 <div className="text-center py-12 text-gray-500">
                   <div className="text-4xl mb-4">📋</div>
-                  <p>{isNepali ? 'कुनै WIP एन्ट्री फेला परेन' : 'No WIP entries found'}</p>
+                  <p className="text-lg font-medium mb-2">
+                    {isNepali ? 'कुनै WIP एन्ट्री फेला परेन' : 'No WIP entries found'}
+                  </p>
+                  <p className="text-sm mb-6">
+                    {isNepali 
+                      ? 'प्रगति ट्र्याक गर्नको लागि पहिले WIP डेटा थप्नुहोस्'
+                      : 'Add WIP data first to track progress'}
+                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs text-gray-400">
+                      {isNepali ? 'WIP डेटा थप्न:' : 'To add WIP data:'}
+                    </p>
+                    <div className="text-xs text-gray-400 space-y-1">
+                      <p>• {isNepali ? 'WIP डेटा इम्पोर्ट का प्रयोग गर्नुहोस्' : 'Use WIP Data Import'}</p>
+                      <p>• {isNepali ? 'वा WIP डेटा प्रबन्धन मा जानुहोस्' : 'Or go to WIP Data Manager'}</p>
+                    </div>
+                  </div>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

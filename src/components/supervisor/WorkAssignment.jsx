@@ -5,7 +5,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
-import { BundleService, OperatorService, WorkAssignmentService } from '../../services/firebase-services';
+import { BundleService, OperatorService, WorkAssignmentService, ConfigService, WIPService } from '../../services/firebase-services';
 import { assignWorkItemToOperator, startWorkItem, completeWorkItem } from '../../utils/progressManager';
 
 const WorkAssignment = () => {
@@ -27,13 +27,103 @@ const WorkAssignment = () => {
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [activeWork, setActiveWork] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  
+  // Dynamic configurations from ConfigService
+  const [machines, setMachines] = useState([]);
+  const [operations, setOperations] = useState([]);
+  const [priorities, setPriorities] = useState([]);
+  const [statuses, setStatuses] = useState([]);
+  const [skills, setSkills] = useState([]);
+
+  // Helper function to get machine icon from configurations
+  const getMachineIcon = (machineType) => {
+    if (!machines || !Array.isArray(machines) || machines.length === 0 || !machineType) {
+      return '⚙️';
+    }
+    const machine = machines.find(m => 
+      m?.id === machineType || 
+      m?.name?.toLowerCase().includes(machineType?.toLowerCase()) ||
+      m?.nameNp?.includes(machineType)
+    );
+    return machine?.icon || '⚙️';
+  };
+
+  // Helper function to get machine color from configurations
+  const getMachineColor = (machineType) => {
+    if (!machines || !Array.isArray(machines) || machines.length === 0 || !machineType) {
+      return '#6B7280';
+    }
+    const machine = machines.find(m => 
+      m?.id === machineType || 
+      m?.name?.toLowerCase().includes(machineType?.toLowerCase()) ||
+      m?.nameNp?.includes(machineType)
+    );
+    return machine?.color || '#6B7280';
+  };
 
   useEffect(() => {
-    loadAvailableBundles();
-    loadOperators();
-    loadAssignmentHistory();
-    loadActiveWork();
+    const loadData = async () => {
+      await loadConfigurations(); // Load configurations first
+      await loadAvailableBundles();
+      await loadOperators(); // Load operators after skills are available
+      await loadAssignmentHistory();
+      await loadActiveWork();
+    };
+    loadData();
   }, [filter]);
+
+  // Auto-refresh operators every 30 seconds to catch new users
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      loadOperators();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // Manual refresh function
+  const handleRefresh = () => {
+    loadOperators();
+    loadAvailableBundles();
+    showNotification(
+      isNepali ? 'डेटा रिफ्रेश गरियो' : 'Data refreshed',
+      'success'
+    );
+  };
+
+  // Load all dynamic configurations from ConfigService
+  const loadConfigurations = async () => {
+    try {
+      console.log('🔄 Loading configurations for Work Assignment...');
+      
+      const [machinesData, operationsData, prioritiesData, statusesData, skillsData] = await Promise.all([
+        ConfigService.getMachines(),
+        ConfigService.getOperations(),
+        ConfigService.getPriorities(),
+        ConfigService.getStatuses('work'),
+        ConfigService.getSkills()
+      ]);
+      
+      setMachines(machinesData);
+      setOperations(operationsData);
+      setPriorities(prioritiesData);
+      setStatuses(statusesData);
+      setSkills(skillsData);
+      
+      console.log('✅ Loaded configurations:', {
+        machines: machinesData.length,
+        operations: operationsData.length,
+        priorities: prioritiesData.length,
+        statuses: statusesData.length,
+        skills: skillsData.length
+      });
+    } catch (error) {
+      console.error('❌ Error loading configurations:', error);
+    }
+  };
 
   const loadAvailableBundles = async () => {
     setLoading(true);
@@ -51,7 +141,7 @@ const WorkAssignment = () => {
           priority: bundle.priority || 'Normal',
           deadline: bundle.dueDate || new Date(Date.now() + 86400000).toISOString(),
           estimatedTime: bundle.estimatedTime || 30,
-          lotNumber: bundle.bundleNumber || bundle.id,
+          lotNumber: bundle.lotNumber || bundle.bundleNumber || bundle.id,
         }));
         
         if (filter.machineType !== 'all') {
@@ -101,27 +191,102 @@ const WorkAssignment = () => {
     }
   };
 
+  // Helper function to get operator's primary skill
+  const getOperatorSkill = (operator) => {
+    // Check if operator has a skill assigned
+    if (operator.skills && operator.skills.length > 0) {
+      const skillId = operator.skills[0];
+      const skill = skills.find(s => s.id === skillId);
+      return {
+        id: skillId,
+        name: skill?.name || skillId,
+        nameNp: skill?.nameNp || skillId
+      };
+    }
+
+    // Fallback: determine skill from assigned machines
+    if (operator.assignedMachines && operator.assignedMachines.length > 0) {
+      const machineId = operator.assignedMachines[0];
+      const machine = machines.find(m => m.id === machineId);
+      const machineType = machine?.type?.toLowerCase() || machineId;
+      
+      // Find skill based on machine type
+      const skill = skills.find(s => 
+        s.machineTypes && s.machineTypes.includes(machineType)
+      );
+      
+      if (skill) {
+        return {
+          id: skill.id,
+          name: skill.name,
+          nameNp: skill.nameNp
+        };
+      }
+    }
+
+    // Final fallback to general
+    const generalSkill = skills.find(s => s.id === 'general');
+    return {
+      id: 'general',
+      name: generalSkill?.name || 'General Operator',
+      nameNp: generalSkill?.nameNp || 'सामान्य अपरेटर'
+    };
+  };
+
+  // Helper function to get operator's assigned machine display name
+  const getOperatorMachineDisplay = (operator) => {
+    if (operator.assignedMachines && operator.assignedMachines.length > 0) {
+      const machineId = operator.assignedMachines[0];
+      const machine = machines.find(m => m.id === machineId);
+      if (machine) {
+        return {
+          name: machine.name,
+          nameNp: machine.nameNp || machine.name,
+          icon: machine.icon || '⚙️'
+        };
+      }
+    }
+    
+    // Fallback to station if no machine assigned
+    return {
+      name: operator.station || `Station-${operator.id?.slice(-2) || '01'}`,
+      nameNp: operator.stationNp || operator.station || `स्टेशन-${operator.id?.slice(-2) || '01'}`,
+      icon: '🏭'
+    };
+  };
+
   const loadOperators = async () => {
     try {
+      console.log('🔄 Loading operators for Work Assignment...');
       // Try Firebase first
       const result = await OperatorService.getActiveOperators();
       let operators = [];
       
       if (result.success && result.operators.length > 0) {
         operators = result.operators;
-        console.log('Loaded operators from Firebase:', operators.length);
+        console.log('✅ Loaded operators from Firebase:', operators.length);
       } else {
         // No localStorage fallback - use empty array
         operators = [];
-        console.log('No operators found in Firebase, using empty array');
+        console.log('⚠️ No operators found in Firebase, using empty array');
+        console.log('Result details:', result);
       }
 
-      // Map data to component format
-      const mappedOperators = operators.map(operator => ({
+      // Map data to component format  
+      const mappedOperators = operators.map(operator => {
+        const operatorSkill = getOperatorSkill(operator);
+        
+        // Get machine display info
+        const machineDisplay = getOperatorMachineDisplay(operator);
+        
+        return {
         ...operator,
         name: isNepali ? operator.name : operator.nameEn || operator.name,
-        speciality: operator.assignedMachines?.[0] || operator.machine || operator.speciality || 'General',
-        specialityNepali: operator.assignedMachines?.[0] || operator.machine || 'सामान्य',
+        speciality: isNepali ? operatorSkill.nameNp : operatorSkill.name,
+        specialityNepali: operatorSkill.nameNp,
+        machineDisplay: machineDisplay.name,
+        machineDisplayNp: machineDisplay.nameNp,
+        machineIcon: machineDisplay.icon,
         status: operator.currentBundle ? 'working' : 'available',
         efficiency: operator.efficiency || operator.productivity?.averageTime || 85,
         qualityScore: operator.qualityScore || operator.productivity?.qualityScore || 95,
@@ -131,7 +296,8 @@ const WorkAssignment = () => {
         todayPieces: operator.todayStats?.piecesCompleted || operator.productivity?.completedBundles || 0,
         estimatedFinishTime: operator.estimatedFinishTime || null,
         station: operator.station || `Station-${operator.id?.slice(-2) || '01'}`
-      }));
+      };
+      });
 
       setOperators(mappedOperators);
       console.log('Final mapped operators:', mappedOperators.length);
@@ -362,8 +528,18 @@ const WorkAssignment = () => {
         );
         
       } else {
-        // Handle traditional bundle assignment (Firebase)
-        const assignResult = await BundleService.assignBundle(bundle.id, operator.id, user?.id || 'supervisor_01');
+        // Determine if this is a WIP work item or traditional bundle
+        const isWIPWorkItem = bundle.wipEntryId || bundle.garmentType || bundle.operationSequence;
+        
+        let assignResult;
+        if (isWIPWorkItem) {
+          // Handle WIP work item assignment
+          console.log(`🔄 Assigning WIP work item: ${bundle.currentOperation} on ${bundle.machineType}`);
+          assignResult = await WIPService.assignWorkItem(bundle.id, operator.id, user?.id || 'supervisor_01');
+        } else {
+          // Handle traditional bundle assignment (Firebase)
+          assignResult = await BundleService.assignBundle(bundle.id, operator.id, user?.id || 'supervisor_01');
+        }
         
         if (!assignResult.success) {
           throw new Error(assignResult.error || 'Assignment failed');
@@ -633,7 +809,7 @@ const WorkAssignment = () => {
               {isNepali ? '🤖 स्मार्ट असाइन' : '🤖 Smart Assign'}
             </button>
             <button
-              onClick={loadAvailableBundles}
+              onClick={handleRefresh}
               disabled={loading}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
@@ -687,10 +863,12 @@ const WorkAssignment = () => {
               onChange={(e) => setFilter(prev => ({ ...prev, machineType: e.target.value }))}
               className="border rounded px-3 py-1 text-sm"
             >
-              <option value="all">{isNepali ? 'सबै' : 'All'}</option>
-              <option value="ओभरलक">Overlock</option>
-              <option value="फ्ल्यालक">Flatlock</option>
-              <option value="एकल सुई">Single Needle</option>
+              <option value="all">{isNepali ? 'सबै मेसिन' : 'All Machines'}</option>
+              {machines.map(machine => (
+                <option key={machine.id} value={machine.id}>
+                  {isNepali ? machine.nameNp || machine.name : machine.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -730,9 +908,29 @@ const WorkAssignment = () => {
         {/* Available Work Bundles */}
         <div className="bg-white rounded-lg shadow-sm border">
           <div className="p-4 border-b">
-            <h2 className="text-lg font-semibold text-gray-900">
-              {isNepali ? '📦 उपलब्ध काम' : '📦 Available Work'}
-            </h2>
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {isNepali ? '📦 उपलब्ध काम' : '📦 Available Work'}
+              </h2>
+              <span className="text-sm text-gray-500">
+                {availableBundles.length} {isNepali ? 'आइटम' : 'items'}
+              </span>
+            </div>
+            
+            {/* Search Bar */}
+            <div className="mb-3">
+              <input
+                type="text"
+                placeholder={isNepali ? 'खोज्नुहोस् (Article, Lot, Color, Operation...)' : 'Search (Article, Lot, Color, Operation...)'}
+                value={searchTerm}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1); // Reset to first page on search
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            
             <p className="text-sm text-gray-600">
               {isNepali ? 'ड्र्याग गरेर ऑपरेटरमा ड्रप गर्नुहोस्' : 'Drag bundles to operators'}
             </p>
@@ -755,39 +953,80 @@ const WorkAssignment = () => {
                     draggable
                     onDragStart={(e) => handleDragStart(e, bundle)}
                     onClick={() => setSelectedBundle(bundle)}
-                    className={`p-4 border rounded-lg cursor-grab hover:shadow-md transition-shadow
-                      ${selectedBundle?.id === bundle.id ? 'ring-2 ring-blue-500 border-blue-300' : ''}
+                    className={`p-4 border rounded-lg cursor-grab hover:shadow-md transition-all duration-200
+                      ${selectedBundle?.id === bundle.id ? 'ring-2 ring-blue-500 border-blue-300 bg-blue-50' : ''}
                       ${draggedBundle?.id === bundle.id ? 'opacity-50' : ''}`}
                   >
+                    {/* Header with Article and Priority */}
                     <div className="flex justify-between items-start mb-2">
                       <div className="flex items-center space-x-2">
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
-                          {bundle.articleNumber}
+                        <span className="bg-gradient-to-r from-blue-500 to-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                          #{bundle.articleNumber}
                         </span>
-                        <span className={`px-2 py-1 rounded text-xs border ${getPriorityColor(bundle.priority)}`}>
-                          {bundle.priority}
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold border ${getPriorityColor(bundle.priority)}`}>
+                          {bundle.priority?.toUpperCase()}
                         </span>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm text-gray-600">{formatCurrency(bundle.rate)}/pc</div>
-                        <div className="text-xs text-gray-500">~{bundle.estimatedTime}min</div>
+                        <div className="text-sm font-medium text-green-600">{formatCurrency(bundle.rate)}/pc</div>
+                        <div className="text-xs text-gray-500 flex items-center">
+                          ⏱️ ~{bundle.estimatedTime}min
+                        </div>
                       </div>
                     </div>
                     
-                    <div className="text-sm text-gray-900 font-medium mb-1">
-                      {bundle.articleName}
+                    {/* Article Name and Lot */}
+                    <div className="mb-2">
+                      <div className="text-sm text-gray-900 font-semibold mb-1">
+                        {bundle.articleName || `Article ${bundle.articleNumber}`}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        📦 Lot: <span className="font-medium text-purple-700 bg-purple-50 px-2 py-1 rounded">
+                          {bundle.lotNumber || 'N/A'}
+                        </span>
+                      </div>
                     </div>
                     
-                    <div className="flex justify-between items-center text-xs text-gray-600">
-                      <span>{typeof bundle.operation === 'string' 
-                        ? bundle.operation 
-                        : bundle.operation?.nameEn || bundle.operation?.name || 'Unknown Operation'}</span>
-                      <span>{bundle.pieces} {isNepali ? 'पिस' : 'pcs'}</span>
+                    {/* Operation and Machine */}
+                    <div className="flex justify-between items-center mb-2">
+                      <div className="text-xs">
+                        <span className="text-gray-500">Operation:</span>
+                        <span className="ml-1 bg-gray-100 px-2 py-1 rounded text-gray-700 font-medium">
+                          {typeof bundle.operation === 'string' 
+                            ? bundle.operation 
+                            : bundle.operation?.nameEn || bundle.operation?.name || 'Sewing'}
+                        </span>
+                      </div>
+                      <div className="text-xs">
+                        <span className="text-gray-500">Machine:</span>
+                        <span 
+                          className="ml-1 px-2 py-1 rounded font-medium flex items-center space-x-1"
+                          style={{ 
+                            backgroundColor: `${getMachineColor(bundle.machineType)}15`,
+                            color: getMachineColor(bundle.machineType)
+                          }}
+                        >
+                          <span className="text-sm">{getMachineIcon(bundle.machineType)}</span>
+                          <span>{bundle.machineType}</span>
+                        </span>
+                      </div>
                     </div>
                     
-                    <div className="flex justify-between items-center text-xs text-gray-500 mt-2">
-                      <span>{bundle.machineType}</span>
-                      <span>{bundle.color} - {bundle.size}</span>
+                    {/* Bottom Row: Color, Size, Pieces */}
+                    <div className="flex justify-between items-center text-sm border-t pt-2 mt-2">
+                      <div className="flex items-center space-x-2">
+                        <span className="inline-flex items-center">
+                          <span className="w-3 h-3 bg-gradient-to-br from-gray-300 to-gray-500 rounded-full mr-1"></span>
+                          <span className="font-medium">{bundle.color || 'N/A'}</span>
+                        </span>
+                        <span className="text-gray-400">•</span>
+                        <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium">
+                          {bundle.size || 'N/A'}
+                        </span>
+                      </div>
+                      <div className="bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm font-bold">
+                        {bundle.pieces || 0} {isNepali ? 'पिस' : 'pcs'}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -839,8 +1078,15 @@ const WorkAssignment = () => {
                   </div>
                   
                   <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
-                    <span>{isNepali ? operator.specialityNepali : operator.speciality}</span>
-                    <span>{operator.station}</span>
+                    <div className="flex items-center space-x-1">
+                      <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium">
+                        {isNepali ? operator.specialityNepali : operator.speciality}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-1 bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium">
+                      <span>{operator.machineIcon}</span>
+                      <span>{isNepali ? operator.machineDisplayNp : operator.machineDisplay}</span>
+                    </div>
                   </div>
                   
                   <div className="flex justify-between items-center text-xs text-gray-500">

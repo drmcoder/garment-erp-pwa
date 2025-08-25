@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { BundleService } from '../../services/firebase-services';
+import { BundleService, OperatorService } from '../../services/firebase-services';
 
 const BundleAssignment = () => {
   const [availableBundles, setAvailableBundles] = useState([]);
@@ -9,6 +9,15 @@ const BundleAssignment = () => {
   useEffect(() => {
     loadAvailableBundles();
     loadOperators();
+  }, []);
+
+  // Auto-refresh operators every 30 seconds to catch new users
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      loadOperators();
+    }, 30000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const loadAvailableBundles = async () => {
@@ -20,25 +29,29 @@ const BundleAssignment = () => {
 
   const loadOperators = async () => {
     try {
-      // No localStorage loading - use empty array
-      const savedOperators = [];
+      // Use OperatorService to fetch real operators from Firestore
+      const result = await OperatorService.getActiveOperators();
       
-      if (savedOperators.length > 0) {
-        // Filter for active operators with machine assignments
-        const activeOperators = savedOperators.filter(op => 
-          op.isActive && op.machineType
-        ).map(op => ({
-          id: op.id,
-          name: op.name,
-          speciality: op.machineType
-        }));
+      if (result.success && result.operators.length > 0) {
+        // Filter for active operators and format for component
+        const activeOperators = result.operators
+          .filter(op => op.isActive)
+          .map(op => ({
+            id: op.id,
+            name: op.name,
+            speciality: op.machine || op.machineType || 'General',
+            efficiency: op.efficiency || 85,
+            status: op.currentBundle ? 'working' : 'available'
+          }));
         setOperators(activeOperators);
+        console.log('Loaded operators from Firestore:', activeOperators.length);
       } else {
         // Start with empty array if no operators found
         setOperators([]);
+        console.log('No operators found in Firestore');
       }
     } catch (error) {
-      console.error('Error loading operators:', error);
+      console.error('Error loading operators from Firestore:', error);
       setOperators([]);
     }
   };

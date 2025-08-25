@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import { WIPService } from '../../services/firebase-services';
 import WIPManualEntry from './WIPManualEntry';
 import ProcessTemplateManager from './ProcessTemplateManager';
 
@@ -71,40 +72,52 @@ const WIPDataManager = ({ onClose }) => {
     setFilteredEntries(filtered);
   }, [wipEntries, searchTerm, statusFilter, dateFilter]);
 
-  const loadWIPEntries = () => {
-    console.log('🔥 WIP DATA MANAGER - LOADING ENTRIES');
+  const loadWIPEntries = async () => {
+    console.log('🔥 WIP DATA MANAGER - LOADING ENTRIES FROM FIRESTORE');
     try {
-      // No localStorage loading - use empty array
-      const savedEntries = [];
-      console.log('📊 Raw entries from empty array:', savedEntries.length);
+      const result = await WIPService.getAllWIPEntries();
+      console.log('🔍 WIP DATA MANAGER - Full result from service:', result);
+      console.log('🔍 WIP DATA MANAGER - result.success:', result?.success);
+      console.log('🔍 WIP DATA MANAGER - result.entries:', result?.entries);
+      console.log('🔍 WIP DATA MANAGER - Array.isArray(result.entries):', Array.isArray(result?.entries));
       
-      // Add status and metadata to existing entries if not present
-      const enrichedEntries = savedEntries.map(entry => ({
-        ...entry,
-        id: entry.id || Date.now() + Math.random(),
-        status: entry.status || 'active',
-        createdAt: entry.createdAt || new Date().toISOString(),
-        updatedAt: entry.updatedAt || new Date().toISOString(),
-        totalPieces: entry.totalPieces || entry.rolls?.reduce((sum, roll) => sum + (roll.pieces || 0), 0) || 0,
-        totalRolls: entry.totalRolls || entry.rolls?.length || 0
-      }));
-      
-      console.log('✅ Enriched entries:', enrichedEntries.length);
-      console.log('📋 Enriched entries data:', JSON.stringify(enrichedEntries, null, 2));
-      
-      setWipEntries(enrichedEntries);
-      
-      addError({
-        message: `${isNepali ? 'लोड गरियो' : 'Loaded'} ${enrichedEntries.length} ${isNepali ? 'WIP एन्ट्री' : 'WIP entries'}`,
-        component: 'WIPDataManager',
-        action: 'Load Entries'
-      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
-      
-      console.log('✅ WIP DATA MANAGER - ENTRIES LOADED SUCCESSFULLY');
-      
+      if (result.success && result.entries && Array.isArray(result.entries)) {
+        const enrichedEntries = result.entries.map(entry => ({
+          ...entry,
+          id: entry.id,
+          status: entry.status || 'active',
+          createdAt: entry.createdAt || new Date().toISOString(),
+          updatedAt: entry.updatedAt || new Date().toISOString(),
+          totalPieces: entry.totalPieces || entry.rolls?.reduce((sum, roll) => sum + (roll.pieces || 0), 0) || 0,
+          totalRolls: entry.totalRolls || entry.rolls?.length || 0
+        }));
+        
+        console.log('✅ Loaded WIP entries from Firestore:', enrichedEntries.length);
+        console.log('📋 WIP entries data:', JSON.stringify(enrichedEntries.slice(0, 2), null, 2));
+        
+        setWipEntries(enrichedEntries);
+        
+        addError({
+          message: `${isNepali ? 'लोड गरियो' : 'Loaded'} ${enrichedEntries.length} ${isNepali ? 'WIP एन्ट्री' : 'WIP entries'}`,
+          component: 'WIPDataManager',
+          action: 'Load Entries'
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+        
+        console.log('✅ WIP DATA MANAGER - ENTRIES LOADED SUCCESSFULLY FROM FIRESTORE');
+      } else {
+        console.warn('⚠️ No WIP entries found in Firestore');
+        setWipEntries([]);
+        addError({
+          message: `${isNepali ? 'कुनै WIP डेटा फेला परेन' : 'No WIP data found'}`,
+          component: 'WIPDataManager',
+          action: 'Load Entries'
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+      }
     } catch (error) {
+      console.error('❌ Error loading WIP entries from Firestore:', error);
+      setWipEntries([]);
       addError({
-        message: 'Failed to load WIP entries',
+        message: isNepali ? 'WIP डेटा लोड गर्न असफल' : 'Failed to load WIP data',
         component: 'WIPDataManager',
         action: 'Load Entries',
         data: { error: error.message }
@@ -456,9 +469,9 @@ const WIPDataManager = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold">
@@ -481,7 +494,7 @@ const WIPDataManager = ({ onClose }) => {
         </div>
 
         {/* Content */}
-        <div className="h-full overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6">
           {view === 'list' && renderListView()}
           
           {view === 'create' && (

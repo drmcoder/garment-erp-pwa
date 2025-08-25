@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import { OperatorService } from '../../services/firebase-services';
 
 const SimpleOperatorLogin = ({ onLoginSuccess }) => {
   const { login, loading } = useAuth();
@@ -12,41 +13,63 @@ const SimpleOperatorLogin = ({ onLoginSuccess }) => {
   const [showNumpad, setShowNumpad] = useState(false);
   const [selectedMachine, setSelectedMachine] = useState('');
 
-  // Available operators with photos and simple IDs
-  const [operators] = useState([
-    { 
-      id: '001', 
-      name: 'राम बहादुर', 
-      nameEn: 'Ram Bahadur', 
-      machine: 'overlock', 
-      photo: '👨‍🏭',
-      skill: 'shoulder_join'
-    },
-    { 
-      id: '002', 
-      name: 'सीता देवी', 
-      nameEn: 'Sita Devi', 
-      machine: 'flatlock', 
-      photo: '👩‍🏭',
-      skill: 'hem_fold'
-    },
-    { 
-      id: '003', 
-      name: 'कृष्ण राई', 
-      nameEn: 'Krishna Rai', 
-      machine: 'singleNeedle', 
-      photo: '👨‍🔧',
-      skill: 'placket'
-    },
-    { 
-      id: '004', 
-      name: 'माया तामाङ', 
-      nameEn: 'Maya Tamang', 
-      machine: 'overlock', 
-      photo: '👩‍🔧',
-      skill: 'side_seam'
-    },
-  ]);
+  // Available operators loaded from Firestore
+  const [operators, setOperators] = useState([]);
+
+  // Load operators from Firestore
+  useEffect(() => {
+    const loadOperators = async () => {
+      try {
+        console.log('🔄 Loading operators for simple login from Firestore...');
+        const result = await OperatorService.getActiveOperators();
+        
+        if (result.success) {
+          const formattedOperators = result.operators.map((operator, index) => ({
+            id: operator.id || `op-${index + 1}`,
+            name: operator.name || operator.nameNepali,
+            nameEn: operator.nameEn || operator.name,
+            machine: operator.machine || operator.assignedMachine || 'overlock',
+            photo: getOperatorPhoto(operator.machine || 'overlock'),
+            skill: operator.skills?.[0] || 'general',
+            username: operator.username
+          }));
+          
+          console.log('✅ Loaded operators for simple login:', formattedOperators.length);
+          setOperators(formattedOperators);
+        } else {
+          console.warn('⚠️ No operators found for simple login');
+          setOperators([]);
+        }
+      } catch (error) {
+        console.error('❌ Error loading operators for simple login:', error);
+        setOperators([]);
+      }
+    };
+
+    loadOperators();
+    
+    // Auto-refresh operators every 30 seconds
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing simple login operators...');
+      loadOperators();
+    }, 30000);
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // Helper function to assign photo based on machine type
+  const getOperatorPhoto = (machineType) => {
+    const photos = {
+      overlock: '👨‍🏭',
+      flatlock: '👩‍🏭', 
+      singleNeedle: '👨‍🔧',
+      buttonhole: '👩‍🔧',
+      buttonAttach: '👨‍⚙️',
+      iron: '👩‍⚙️',
+      cutting: '👨‍💼'
+    };
+    return photos[machineType] || '👨‍🏭';
+  };
 
   // Machine types with visual icons
   const machines = [

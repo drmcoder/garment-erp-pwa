@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import { WIPService } from '../../services/firebase-services';
 import ProcessTemplateManager from './ProcessTemplateManager';
 
 const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
@@ -23,8 +24,12 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
     }, 500);
   };
 
-  const processBundlesWithTemplate = (template) => {
+  const processBundlesWithTemplate = async (template) => {
     try {
+      // Load existing work items from Firestore to avoid duplicates
+      const existingWorkItemsResult = await WIPService.getWorkItemsFromWIP();
+      const existingWorkItems = existingWorkItemsResult.success ? existingWorkItemsResult.workItems : [];
+      
       const allWorkItems = [];
 
       console.log('Processing bundles with template:');

@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 // import WIPInfographic from './WIPInfographic';
 import NepaliDatePicker from '../common/NepaliDatePicker';
+import { WIPService } from '../../services/firebase-services';
 
 // Simple today's Nepali date for default value
 const getTodayNepaliDate = () => {
@@ -13,6 +14,40 @@ const getTodayNepaliDate = () => {
   const nepaliDay = today.getDate();
   
   return `${nepaliYear}/${nepaliMonth.toString().padStart(2, '0')}/${nepaliDay.toString().padStart(2, '0')}`;
+};
+
+// Intelligent size parsing that handles multiple separators
+const parseSmartSizeInput = (input) => {
+  if (!input) return [];
+  
+  // Handle multiple separators: : ; , |
+  const cleanedInput = input
+    .replace(/[;,|]/g, ':') // Convert all separators to colons
+    .replace(/\s+/g, ' ') // Normalize spaces
+    .replace(/:\s*:/g, ':') // Remove double colons
+    .trim();
+  
+  return cleanedInput
+    .split(':')
+    .map(s => s.trim())
+    .filter(s => s.length > 0);
+};
+
+// Debounce helper for performance optimization
+const useDebounce = (callback, delay) => {
+  const [debounceTimer, setDebounceTimer] = useState(null);
+  
+  return useCallback((...args) => {
+    if (debounceTimer) {
+      clearTimeout(debounceTimer);
+    }
+    
+    const newTimer = setTimeout(() => {
+      callback(...args);
+    }, delay);
+    
+    setDebounceTimer(newTimer);
+  }, [callback, delay, debounceTimer]);
 };
 
 const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = false }) => {
@@ -118,19 +153,39 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
     }));
   };
 
-  // Update article sizes configuration
-  const updateArticleSizes = (articleNumber, sizes, ratios) => {
+  // Optimized update functions with debouncing
+  const debouncedUpdateWipData = useDebounce((update) => {
+    setWipData(prev => ({ ...prev, ...update }));
+  }, 300);
+
+  // Update article sizes configuration with intelligent parsing
+  const updateArticleSizes = useCallback((articleNumber, sizes, ratios) => {
+    // Parse sizes intelligently
+    const parsedSizes = parseSmartSizeInput(sizes);
+    const parsedRatios = parseSmartSizeInput(ratios);
+    
+    // Auto-fix ratio count to match size count
+    while (parsedRatios.length < parsedSizes.length) {
+      parsedRatios.push('1');
+    }
+    while (parsedRatios.length > parsedSizes.length) {
+      parsedRatios.pop();
+    }
+    
+    const cleanedSizes = parsedSizes.join(':');
+    const cleanedRatios = parsedRatios.join(':');
+    
     setWipData(prev => ({
       ...prev,
       articleSizes: {
         ...prev.articleSizes,
         [articleNumber]: {
-          sizes: sizes,
-          ratios: ratios
+          sizes: cleanedSizes,
+          ratios: cleanedRatios
         }
       }
     }));
-  };
+  }, []);
 
   // Initialize rolls array when moving to step 3
   const initializeRolls = () => {
@@ -217,16 +272,25 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
   const calculateRollPieces = (roll) => {
     let totalPieces = 0;
     
+    // If no parsed styles or layer count, return 0
+    if (!wipData.parsedStyles || wipData.parsedStyles.length === 0 || !roll.layerCount) {
+      return 0;
+    }
+    
     wipData.parsedStyles.forEach(style => {
       const articleConfig = wipData.articleSizes[style.articleNumber];
-      if (articleConfig) {
-        // eslint-disable-next-line no-unused-vars
-        const sizeNames = articleConfig.sizes.split(':').map(s => s.trim()).filter(s => s);
-        const sizeRatios = articleConfig.ratios.split(':').map(s => parseInt(s.trim()) || 0);
+      if (articleConfig && articleConfig.ratios) {
+        // Use smart parsing function instead of manual split
+        const sizeRatios = parseSmartSizeInput(articleConfig.ratios);
         
-        sizeRatios.forEach(ratio => {
+        sizeRatios.forEach(ratioStr => {
+          const ratio = parseInt(ratioStr) || 0;
           totalPieces += ratio * roll.layerCount;
         });
+      } else {
+        // Fallback: if no ratios are configured, assume 1 piece per layer per style
+        console.warn(`No ratios configured for article ${style.articleNumber}, using fallback of 1 piece per layer`);
+        totalPieces += 1 * roll.layerCount;
       }
     });
     
@@ -275,7 +339,7 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     console.log('🔥 WIP MANUAL ENTRY - SUBMIT BUTTON CLICKED');
     console.log('📋 Current WIP Data before validation:', JSON.stringify(wipData, null, 2));
     console.log('📊 Data validation starting...');
@@ -328,20 +392,50 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       const finalWipData = {
         ...wipData,
         totalRolls: wipData.rolls.length,
-        totalPieces: totalPieces,
-        createdAt: isEditing ? wipData.createdAt : new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        totalPieces: totalPieces
       };
 
       console.log('✅ Final WIP Data prepared:', JSON.stringify(finalWipData, null, 2));
-      console.log('🚀 Calling onImport callback with final data...');
+      console.log('🚀 Saving to Firestore via WIPService...');
       
-      // Success
-      onImport(finalWipData);
+      // Save to Firestore
+      const result = await WIPService.saveWIPEntry(finalWipData);
+      
+      if (result.success) {
+        console.log('✅ WIP saved to Firestore successfully!');
+        
+        // Call the original callback to close the modal and show success
+        onImport(finalWipData);
+        
+        // Show success message
+        const successMessage = currentLanguage === 'np' 
+          ? `WIP डेटा सफलतापूर्वक सुरक्षित गरियो! ${finalWipData.totalPieces} टुक्राहरू र ${finalWipData.totalRolls} रोलहरू थपिए।`
+          : `WIP data saved successfully! Added ${finalWipData.totalPieces} pieces across ${finalWipData.totalRolls} rolls.`;
+          
+        addError({
+          message: successMessage,
+          component: 'WIPManualEntry',
+          action: 'Save WIP Success'
+        }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.LOW);
+      } else {
+        console.error('❌ Failed to save WIP to Firestore:', result.error);
+        
+        const errorMessage = currentLanguage === 'np' 
+          ? `WIP डेटा सुरक्षित गर्न असफल: ${result.error}`
+          : `Failed to save WIP data: ${result.error}`;
+          
+        addError({
+          message: errorMessage,
+          component: 'WIPManualEntry',
+          action: 'Save WIP Failed',
+          data: { error: result.error }
+        }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+      }
       
     } catch (error) {
+      console.error('❌ Error in handleSubmit:', error);
       addError({
-        message: 'Failed to submit WIP data',
+        message: 'Failed to submit WIP data: ' + error.message,
         component: 'WIPManualEntry',
         action: 'Submit WIP',
         data: { wipData, error: error.message }
@@ -350,95 +444,113 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
   };
 
   const renderStepIndicator = () => (
-    <div className="mb-8">
-      <div className="flex items-center justify-center space-x-4">
-        {[1, 2, 3, 4].map((step) => (
-          <div key={step} className="flex items-center">
-            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium ${
-              currentStep >= step 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-200 text-gray-600'
-            }`}>
-              {step}
-            </div>
-            {step < 4 && (
-              <div className={`w-12 h-1 ${
-                currentStep > step ? 'bg-blue-600' : 'bg-gray-200'
+    <div className="mt-4">
+      <div className="flex items-center justify-center space-x-2">
+        {[
+          { num: 1, name: currentLanguage === 'np' ? 'जानकारी' : 'Info', icon: '📝' },
+          { num: 2, name: currentLanguage === 'np' ? 'लेख' : 'Articles', icon: '👕' },
+          { num: 3, name: currentLanguage === 'np' ? 'रोल' : 'Rolls', icon: '🧵' },
+          { num: 4, name: currentLanguage === 'np' ? 'पूर्वावलोकन' : 'Preview', icon: '👁️' }
+        ].map((step, index) => (
+          <div key={step.num} className="flex items-center">
+            <button
+              onClick={() => setCurrentStep(step.num)}
+              disabled={!canProceedFromStep(step.num - 1) && step.num > currentStep}
+              className={`group flex items-center space-x-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                currentStep >= step.num 
+                  ? 'bg-white bg-opacity-20 text-white shadow-md' 
+                  : 'bg-white bg-opacity-10 text-blue-100 hover:bg-opacity-20'
+              } ${step.num <= currentStep || canProceedFromStep(step.num - 1) ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'}`}
+            >
+              <span className="text-base">{step.icon}</span>
+              <span className="hidden sm:inline">{step.name}</span>
+              <span className="sm:hidden">{step.num}</span>
+            </button>
+            {index < 3 && (
+              <div className={`w-8 h-0.5 mx-1 transition-all duration-200 ${
+                currentStep > step.num ? 'bg-white bg-opacity-40' : 'bg-white bg-opacity-10'
               }`} />
             )}
           </div>
         ))}
       </div>
-      <div className="flex justify-center mt-2">
-        <span className="text-sm text-gray-600">
-          {currentStep === 1 && (currentLanguage === 'np' ? 'आधारभूत जानकारी' : 'Basic Information')}
-          {currentStep === 2 && (currentLanguage === 'np' ? 'लेख र साइज कन्फिगरेसन' : 'Articles & Size Configuration')}
-          {currentStep === 3 && (currentLanguage === 'np' ? 'रोल डेटा' : 'Roll Data')}
-          {currentStep === 4 && (currentLanguage === 'np' ? 'पूर्वावलोकन र पुष्टि' : 'Preview & Confirm')}
-        </span>
-      </div>
     </div>
   );
 
   return (
-    <div className="h-full bg-gray-50 overflow-y-auto">
-      <div className="max-w-6xl mx-auto p-4">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl max-h-[95vh] flex flex-col">
+        {/* Header - Fixed */}
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-t-xl">
           <div className="flex items-center justify-between">
             <button
               onClick={onCancel}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-white hover:bg-opacity-10 rounded-lg transition-colors"
             >
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </button>
             <div className="text-center">
-              <h1 className="text-xl font-bold text-gray-800">
+              <h1 className="text-xl font-bold">
                 {isEditing 
                   ? (currentLanguage === 'np' ? 'WIP डेटा सम्पादन' : 'Edit WIP Data')
                   : (currentLanguage === 'np' ? 'म्यानुअल WIP एन्ट्री' : 'Manual WIP Entry')
                 }
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-blue-100 text-sm">
                 {isEditing
                   ? (currentLanguage === 'np' 
                     ? `लट ${wipData.lotNumber} सम्पादन गर्दै`
                     : `Editing Lot ${wipData.lotNumber}`
                   )
-                  : (currentLanguage === 'np' ? 'रोल-आधारित उत्पादन डेटा' : 'Roll-based Production Data')
+                  : (currentLanguage === 'np' ? 'सजिलो र छिटो डेटा एन्ट्री' : 'Easy & Quick Data Entry')
                 }
               </p>
             </div>
-            <div className="w-10" /> {/* Spacer */}
+            <div className="flex items-center space-x-2">
+              <div className="text-xs bg-white bg-opacity-20 px-3 py-1 rounded-full">
+                Step {currentStep}/4
+              </div>
+            </div>
           </div>
           
           {renderStepIndicator()}
         </div>
 
-        {/* Step Content */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto p-6">
           {/* Step 1: Basic Information */}
           {currentStep === 1 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                {currentLanguage === 'np' ? 'आधारभूत जानकारी' : 'Basic Information'}
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex items-center space-x-3 mb-6">
+                <span className="text-2xl">📝</span>
                 <div>
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    {currentLanguage === 'np' ? 'आधारभूत जानकारी' : 'Basic Information'}
+                  </h2>
+                  <p className="text-sm text-gray-500">
+                    {currentLanguage === 'np' ? 'लट र कपडाको विवरण भर्नुहोस्' : 'Fill lot and fabric details'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {currentLanguage === 'np' ? 'लट नम्बर' : 'Lot Number'} *
+                    🏷️ {currentLanguage === 'np' ? 'लट नम्बर' : 'Lot Number'} *
                   </label>
                   <input
                     type="text"
                     value={wipData.lotNumber}
                     onChange={(e) => setWipData(prev => ({ ...prev, lotNumber: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 pl-10 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                     placeholder="S-85"
                     required
                   />
+                  <div className="absolute left-3 top-10 text-gray-400">
+                    📦
+                  </div>
                 </div>
                 
                 <div>
@@ -462,70 +574,95 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                   />
                 </div>
                 
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {currentLanguage === 'np' ? 'कपडाको नाम' : 'Fabric Name'} *
+                    🧵 {currentLanguage === 'np' ? 'कपडाको नाम' : 'Fabric Name'} *
                   </label>
                   <input
                     type="text"
                     value={wipData.fabricName}
                     onChange={(e) => setWipData(prev => ({ ...prev, fabricName: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 pl-10 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                     placeholder="Cotton Pique"
                     required
                   />
+                  <div className="absolute left-3 top-10 text-gray-400">
+                    🏭
+                  </div>
                 </div>
                 
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {currentLanguage === 'np' ? 'कपडाको चौडाई' : 'Fabric Width'}
+                    📏 {currentLanguage === 'np' ? 'कपडाको चौडाई' : 'Fabric Width'}
                   </label>
                   <input
                     type="text"
                     value={wipData.fabricWidth}
                     onChange={(e) => setWipData(prev => ({ ...prev, fabricWidth: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 pl-10 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                     placeholder="60 inches"
                   />
+                  <div className="absolute left-3 top-10 text-gray-400">
+                    📐
+                  </div>
                 </div>
                 
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {currentLanguage === 'np' ? 'रोलको संख्या' : 'Number of Rolls'} *
+                    🎯 {currentLanguage === 'np' ? 'रोलको संख्या' : 'Number of Rolls'} *
                   </label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="20"
-                    value={wipData.rollCount}
-                    onChange={(e) => {
-                      const count = parseInt(e.target.value) || 1;
-                      setWipData(prev => ({ ...prev, rollCount: count }));
-                    }}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                    placeholder="4"
-                    required
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    {currentLanguage === 'np' 
-                      ? 'कति रोल कपडा काटिने (१-२०)'
-                      : 'How many rolls of fabric to cut (1-20)'
-                    }
+                  <div className="flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setWipData(prev => ({ ...prev, rollCount: Math.max(1, prev.rollCount - 1) }))}
+                      className="w-10 h-12 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-600 transition-colors"
+                    >
+                      −
+                    </button>
+                    <input
+                      type="number"
+                      min="1"
+                      max="20"
+                      value={wipData.rollCount}
+                      onChange={(e) => {
+                        const count = parseInt(e.target.value) || 1;
+                        setWipData(prev => ({ ...prev, rollCount: count }));
+                      }}
+                      onBlur={(e) => {
+                        const count = Math.max(1, Math.min(20, parseInt(e.target.value) || 1));
+                        setWipData(prev => ({ ...prev, rollCount: count }));
+                      }}
+                      className="flex-1 p-3 text-center border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 font-bold text-lg"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setWipData(prev => ({ ...prev, rollCount: Math.min(20, prev.rollCount + 1) }))}
+                      className="w-10 h-12 bg-gray-100 hover:bg-gray-200 rounded-lg flex items-center justify-center text-gray-600 transition-colors"
+                    >
+                      +
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 text-center">
+                    {currentLanguage === 'np' ? '१-२० रोल' : '1-20 rolls'}
                   </p>
                 </div>
                 
 
-                <div>
+                <div className="relative">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {currentLanguage === 'np' ? 'कपडा स्टोर' : 'Fabric Store'}
+                    🏪 {currentLanguage === 'np' ? 'कपडा स्टोर' : 'Fabric Store'}
                   </label>
                   <input
                     type="text"
                     value={wipData.fabricStore}
                     onChange={(e) => setWipData(prev => ({ ...prev, fabricStore: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-3 pl-10 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200"
                     placeholder="Main Warehouse"
                   />
+                  <div className="absolute left-3 top-10 text-gray-400">
+                    📋
+                  </div>
                 </div>
               </div>
             </div>
@@ -615,11 +752,17 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                                 e.target.value,
                                 wipData.articleSizes[style.articleNumber]?.ratios || ''
                               )}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              placeholder="S : M : L : XL : XXL"
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                              placeholder="S:M:L:XL:2XL or S;M;L;XL;2XL"
                             />
                             <p className="text-xs text-gray-500 mt-1">
-                              {currentLanguage === 'np' ? 'कोलनले छुट्याउनुहोस् (:)' : 'Separate with colons (:)'}
+                              <span className="inline-flex items-center">
+                                <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
+                                {currentLanguage === 'np' 
+                                  ? 'कुनै पनि प्रयोग गर्नुहोस्: : ; , |' 
+                                  : 'Use any separator: : ; , |'
+                                }
+                              </span>
                             </p>
                           </div>
                           
@@ -635,11 +778,19 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                                 wipData.articleSizes[style.articleNumber]?.sizes || '',
                                 e.target.value
                               )}
-                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                              placeholder="1 : 2 : 3 : 2 : 1"
+                              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                              placeholder="1:2:3:2:1 or 1;2;3;2;1"
                             />
                             <p className="text-xs text-gray-500 mt-1">
-                              {currentLanguage === 'np' ? 'प्रति लेयर टुक्राहरू' : 'Pieces per layer'}
+                              <span className="inline-flex items-center">
+                                <span className="w-2 h-2 bg-blue-500 rounded-full mr-1"></span>
+                                {currentLanguage === 'np' ? 'प्रति लेयर टुक्राहरू' : 'Pieces per layer'} 
+                                {wipData.articleSizes[style.articleNumber]?.sizes && (
+                                  <span className="ml-2 text-green-600">
+                                    ({parseSmartSizeInput(wipData.articleSizes[style.articleNumber].sizes).length} sizes detected)
+                                  </span>
+                                )}
+                              </span>
                             </p>
                           </div>
                         </div>
@@ -669,18 +820,42 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
               {/* Initialize rolls when entering step 3 */}
               {wipData.rolls.length === 0 && initializeRolls()}
               
-              {/* Roll Forms */}
-              <div className="grid grid-cols-1 gap-6">
-                {wipData.rolls.map((roll, index) => (
-                  <div key={roll.id} className="border border-gray-200 rounded-lg p-6 bg-white">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium text-gray-800 flex items-center">
-                        <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
-                          {roll.rollNumber}
+              {/* Enhanced Roll Forms */}
+              <div className="space-y-4">
+                {wipData.rolls.map((roll, index) => {
+                  const isCompleted = roll.colorName && roll.layerCount > 0;
+                  return (
+                    <div key={roll.id} className={`border-2 rounded-xl p-6 transition-all duration-200 ${
+                      isCompleted 
+                        ? 'border-green-300 bg-gradient-to-br from-green-50 to-emerald-50 shadow-md' 
+                        : 'border-gray-300 bg-white hover:border-blue-300 hover:shadow-sm'
+                    }`}>
+                      <div className="flex items-center justify-between mb-6">
+                        <div className="flex items-center space-x-4">
+                          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-200 ${
+                            isCompleted 
+                              ? 'bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg' 
+                              : 'bg-gradient-to-br from-blue-500 to-blue-600 text-white'
+                          }`}>
+                            {isCompleted ? '✓' : roll.rollNumber}
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-800">
+                              {currentLanguage === 'np' ? `रोल ${roll.rollNumber}` : `Roll ${roll.rollNumber}`}
+                            </h3>
+                            {roll.colorName && (
+                              <p className="text-sm text-gray-600">
+                                🎨 {roll.colorName}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                        {currentLanguage === 'np' ? `रोल ${roll.rollNumber}` : `Roll ${roll.rollNumber}`}
-                      </h3>
-                    </div>
+                        {isCompleted && (
+                          <div className="text-green-600">
+                            <span className="text-2xl">🎉</span>
+                          </div>
+                        )}
+                      </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                       <div>
@@ -750,18 +925,25 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                           {currentLanguage === 'np' ? 'कुल टुक्राहरू:' : 'Total pieces from this roll:'}
                           <span className="font-bold text-gray-800 ml-2">
                             {Object.values(wipData.articleSizes).reduce((total, config) => {
-                              const ratios = config.ratios.split(':').map(r => parseInt(r.trim()) || 0);
+                              const ratios = parseSmartSizeInput(config.ratios || '').map(r => parseInt(r.trim()) || 0);
                               return total + (ratios.reduce((sum, ratio) => sum + ratio, 0) * roll.layerCount);
                             }, 0)}
                           </span>
                         </div>
+                        <div className="text-xs text-gray-500 mt-1">
+                          Formula: {Object.values(wipData.articleSizes).map(config => {
+                            const ratios = parseSmartSizeInput(config.ratios || '').map(r => parseInt(r.trim()) || 0);
+                            return `(${ratios.join('+')} = ${ratios.reduce((sum, ratio) => sum + ratio, 0)})`;
+                          }).join(' + ')} × {roll.layerCount} layers
+                        </div>
                       </div>
                     )}
-                  </div>
-                ))}
+                    </div>
+                  );
+                })}
               </div>
 
-              {/* Summary */}
+              {/* Enhanced Summary Dashboard */}
               <div className="bg-blue-50 rounded-lg p-6">
                 <h3 className="text-lg font-medium text-gray-800 mb-4">
                   {currentLanguage === 'np' ? 'संक्षेप' : 'Summary'}
@@ -791,70 +973,165 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
             </div>
           )}
 
-          {/* Step 4: Preview */}
+          {/* Step 4: Enhanced Preview */}
           {currentStep === 4 && (
             <div className="space-y-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                {currentLanguage === 'np' ? 'पूर्वावलोकन र पुष्टि' : 'Preview & Confirm'}
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  {currentLanguage === 'np' ? 'पूर्वावलोकन र पुष्टि' : 'Preview & Confirm'}
+                </h2>
+                <div className="flex items-center space-x-2 text-sm text-gray-600">
+                  <span className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></span>
+                  <span>{currentLanguage === 'np' ? 'तयार छ' : 'Ready to submit'}</span>
+                </div>
+              </div>
               
-              <div className="p-6 bg-gray-50 rounded-lg">
-                <h3 className="text-lg font-medium text-gray-800 mb-4">
-                  {currentLanguage === 'np' ? 'डेटा समीक्षा' : 'Data Review'}
-                </h3>
-                
-                <div className="space-y-4">
-                  {/* Basic Info Summary */}
-                  <div className="bg-white p-4 rounded-lg">
-                    <h4 className="font-medium text-gray-700 mb-2">
-                      {currentLanguage === 'np' ? 'आधारभूत जानकारी' : 'Basic Information'}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                      <div>
-                        <span className="text-gray-600">{currentLanguage === 'np' ? 'लट:' : 'Lot:'}</span>
-                        <span className="ml-2 font-medium">{wipData.lotNumber}</span>
+              {/* Interactive Summary Cards */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Production Overview */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-blue-800 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-blue-500 rounded-full mr-2"></span>
+                    {currentLanguage === 'np' ? 'उत्पादन विवरण' : 'Production Overview'}
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">{currentLanguage === 'np' ? 'लट नम्बर:' : 'Lot Number:'}</span>
+                      <span className="font-bold text-lg text-blue-800">{wipData.lotNumber}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">{currentLanguage === 'np' ? 'कुल रोल:' : 'Total Rolls:'}</span>
+                      <span className="font-bold text-xl text-blue-600">{wipData.totalRolls}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">{currentLanguage === 'np' ? 'कुल टुक्रा:' : 'Total Pieces:'}</span>
+                      <span className="font-bold text-2xl text-green-600">{wipData.totalPieces}</span>
+                    </div>
+                    <div className="pt-2 border-t border-blue-200">
+                      <div className="text-xs text-blue-600">
+                        {currentLanguage === 'np' ? 'मिति:' : 'Date:'} {wipData.nepaliDate}
                       </div>
-                      <div>
-                        <span className="text-gray-600">{currentLanguage === 'np' ? 'मिति:' : 'Date:'}</span>
-                        <span className="ml-2 font-medium">{wipData.nepaliDate}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-600">{currentLanguage === 'np' ? 'कपडा:' : 'Fabric:'}</span>
-                        <span className="ml-2 font-medium">{wipData.fabricName}</span>
+                      <div className="text-xs text-blue-600">
+                        {currentLanguage === 'np' ? 'कपडा:' : 'Fabric:'} {wipData.fabricName} ({wipData.fabricWidth})
                       </div>
                     </div>
                   </div>
+                </div>
 
-                  {/* Articles Summary */}
-                  <div className="bg-white p-4 rounded-lg">
-                    <h4 className="font-medium text-gray-700 mb-2">
-                      {currentLanguage === 'np' ? 'लेखहरू' : 'Articles'}
-                    </h4>
-                    <div className="space-y-2">
-                      {wipData.parsedStyles.map((style, index) => (
-                        <div key={index} className="flex justify-between items-center text-sm">
-                          <span className="font-medium">{style.articleNumber}</span>
-                          <span className="text-gray-600">{style.styleName}</span>
+                {/* Articles & Size Matrix */}
+                <div className="bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-purple-800 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-purple-500 rounded-full mr-2"></span>
+                    {currentLanguage === 'np' ? 'लेख र साइज मैट्रिक्स' : 'Articles & Size Matrix'}
+                  </h3>
+                  <div className="space-y-4">
+                    {wipData.parsedStyles.map((style, index) => {
+                      const sizes = parseSmartSizeInput(wipData.articleSizes[style.articleNumber]?.sizes || '');
+                      const ratios = parseSmartSizeInput(wipData.articleSizes[style.articleNumber]?.ratios || '');
+                      return (
+                        <div key={index} className="bg-white/70 rounded-lg p-4 border border-purple-100">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="font-bold text-purple-800">{style.articleNumber}</span>
+                            <span className="text-sm text-gray-600">{style.styleName}</span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <div className="text-gray-500 mb-1">{currentLanguage === 'np' ? 'साइज:' : 'Sizes:'}</div>
+                              <div className="flex flex-wrap gap-1">
+                                {sizes.map((size, idx) => (
+                                  <span key={idx} className="bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                                    {size}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-gray-500 mb-1">{currentLanguage === 'np' ? 'अनुपात:' : 'Ratios:'}</div>
+                              <div className="flex flex-wrap gap-1">
+                                {ratios.map((ratio, idx) => (
+                                  <span key={idx} className="bg-green-100 text-green-700 px-2 py-1 rounded font-mono">
+                                    {ratio}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-600">
+                            {currentLanguage === 'np' ? 'प्रति लेयर कुल:' : 'Total per layer:'} 
+                            <span className="font-bold ml-1">
+                              {ratios.reduce((sum, r) => sum + (parseInt(r) || 0), 0)} pieces
+                            </span>
+                          </div>
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })}
                   </div>
+                </div>
+              </div>
 
-                  {/* Rolls Summary */}
-                  <div className="bg-white p-4 rounded-lg">
-                    <h4 className="font-medium text-gray-700 mb-2">
-                      {currentLanguage === 'np' ? 'रोल सारांश' : 'Roll Summary'}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="text-sm">
-                        <span className="text-gray-600">{currentLanguage === 'np' ? 'कुल रोल:' : 'Total Rolls:'}</span>
-                        <span className="ml-2 font-bold text-blue-600">{wipData.totalRolls}</span>
+              {/* Detailed Roll Breakdown */}
+              <div className="bg-white border border-gray-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                  <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                  {currentLanguage === 'np' ? 'रोल विवरण विश्लेषण' : 'Roll Detail Analysis'}
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {wipData.rolls.map((roll, index) => (
+                    <div key={index} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-medium text-gray-800">Roll #{roll.rollNumber}</span>
+                        <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                          {roll.colorName}
+                        </span>
                       </div>
-                      <div className="text-sm">
-                        <span className="text-gray-600">{currentLanguage === 'np' ? 'कुल टुक्रा:' : 'Total Pieces:'}</span>
-                        <span className="ml-2 font-bold text-green-600">{wipData.totalPieces}</span>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">{currentLanguage === 'np' ? 'लेयर:' : 'Layers:'}</span>
+                          <span className="font-medium">{roll.layerCount}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-600">{currentLanguage === 'np' ? 'टुक्राहरू:' : 'Pieces:'}</span>
+                          <span className="font-bold text-green-600">{roll.pieces}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>{currentLanguage === 'np' ? 'वजन:' : 'Weight:'}</span>
+                          <span>{roll.actualWeight || roll.markedWeight} kg</span>
+                        </div>
                       </div>
                     </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Production Formula Display */}
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
+                <h3 className="text-lg font-semibold text-green-800 mb-4">
+                  {currentLanguage === 'np' ? 'उत्पादन फार्मुला' : 'Production Formula'}
+                </h3>
+                <div className="text-sm font-mono bg-white/70 p-4 rounded-lg border border-green-100">
+                  <div className="mb-2 text-green-700">
+                    {currentLanguage === 'np' ? 'कुल टुक्राहरू = ' : 'Total Pieces = '}
+                  </div>
+                  {wipData.rolls.map((roll, index) => (
+                    <div key={index} className="text-gray-700 pl-4 mb-1">
+                      Roll {roll.rollNumber}: {roll.layerCount} layers × (
+                      {wipData.parsedStyles.map(style => {
+                        const articleConfig = wipData.articleSizes[style.articleNumber];
+                        if (articleConfig && articleConfig.ratios) {
+                          const ratios = parseSmartSizeInput(articleConfig.ratios);
+                          const totalRatio = ratios.reduce((sum, r) => sum + (parseInt(r) || 0), 0);
+                          return totalRatio;
+                        } else {
+                          // Fallback: show 1 if no ratios configured
+                          return 1;
+                        }
+                      }).join(' + ')}
+                      ) = <span className="font-bold text-green-600">{roll.pieces} pieces</span>
+                    </div>
+                  ))}
+                  <div className="border-t border-green-200 pt-2 mt-2 font-bold text-green-800">
+                    {currentLanguage === 'np' ? 'महाजम्मा = ' : 'Grand Total = '}
+                    <span className="text-xl">{wipData.totalPieces} pieces</span>
                   </div>
                 </div>
               </div>

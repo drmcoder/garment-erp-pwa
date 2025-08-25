@@ -133,6 +133,9 @@ export const COLLECTIONS = {
   EFFICIENCY_LOGS: "efficiencyLogs",
   LINE_STATUS: "lineStatus",
   SYSTEM_SETTINGS: "systemSettings",
+  WIP_ENTRIES: "wipEntries",
+  WIP_ROLLS: "wipRolls",
+  WORK_ITEMS: "workItems",
 };
 
 // Demo Users for Development

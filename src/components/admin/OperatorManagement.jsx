@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { OperatorService, ConfigService } from '../../services/firebase-services';
+import { db, collection, getDocs, COLLECTIONS } from '../../config/firebase';
 
 const OperatorManagement = ({ onStatsUpdate }) => {
   const { currentLanguage } = useLanguage();
   const [operators, setOperators] = useState([]);
   const [machines, setMachines] = useState([]);
   const [operationTemplates, setOperationTemplates] = useState([]);
+  const [skills, setSkills] = useState([]);
   const [isCreating, setIsCreating] = useState(false);
   const [editingOperator, setEditingOperator] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -34,20 +37,37 @@ const OperatorManagement = ({ onStatsUpdate }) => {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     try {
-      // No localStorage loading - use empty arrays
-      const savedOperators = [];
-      const savedMachines = [];
-      const savedTemplates = [];
+      console.log('🔄 Loading operator management data from Firestore...');
+      
+      // Load real data from Firestore
+      const [operatorsResult, machinesSnapshot, templatesSnapshot, skillsData] = await Promise.all([
+        OperatorService.getActiveOperators(),
+        getDocs(collection(db, COLLECTIONS.MACHINE_CONFIGS)),
+        getDocs(collection(db, COLLECTIONS.ARTICLE_TEMPLATES)),
+        ConfigService.getSkills()
+      ]);
+      
+      const savedOperators = operatorsResult.success ? operatorsResult.operators : [];
+      const savedMachines = machinesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const savedTemplates = templatesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      console.log('✅ Loaded operator management data:', {
+        operators: savedOperators.length,
+        machines: savedMachines.length,
+        templates: savedTemplates.length,
+        skills: skillsData.length
+      });
       
       setOperators(savedOperators);
       setMachines(savedMachines);
       setOperationTemplates(savedTemplates);
+      setSkills(skillsData);
       
       if (onStatsUpdate) onStatsUpdate();
     } catch (error) {
-      console.error('Error loading operator data:', error);
+      console.error('❌ Error loading operator data from Firestore:', error);
     }
   };
 
@@ -174,6 +194,14 @@ const OperatorManagement = ({ onStatsUpdate }) => {
   const getTemplateName = (templateId) => {
     const template = operationTemplates.find(t => t.id === templateId);
     return template ? template.name : 'No Template';
+  };
+
+  const getSkillName = (operator) => {
+    if (operator.skills && operator.skills.length > 0) {
+      const skill = skills.find(s => s.id === operator.skills[0]);
+      return skill ? `${skill.name} (${skill.level})` : operator.skills[0];
+    }
+    return 'General';
   };
 
   const filteredOperators = operators.filter(operator => {
@@ -342,6 +370,30 @@ const OperatorManagement = ({ onStatsUpdate }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Primary Skill
+                </label>
+                <select
+                  value={currentData.skills?.[0] || ''}
+                  onChange={(e) => setCurrentData(prev => ({ 
+                    ...prev, 
+                    skills: e.target.value ? [e.target.value] : [] 
+                  }))}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">Select Primary Skill</option>
+                  {skills.map(skill => (
+                    <option key={skill.id} value={skill.id}>
+                      {skill.name} ({skill.level})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  This determines the operator's specialization and work assignment priority
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Hourly Rate (NPR)
                 </label>
                 <input
@@ -452,6 +504,9 @@ const OperatorManagement = ({ onStatsUpdate }) => {
                   Operator
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Skill
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Machines
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -475,6 +530,11 @@ const OperatorManagement = ({ onStatsUpdate }) => {
                     <div>
                       <div className="text-sm font-medium text-gray-900">{operator.name}</div>
                       <div className="text-sm text-gray-500">{operator.employeeId}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
+                      {getSkillName(operator)}
                     </div>
                   </td>
                   <td className="px-6 py-4">

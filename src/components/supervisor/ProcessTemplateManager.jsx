@@ -835,10 +835,13 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
                   <div className="flex flex-wrap gap-1">
                     {template.operations.slice(0, 6).map((operation, index) => (
                       <React.Fragment key={operation.id}>
-                        <div className="flex items-center space-x-1">
+                        <div className="flex flex-col items-center text-center">
                           <span className="text-lg">{operation.icon}</span>
-                          <span className="text-xs font-medium text-gray-600">
+                          <span className="text-xs font-medium text-gray-800">
                             {currentLanguage === 'np' ? operation.nameNp : operation.nameEn}
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {operation.machineType}
                           </span>
                         </div>
                         {index < Math.min(template.operations.length - 1, 5) && (
@@ -882,7 +885,7 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
                           {index + 1}. {currentLanguage === 'np' ? operation.nameNp : operation.nameEn}
                         </span>
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${getMachineTypeColor(operation.machineType)}`}>
-                          {operation.machineType}
+                          🏭 {operation.machineType}
                         </span>
                         <span className={`px-2 py-1 rounded text-xs font-semibold ${getSkillLevelColor(operation.skillLevel)}`}>
                           {operation.skillLevel}

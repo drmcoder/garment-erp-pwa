@@ -11,6 +11,7 @@ import {
   getDocs,
   addDoc,
   updateDoc,
+  deleteDoc,
   query,
   where,
   orderBy,
@@ -340,6 +341,56 @@ export class BundleService {
   // Get available bundles for assignment
   static async getAvailableBundles(machineType = null) {
     try {
+      console.log('🔍 Loading available bundles/work items from WIP data...');
+      
+      // First try to get work items from WIP
+      const wipWorkItems = await WIPService.getWorkItemsFromWIP();
+      
+      if (wipWorkItems.success && wipWorkItems.workItems.length > 0) {
+        console.log(`✅ Found ${wipWorkItems.workItems.length} work items from WIP`);
+        
+        // Filter by machine type if specified
+        let filteredWorkItems = wipWorkItems.workItems.filter(item => 
+          item.status === 'pending' || item.status === 'ready' || item.status === 'waiting'
+        );
+        
+        if (machineType && machineType !== 'all') {
+          filteredWorkItems = filteredWorkItems.filter(item => 
+            item.machineType === machineType
+          );
+        }
+        
+        // Format work items to match expected bundle structure
+        const bundles = filteredWorkItems.map(workItem => ({
+          id: workItem.id,
+          article: workItem.article,
+          articleNumber: workItem.article,
+          articleName: workItem.articleName,
+          size: workItem.size,
+          color: workItem.color,
+          pieces: workItem.pieces,
+          quantity: workItem.pieces,
+          completedPieces: workItem.completedPieces || 0,
+          status: workItem.status,
+          machineType: workItem.machineType,
+          currentOperation: workItem.currentOperation,
+          priority: workItem.priority || 'medium',
+          deadline: workItem.deadline,
+          assignedOperator: workItem.assignedOperator,
+          assignedAt: workItem.assignedAt,
+          lotNumber: workItem.lotNumber,
+          rollNumber: workItem.rollNumber,
+          wipEntryId: workItem.wipEntryId,
+          createdAt: workItem.createdAt
+        }));
+        
+        console.log(`✅ Returning ${bundles.length} formatted work items as bundles`);
+        return { success: true, bundles };
+      }
+      
+      // Fallback to original bundle logic if no WIP work items
+      console.log('⚠️ No WIP work items found, falling back to original bundle logic');
+      
       let bundleQuery;
       
       // Simplified query to avoid composite index requirements
@@ -919,6 +970,361 @@ export class OperatorService {
 }
 
 // Work Assignment Service
+// WIP (Work in Progress) Service
+export class WIPService {
+  static async saveWIPEntry(wipData) {
+    try {
+      console.log('🏗️ Saving WIP entry:', wipData);
+      
+      const currentUser = auth.currentUser;
+      const wipEntry = {
+        lotNumber: wipData.lotNumber,
+        nepaliDate: wipData.nepaliDate,
+        fabricName: wipData.fabricName,
+        fabricWidth: wipData.fabricWidth,
+        fabricStore: wipData.fabricStore,
+        totalRolls: wipData.totalRolls,
+        totalPieces: wipData.totalPieces,
+        parsedStyles: wipData.parsedStyles,
+        articleSizes: wipData.articleSizes,
+        status: 'active',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        createdBy: currentUser?.uid || 'anonymous'
+      };
+
+      // Save main WIP entry
+      const wipRef = await addDoc(collection(db, COLLECTIONS.WIP_ENTRIES), wipEntry);
+      console.log('✅ WIP entry saved with ID:', wipRef.id);
+
+      // Save individual rolls
+      const rollPromises = wipData.rolls.map(roll => 
+        addDoc(collection(db, COLLECTIONS.WIP_ROLLS), {
+          wipEntryId: wipRef.id,
+          rollNumber: roll.rollNumber,
+          colorName: roll.colorName,
+          layerCount: roll.layerCount,
+          markedWeight: roll.markedWeight,
+          actualWeight: roll.actualWeight,
+          pieces: roll.pieces,
+          createdAt: serverTimestamp()
+        })
+      );
+
+      await Promise.all(rollPromises);
+      console.log('✅ All rolls saved successfully');
+
+      // Generate work items from WIP
+      await this.generateWorkItemsFromWIP(wipRef.id, wipData);
+
+      return { success: true, wipId: wipRef.id };
+    } catch (error) {
+      console.error('❌ Error saving WIP entry:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  static async generateWorkItemsFromWIP(wipEntryId, wipData) {
+    try {
+      console.log('🔧 Generating work items from WIP:', wipEntryId);
+      
+      // Process each style and roll combination
+      for (const style of wipData.parsedStyles) {
+        const articleConfig = wipData.articleSizes[style.articleNumber];
+        if (!articleConfig) continue;
+
+        // Parse sizes and ratios intelligently - handle multiple separators
+        const parseSmartInput = (input) => {
+          if (!input) return [];
+          return input
+            .replace(/[;,|]/g, ':')
+            .split(':')
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+        };
+        
+        const sizes = parseSmartInput(articleConfig.sizes);
+        const ratios = parseSmartInput(articleConfig.ratios).map(r => parseInt(r) || 0);
+
+        // Create bundles/work items for each roll
+        for (const roll of wipData.rolls) {
+          // Calculate pieces per size for this roll
+          for (let index = 0; index < sizes.length; index++) {
+            const size = sizes[index];
+            if (index < ratios.length) {
+              const piecesForSize = ratios[index] * roll.layerCount;
+              
+              if (piecesForSize > 0) {
+                // Detect garment type and get complete production workflow
+                const garmentTypeId = ConfigService.detectGarmentType(style.styleName);
+                const operationWorkflow = await ConfigService.getOperationsForGarment(garmentTypeId);
+                
+                console.log(`📋 Creating ${operationWorkflow.length} operations for ${style.styleName} (${garmentTypeId})`);
+                
+                // Create separate work item for EACH operation (realistic flexible garment production)
+                for (const operationStep of operationWorkflow) {
+                  // Determine work item availability status based on workflow type
+                  let workItemStatus = 'pending';
+                  let canStartImmediately = false;
+                  
+                  // Check if this operation can start immediately (no dependencies)
+                  if (!operationStep.dependencies || operationStep.dependencies.length === 0) {
+                    canStartImmediately = true;
+                    workItemStatus = 'ready'; // Can be assigned immediately
+                  }
+                  
+                  // For parallel operations, they can start as soon as their dependencies are met
+                  if (operationStep.workflowType === 'parallel') {
+                    workItemStatus = 'pending'; // Will be available when dependencies are done
+                  }
+                  
+                  const workItem = {
+                    wipEntryId,
+                    lotNumber: wipData.lotNumber,
+                    article: style.articleNumber,
+                    articleName: style.styleName,
+                    size: size,
+                    color: roll.colorName,
+                    pieces: piecesForSize,
+                    rollNumber: roll.rollNumber,
+                    status: workItemStatus,
+                    
+                    // Real production workflow: each operation on specific machine
+                    currentOperation: operationStep.operation,
+                    machineType: operationStep.machine,
+                    operationSequence: operationStep.sequence,
+                    estimatedTime: operationStep.estimatedTime,
+                    
+                    // Flexible workflow properties
+                    workflowType: operationStep.workflowType || 'sequential',
+                    dependencies: operationStep.dependencies || [],
+                    parallelGroup: operationStep.parallelGroup || null,
+                    canStartImmediately: canStartImmediately,
+                    
+                    priority: 'medium',
+                    createdAt: serverTimestamp(),
+                    deadline: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+                    completedPieces: 0,
+                    assignedOperator: null,
+                    assignedAt: null,
+                    
+                    // Production workflow context
+                    garmentType: garmentTypeId,
+                    totalOperations: operationWorkflow.length,
+                    workflowStep: `${operationStep.sequence}/${operationWorkflow.length}`,
+                    
+                    // Bundle reference for parallel workflow tracking
+                    bundleId: `${wipData.lotNumber}-${style.articleNumber}-${size}-${roll.colorName}`,
+                    workflowId: `${wipEntryId}-${style.articleNumber}-${size}-${roll.colorName}`
+                  };
+                  
+                  await addDoc(collection(db, COLLECTIONS.WORK_ITEMS), workItem);
+                  const workTypeEmoji = operationStep.workflowType === 'parallel' ? '🔄' : '➡️';
+                  console.log(`✅ Created: ${workTypeEmoji} ${operationStep.operation} → ${operationStep.machine} (${piecesForSize} pcs) [${operationStep.workflowType}]`);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      console.log('✅ Work items generated successfully');
+    } catch (error) {
+      console.error('❌ Error generating work items:', error);
+      throw error;
+    }
+  }
+
+  // Smart operation assignment based on style using ConfigService
+  static async getOperationForStyle(styleName) {
+    const lowerStyle = styleName?.toLowerCase() || '';
+    const operations = await ConfigService.getOperations();
+    
+    // Smart matching based on style
+    if (lowerStyle.includes('t-shirt') || lowerStyle.includes('polo')) {
+      return operations.find(op => op.id === 'shoulder_join')?.name || 'shoulder join';
+    } else if (lowerStyle.includes('pant') || lowerStyle.includes('trouser')) {
+      return operations.find(op => op.id === 'side_seam')?.name || 'side seam';
+    } else if (lowerStyle.includes('shirt')) {
+      return operations.find(op => op.id === 'collar')?.name || 'collar';
+    } else if (lowerStyle.includes('jacket') || lowerStyle.includes('coat')) {
+      return operations.find(op => op.id === 'sleeve_attach')?.name || 'sleeve attach';
+    } else {
+      // Return a random operation for variety
+      const randomOp = operations[Math.floor(Math.random() * operations.length)];
+      return randomOp?.name || 'sewing';
+    }
+  }
+
+  // Smart machine assignment based on style using ConfigService
+  static async getMachineTypeForStyle(styleName) {
+    const lowerStyle = styleName?.toLowerCase() || '';
+    const machines = await ConfigService.getMachines();
+    
+    // Smart matching based on style
+    if (lowerStyle.includes('t-shirt') || lowerStyle.includes('polo')) {
+      return machines.find(m => m.id === 'overlock')?.id || 'overlock';
+    } else if (lowerStyle.includes('pant') || lowerStyle.includes('trouser')) {
+      return machines.find(m => m.id === 'flatlock')?.id || 'flatlock';
+    } else if (lowerStyle.includes('shirt')) {
+      return machines.find(m => m.id === 'single-needle')?.id || 'single-needle';
+    } else if (lowerStyle.includes('jacket') || lowerStyle.includes('coat')) {
+      return machines.find(m => m.id === 'single-needle')?.id || 'single-needle';
+    } else {
+      // Return random active machine for variety
+      const activeMachines = machines.filter(m => m.active !== false);
+      const randomMachine = activeMachines[Math.floor(Math.random() * activeMachines.length)];
+      return randomMachine?.id || 'single-needle';
+    }
+  }
+
+  static async getAllWIPEntries() {
+    try {
+      console.log('📋 Loading all WIP entries...');
+      
+      const q = query(
+        collection(db, COLLECTIONS.WIP_ENTRIES),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const snapshot = await getDocs(q);
+      const wipEntries = [];
+      
+      for (const doc of snapshot.docs) {
+        const wipData = { id: doc.id, ...doc.data() };
+        
+        // Load associated rolls
+        const rollsQuery = query(
+          collection(db, COLLECTIONS.WIP_ROLLS),
+          where('wipEntryId', '==', doc.id),
+          orderBy('rollNumber', 'asc')
+        );
+        
+        const rollsSnapshot = await getDocs(rollsQuery);
+        wipData.rolls = rollsSnapshot.docs.map(rollDoc => ({
+          id: rollDoc.id,
+          ...rollDoc.data()
+        }));
+        
+        wipEntries.push(wipData);
+      }
+      
+      console.log(`✅ Loaded ${wipEntries.length} WIP entries`);
+      return { success: true, wipEntries };
+    } catch (error) {
+      console.error('❌ Error loading WIP entries:', error);
+      return { success: false, error: error.message, wipEntries: [] };
+    }
+  }
+
+  static async getWorkItemsFromWIP() {
+    try {
+      console.log('📋 Loading work items from WIP...');
+      
+      const q = query(
+        collection(db, COLLECTIONS.WORK_ITEMS),
+        orderBy('createdAt', 'desc')
+      );
+      
+      const snapshot = await getDocs(q);
+      const workItems = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      
+      console.log(`✅ Loaded ${workItems.length} work items from WIP`);
+      return { success: true, workItems };
+    } catch (error) {
+      console.error('❌ Error loading work items:', error);
+      return { success: false, error: error.message, workItems: [] };
+    }
+  }
+
+  static async deleteWIPEntry(wipEntryId) {
+    try {
+      console.log('🗑️ Deleting WIP entry:', wipEntryId);
+      
+      // Delete associated rolls
+      const rollsQuery = query(
+        collection(db, COLLECTIONS.WIP_ROLLS),
+        where('wipEntryId', '==', wipEntryId)
+      );
+      
+      const rollsSnapshot = await getDocs(rollsQuery);
+      const deleteRollPromises = rollsSnapshot.docs.map(rollDoc =>
+        deleteDoc(doc(db, COLLECTIONS.WIP_ROLLS, rollDoc.id))
+      );
+      
+      await Promise.all(deleteRollPromises);
+      
+      // Delete associated work items
+      const workItemsQuery = query(
+        collection(db, COLLECTIONS.WORK_ITEMS),
+        where('wipEntryId', '==', wipEntryId)
+      );
+      
+      const workItemsSnapshot = await getDocs(workItemsQuery);
+      const deleteWorkItemPromises = workItemsSnapshot.docs.map(workItemDoc =>
+        deleteDoc(doc(db, COLLECTIONS.WORK_ITEMS, workItemDoc.id))
+      );
+      
+      await Promise.all(deleteWorkItemPromises);
+      
+      // Delete main WIP entry
+      await deleteDoc(doc(db, COLLECTIONS.WIP_ENTRIES, wipEntryId));
+      
+      console.log('✅ WIP entry and associated data deleted successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error deleting WIP entry:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Assign work item to operator (handles WIP-generated work items)
+  static async assignWorkItem(workItemId, operatorId, supervisorId) {
+    try {
+      console.log(`🔄 Assigning work item ${workItemId} to operator ${operatorId}`);
+      
+      const workItemRef = doc(db, COLLECTIONS.WORK_ITEMS, workItemId);
+      
+      // Check if work item exists and is available
+      const workItemDoc = await getDoc(workItemRef);
+      if (!workItemDoc.exists()) {
+        return { 
+          success: false, 
+          error: `Work item ${workItemId} not found in Firestore`,
+          errorCode: 'WORK_ITEM_NOT_FOUND'
+        };
+      }
+
+      const workItemData = workItemDoc.data();
+      if (workItemData.status !== 'pending' && workItemData.status !== 'ready') {
+        return {
+          success: false,
+          error: `Work item ${workItemId} is not available for assignment (status: ${workItemData.status})`,
+          errorCode: 'WORK_ITEM_NOT_AVAILABLE'
+        };
+      }
+
+      // Update work item with assignment
+      await updateDoc(workItemRef, {
+        status: 'assigned',
+        assignedOperator: operatorId,
+        assignedAt: serverTimestamp(),
+        assignedBy: supervisorId,
+        updatedAt: serverTimestamp()
+      });
+
+      console.log(`✅ Work item ${workItemId} assigned to operator ${operatorId}`);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error assigning work item:', error);
+      return { success: false, error: error.message };
+    }
+  }
+}
+
 export class WorkAssignmentService {
   // Get assignment history
   static async getAssignmentHistory(supervisorId = null, limit_count = 50) {
@@ -1048,6 +1454,330 @@ export class WorkAssignmentService {
       console.error("Mark work as completed error:", error);
       return { success: false, error: error.message };
     }
+  }
+}
+
+//===============================================
+// COMPREHENSIVE SCALABLE CONFIGURATION SERVICE  
+//===============================================
+
+export class ConfigService {
+  // Cache for configurations to improve performance
+  static configCache = new Map();
+  static cacheExpiry = 5 * 60 * 1000; // 5 minutes
+  
+  // Master configuration types - ALL dynamic data in the app
+  static CONFIG_TYPES = {
+    MACHINES: 'machines',
+    OPERATIONS: 'operations', 
+    PRIORITIES: 'priorities',
+    STATUSES: 'statuses',
+    SIZES: 'sizes',
+    COLORS: 'colors',
+    DEPARTMENTS: 'departments',
+    SHIFTS: 'shifts',
+    GARMENT_TYPES: 'garmentTypes',
+    SKILLS: 'skills',
+    USER_ROLES: 'userRoles'
+  };
+
+  // Get configuration data with caching
+  static async getConfig(configType) {
+    const cacheKey = configType;
+    const cached = this.configCache.get(cacheKey);
+    
+    if (cached && Date.now() - cached.timestamp < this.cacheExpiry) {
+      console.log(`✅ Using cached config for ${configType}`);
+      return { success: true, data: cached.data };
+    }
+
+    try {
+      console.log(`🔄 Loading ${configType} config from Firestore...`);
+      
+      const configRef = collection(db, 'app_configurations');
+      const q = query(configRef, where('type', '==', configType));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        const configDoc = snapshot.docs[0];
+        const configData = configDoc.data();
+        
+        // Cache the result
+        this.configCache.set(cacheKey, {
+          data: configData.items || [],
+          timestamp: Date.now()
+        });
+        
+        console.log(`✅ Loaded ${configType} config:`, configData.items?.length, 'items');
+        return { success: true, data: configData.items || [] };
+      } else {
+        // Create default configuration if doesn't exist
+        console.log(`📝 Creating default ${configType} config...`);
+        const defaultData = await this.createDefaultConfig(configType);
+        return { success: true, data: defaultData };
+      }
+    } catch (error) {
+      console.error(`❌ Error loading ${configType} config:`, error);
+      return { success: false, error: error.message, data: [] };
+    }
+  }
+
+  // Create default configurations for ALL app data
+  static async createDefaultConfig(configType) {
+    const defaultConfigs = {
+      [this.CONFIG_TYPES.MACHINES]: [
+        { id: 'overlock', name: 'Overlock Machine', nameNp: 'ओभरलक मेसिन', category: 'sewing', active: true, avgSpeed: 45, icon: '🔗', color: '#3B82F6' },
+        { id: 'flatlock', name: 'Flatlock Machine', nameNp: 'फ्ल्याटलक मेसिन', category: 'sewing', active: true, avgSpeed: 40, icon: '📎', color: '#10B981' },
+        { id: 'single-needle', name: 'Single Needle', nameNp: 'एकल सुई', category: 'sewing', active: true, avgSpeed: 35, icon: '🪡', color: '#8B5CF6' },
+        { id: 'buttonhole', name: 'Buttonhole Machine', nameNp: 'बटनहोल मेसिन', category: 'finishing', active: true, avgSpeed: 20, icon: '🕳️', color: '#F59E0B' },
+        { id: 'buttonAttach', name: 'Button Attach', nameNp: 'बटन जोड्ने', category: 'finishing', active: true, avgSpeed: 25, icon: '🔘', color: '#EF4444' },
+        { id: 'iron', name: 'Iron Press', nameNp: 'इस्त्री प्रेस', category: 'finishing', active: true, avgSpeed: 30, icon: '🔥', color: '#F97316' },
+        { id: 'cutting', name: 'Cutting Machine', nameNp: 'काट्ने मेसिन', category: 'cutting', active: true, avgSpeed: 50, icon: '✂️', color: '#6B7280' },
+        { id: 'embroidery', name: 'Embroidery Machine', nameNp: 'कसिदाकारी मेसिन', category: 'decoration', active: true, avgSpeed: 30, icon: '🎨', color: '#EC4899' },
+        { id: 'manual', name: 'Manual Work', nameNp: 'हस्तकला काम', category: 'manual', active: true, avgSpeed: 25, icon: '✋', color: '#84CC16' }
+      ],
+      [this.CONFIG_TYPES.OPERATIONS]: [
+        { id: 'shoulder_join', name: 'Shoulder Join', nameNp: 'काँध जोडाइ', machineTypes: ['overlock'], estimatedTime: 15 },
+        { id: 'side_seam', name: 'Side Seam', nameNp: 'छेउको सिलाई', machineTypes: ['overlock', 'flatlock'], estimatedTime: 20 },
+        { id: 'collar', name: 'Collar', nameNp: 'कलर', machineTypes: ['single-needle'], estimatedTime: 25 },
+        { id: 'sleeve_attach', name: 'Sleeve Attach', nameNp: 'बाहुला जोडाइ', machineTypes: ['overlock'], estimatedTime: 18 },
+        { id: 'hemming', name: 'Hemming', nameNp: 'हेमिङ', machineTypes: ['flatlock'], estimatedTime: 10 },
+        { id: 'buttonhole', name: 'Buttonhole', nameNp: 'बटनहोल', machineTypes: ['buttonhole'], estimatedTime: 5 },
+        { id: 'button_attach', name: 'Button Attach', nameNp: 'बटन जोडाइ', machineTypes: ['buttonAttach'], estimatedTime: 3 },
+        { id: 'pressing', name: 'Pressing', nameNp: 'इस्त्री', machineTypes: ['iron'], estimatedTime: 8 },
+        { id: 'sewing', name: 'General Sewing', nameNp: 'सामान्य सिलाई', machineTypes: ['single-needle', 'overlock'], estimatedTime: 20 },
+        { id: 'placket', name: 'Placket Making', nameNp: 'प्लाकेट बनाउने', machineTypes: ['single-needle'], estimatedTime: 15, workType: 'machine' },
+        { id: 'collar_attach', name: 'Collar Attachment', nameNp: 'कलर जोडाइ', machineTypes: ['single-needle'], estimatedTime: 18, workType: 'machine' },
+        { id: 'placket_attach', name: 'Placket Attachment', nameNp: 'प्लाकेट जोडाइ', machineTypes: ['single-needle'], estimatedTime: 12, workType: 'machine' },
+        { id: 'label_attach', name: 'Label Attachment', nameNp: 'लेबल जोडाइ', machineTypes: ['single-needle'], estimatedTime: 5, workType: 'machine' },
+        { id: 'printing', name: 'Screen Printing', nameNp: 'प्रिन्टिङ', machineTypes: ['manual'], estimatedTime: 15, workType: 'manual' },
+        { id: 'embroidery', name: 'Embroidery', nameNp: 'कसिदाकारी', machineTypes: ['embroidery'], estimatedTime: 25, workType: 'machine' },
+        { id: 'applique', name: 'Applique Work', nameNp: 'एप्लिक्यू काम', machineTypes: ['manual'], estimatedTime: 20, workType: 'manual' },
+        { id: 'washing', name: 'Garment Washing', nameNp: 'लुगा धुलाई', machineTypes: ['washing'], estimatedTime: 30, workType: 'machine' },
+        { id: 'quality_check', name: 'Quality Check', nameNp: 'गुणस्तर जाँच', machineTypes: ['manual'], estimatedTime: 10, workType: 'manual' }
+      ],
+      [this.CONFIG_TYPES.PRIORITIES]: [
+        { id: 'urgent', name: 'Urgent', nameNp: 'जरुरी', level: 4, color: 'red', bgColor: 'bg-red-100', textColor: 'text-red-800', borderColor: 'border-red-300' },
+        { id: 'high', name: 'High', nameNp: 'उच्च', level: 3, color: 'orange', bgColor: 'bg-orange-100', textColor: 'text-orange-800', borderColor: 'border-orange-300' },
+        { id: 'medium', name: 'Medium', nameNp: 'मध्यम', level: 2, color: 'yellow', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', borderColor: 'border-yellow-300' },
+        { id: 'low', name: 'Low', nameNp: 'कम', level: 1, color: 'green', bgColor: 'bg-green-100', textColor: 'text-green-800', borderColor: 'border-green-300' }
+      ],
+      [this.CONFIG_TYPES.STATUSES]: [
+        { id: 'pending', name: 'Pending', nameNp: 'पेन्डिङ', category: 'work', color: 'gray', bgColor: 'bg-gray-100', textColor: 'text-gray-800' },
+        { id: 'ready', name: 'Ready', nameNp: 'तयार', category: 'work', color: 'blue', bgColor: 'bg-blue-100', textColor: 'text-blue-800' },
+        { id: 'assigned', name: 'Assigned', nameNp: 'असाइन गरिएको', category: 'work', color: 'orange', bgColor: 'bg-orange-100', textColor: 'text-orange-800' },
+        { id: 'in_progress', name: 'In Progress', nameNp: 'काम गर्दै', category: 'work', color: 'yellow', bgColor: 'bg-yellow-100', textColor: 'text-yellow-800' },
+        { id: 'completed', name: 'Completed', nameNp: 'सम्पन्न', category: 'work', color: 'green', bgColor: 'bg-green-100', textColor: 'text-green-800' },
+        { id: 'on_hold', name: 'On Hold', nameNp: 'रोकिएको', category: 'work', color: 'red', bgColor: 'bg-red-100', textColor: 'text-red-800' }
+      ],
+      [this.CONFIG_TYPES.SKILLS]: [
+        { id: 'single_needle', name: 'Single Needle Specialist', nameNp: 'एकल सुई विशेषज्ञ', machineTypes: ['single-needle'], level: 'intermediate' },
+        { id: 'overlock', name: 'Overlock Specialist', nameNp: 'ओभरलक विशेषज्ञ', machineTypes: ['overlock'], level: 'intermediate' },
+        { id: 'flatlock', name: 'Flatlock Specialist', nameNp: 'फ्ल्याटलक विशेषज्ञ', machineTypes: ['flatlock'], level: 'intermediate' },
+        { id: 'multi_machine', name: 'Multi-Machine Operator', nameNp: 'बहु-मेसिन अपरेटर', machineTypes: ['single-needle', 'overlock'], level: 'advanced' },
+        { id: 'finishing', name: 'Finishing Specialist', nameNp: 'फिनिसिङ विशेषज्ञ', machineTypes: ['buttonhole', 'buttonAttach', 'iron'], level: 'intermediate' },
+        { id: 'collar_expert', name: 'Collar Expert', nameNp: 'कलर विशेषज्ञ', machineTypes: ['single-needle'], level: 'advanced', operations: ['collar'] },
+        { id: 'sleeve_expert', name: 'Sleeve Expert', nameNp: 'बाहुला विशेषज्ञ', machineTypes: ['overlock'], level: 'advanced', operations: ['sleeve_attach'] },
+        { id: 'printing_specialist', name: 'Printing Specialist', nameNp: 'प्रिन्टिङ विशेषज्ञ', machineTypes: ['manual'], level: 'intermediate', operations: ['printing'] },
+        { id: 'embroidery_specialist', name: 'Embroidery Specialist', nameNp: 'कसिदाकारी विशेषज्ञ', machineTypes: ['embroidery'], level: 'intermediate', operations: ['embroidery'] },
+        { id: 'quality_inspector', name: 'Quality Inspector', nameNp: 'गुणस्तर निरीक्षक', machineTypes: ['manual'], level: 'intermediate', operations: ['quality_check'] },
+        { id: 'manual_worker', name: 'Manual Worker', nameNp: 'म्यानुअल कामदार', machineTypes: ['manual'], level: 'beginner', operations: ['printing', 'applique', 'quality_check'] },
+        { id: 'general', name: 'General Operator', nameNp: 'सामान्य अपरेटर', machineTypes: ['single-needle'], level: 'beginner' }
+      ],
+      [this.CONFIG_TYPES.GARMENT_TYPES]: [
+        { 
+          id: 'polo', 
+          name: 'Polo T-Shirt', 
+          nameNp: 'पोलो टी-शर्ट', 
+          operations: [
+            // Phase 1: Parallel preparation work (can all happen simultaneously after cutting)
+            { operation: 'placket', machine: 'single-needle', sequence: 1.1, estimatedTime: 15, dependencies: [], workflowType: 'parallel', parallelGroup: 'preparation' },
+            { operation: 'shoulder_join', machine: 'overlock', sequence: 1.2, estimatedTime: 12, dependencies: [], workflowType: 'parallel', parallelGroup: 'preparation' },
+            { operation: 'collar', machine: 'single-needle', sequence: 1.3, estimatedTime: 20, dependencies: [], workflowType: 'parallel', parallelGroup: 'preparation' },
+            
+            // Phase 2: Assembly (requires completion of preparation work)
+            { operation: 'collar_attach', machine: 'single-needle', sequence: 2.1, estimatedTime: 18, dependencies: ['collar', 'shoulder_join'], workflowType: 'sequential' },
+            { operation: 'placket_attach', machine: 'single-needle', sequence: 2.2, estimatedTime: 12, dependencies: ['placket', 'collar_attach'], workflowType: 'sequential' },
+            { operation: 'side_seam', machine: 'overlock', sequence: 2.3, estimatedTime: 15, dependencies: ['shoulder_join'], workflowType: 'sequential' },
+            
+            // Phase 3: Parallel decoration (can happen while other operations continue)
+            { operation: 'printing', machine: 'manual', sequence: 2.5, estimatedTime: 15, dependencies: ['side_seam'], workflowType: 'parallel', parallelGroup: 'decoration' },
+            { operation: 'embroidery', machine: 'embroidery', sequence: 2.6, estimatedTime: 25, dependencies: ['side_seam'], workflowType: 'parallel', parallelGroup: 'decoration' },
+            
+            // Phase 4: Final assembly
+            { operation: 'sleeve_attach', machine: 'overlock', sequence: 3.1, estimatedTime: 18, dependencies: ['collar_attach', 'side_seam'], workflowType: 'sequential' },
+            { operation: 'hemming', machine: 'flatlock', sequence: 3.2, estimatedTime: 10, dependencies: ['sleeve_attach'], workflowType: 'sequential' },
+            
+            // Phase 5: Finishing (can happen in parallel)
+            { operation: 'buttonhole', machine: 'buttonhole', sequence: 4.1, estimatedTime: 5, dependencies: ['placket_attach'], workflowType: 'parallel', parallelGroup: 'finishing' },
+            { operation: 'button_attach', machine: 'buttonAttach', sequence: 4.2, estimatedTime: 3, dependencies: ['buttonhole'], workflowType: 'sequential' },
+            { operation: 'label_attach', machine: 'single-needle', sequence: 4.3, estimatedTime: 5, dependencies: ['hemming'], workflowType: 'parallel', parallelGroup: 'finishing' },
+            
+            // Final quality check
+            { operation: 'quality_check', machine: 'manual', sequence: 5, estimatedTime: 10, dependencies: ['button_attach', 'label_attach'], workflowType: 'sequential' }
+          ]
+        },
+        { 
+          id: 'tshirt', 
+          name: 'T-Shirt', 
+          nameNp: 'टी-शर्ट', 
+          operations: [
+            // Sequential basic construction
+            { operation: 'shoulder_join', machine: 'overlock', sequence: 1, estimatedTime: 10, dependencies: [], workflowType: 'sequential' },
+            { operation: 'side_seam', machine: 'overlock', sequence: 2, estimatedTime: 15, dependencies: ['shoulder_join'], workflowType: 'sequential' },
+            { operation: 'sleeve_attach', machine: 'overlock', sequence: 3, estimatedTime: 18, dependencies: ['side_seam'], workflowType: 'sequential' },
+            
+            // Parallel decoration (can happen after shoulder join)
+            { operation: 'printing', machine: 'manual', sequence: 1.5, estimatedTime: 15, dependencies: ['shoulder_join'], workflowType: 'parallel', parallelGroup: 'decoration' },
+            { operation: 'applique', machine: 'manual', sequence: 1.7, estimatedTime: 20, dependencies: ['shoulder_join'], workflowType: 'parallel', parallelGroup: 'decoration' },
+            
+            // Final operations
+            { operation: 'hemming', machine: 'flatlock', sequence: 4, estimatedTime: 8, dependencies: ['sleeve_attach'], workflowType: 'sequential' },
+            { operation: 'label_attach', machine: 'single-needle', sequence: 5, estimatedTime: 5, dependencies: ['hemming'], workflowType: 'sequential' },
+            { operation: 'quality_check', machine: 'manual', sequence: 6, estimatedTime: 8, dependencies: ['label_attach'], workflowType: 'sequential' }
+          ]
+        },
+        { 
+          id: 'shirt', 
+          name: 'Dress Shirt', 
+          nameNp: 'ड्रेस शर्ट', 
+          operations: [
+            { operation: 'collar', machine: 'single-needle', sequence: 1, estimatedTime: 25 },
+            { operation: 'sleeve_attach', machine: 'single-needle', sequence: 2, estimatedTime: 22 },
+            { operation: 'side_seam', machine: 'single-needle', sequence: 3, estimatedTime: 20 },
+            { operation: 'buttonhole', machine: 'buttonhole', sequence: 4, estimatedTime: 8 },
+            { operation: 'button_attach', machine: 'buttonAttach', sequence: 5, estimatedTime: 12 },
+            { operation: 'pressing', machine: 'iron', sequence: 6, estimatedTime: 15 }
+          ]
+        },
+        { 
+          id: 'pants', 
+          name: 'Pants/Trousers', 
+          nameNp: 'प्यान्ट', 
+          operations: [
+            { operation: 'waistband', machine: 'single-needle', sequence: 1, estimatedTime: 18 },
+            { operation: 'side_seam', machine: 'overlock', sequence: 2, estimatedTime: 25 },
+            { operation: 'inseam', machine: 'overlock', sequence: 3, estimatedTime: 20 },
+            { operation: 'hemming', machine: 'flatlock', sequence: 4, estimatedTime: 12 },
+            { operation: 'buttonhole', machine: 'buttonhole', sequence: 5, estimatedTime: 5 },
+            { operation: 'button_attach', machine: 'buttonAttach', sequence: 6, estimatedTime: 3 },
+            { operation: 'pressing', machine: 'iron', sequence: 7, estimatedTime: 12 }
+          ]
+        },
+        { 
+          id: 'jacket', 
+          name: 'Jacket/Blazer', 
+          nameNp: 'ज्याकेट', 
+          operations: [
+            { operation: 'collar', machine: 'single-needle', sequence: 1, estimatedTime: 30 },
+            { operation: 'shoulder_join', machine: 'single-needle', sequence: 2, estimatedTime: 25 },
+            { operation: 'sleeve_attach', machine: 'single-needle', sequence: 3, estimatedTime: 35 },
+            { operation: 'side_seam', machine: 'single-needle', sequence: 4, estimatedTime: 28 },
+            { operation: 'buttonhole', machine: 'buttonhole', sequence: 5, estimatedTime: 15 },
+            { operation: 'button_attach', machine: 'buttonAttach', sequence: 6, estimatedTime: 20 },
+            { operation: 'pressing', machine: 'iron', sequence: 7, estimatedTime: 25 }
+          ]
+        }
+      ]
+    };
+
+    const defaultItems = defaultConfigs[configType] || [];
+    
+    if (defaultItems.length > 0) {
+      try {
+        await addDoc(collection(db, 'app_configurations'), {
+          type: configType,
+          items: defaultItems,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          version: 1
+        });
+        console.log(`✅ Created default ${configType} config with ${defaultItems.length} items`);
+      } catch (error) {
+        console.error(`❌ Error creating default ${configType} config:`, error);
+      }
+    }
+
+    return defaultItems;
+  }
+
+  // Helper methods for specific configurations
+  static async getMachines() {
+    const result = await this.getConfig(this.CONFIG_TYPES.MACHINES);
+    return result.data.filter(machine => machine.active !== false);
+  }
+
+  static async getOperations() {
+    const result = await this.getConfig(this.CONFIG_TYPES.OPERATIONS);
+    return result.data;
+  }
+
+  static async getPriorities() {
+    const result = await this.getConfig(this.CONFIG_TYPES.PRIORITIES);
+    return result.data.sort((a, b) => b.level - a.level);
+  }
+
+  static async getStatuses(category = null) {
+    const result = await this.getConfig(this.CONFIG_TYPES.STATUSES);
+    return category 
+      ? result.data.filter(status => status.category === category)
+      : result.data;
+  }
+
+  static async getSkills() {
+    const result = await this.getConfig(this.CONFIG_TYPES.SKILLS);
+    return result.data;
+  }
+
+  // Get operations compatible with a machine
+  static async getOperationsForMachine(machineType) {
+    const operations = await this.getOperations();
+    return operations.filter(op => op.machineTypes && op.machineTypes.includes(machineType));
+  }
+
+  // Get best machine for an operation
+  static async getMachineTypeForOperation(operationId) {
+    const operations = await this.getOperations();
+    const operation = operations.find(op => op.id === operationId);
+    return operation?.machineTypes?.[0] || 'single-needle';
+  }
+
+  // Get garment types and their operation workflows
+  static async getGarmentTypes() {
+    const result = await this.getConfig(this.CONFIG_TYPES.GARMENT_TYPES);
+    return result.data;
+  }
+
+  // Get operation workflow for a specific garment type
+  static async getOperationsForGarment(garmentTypeId) {
+    const garmentTypes = await this.getGarmentTypes();
+    const garmentType = garmentTypes.find(g => g.id === garmentTypeId);
+    return garmentType?.operations || [];
+  }
+
+  // Detect garment type from style name
+  static detectGarmentType(styleName) {
+    const lowerStyle = styleName?.toLowerCase() || '';
+    
+    if (lowerStyle.includes('polo')) {
+      return 'polo';
+    } else if (lowerStyle.includes('t-shirt') || lowerStyle.includes('tshirt')) {
+      return 'tshirt';
+    } else if (lowerStyle.includes('shirt')) {
+      return 'shirt';
+    } else if (lowerStyle.includes('pant') || lowerStyle.includes('trouser')) {
+      return 'pants';
+    } else if (lowerStyle.includes('jacket') || lowerStyle.includes('blazer') || lowerStyle.includes('coat')) {
+      return 'jacket';
+    } else {
+      return 'tshirt'; // Default fallback
+    }
+  }
+
+  // Clear cache when configs are updated
+  static clearCache() {
+    this.configCache.clear();
+    console.log('🧹 Configuration cache cleared');
   }
 }
 

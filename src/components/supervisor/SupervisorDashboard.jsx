@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { db, collection, addDoc, getDocs, setDoc, doc, query, where, orderBy, serverTimestamp, COLLECTIONS } from '../../config/firebase';
+import { WIPService, OperatorService, ConfigService } from '../../services/firebase-services';
 import BundleFlowTracker from './BundleFlowTracker';
 import WIPStatusBoard from './WIPStatusBoard';
 import WIPImportSimplified from './WIPImportSimplified';
@@ -28,6 +29,7 @@ const SupervisorDashboard = () => {
   const [showWIPImport, setShowWIPImport] = useState(false);
   const [showWIPManager, setShowWIPManager] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
+  const [wipData, setWipData] = useState(null);
   const [showWorkAssignment, setShowWorkAssignment] = useState(false);
   const [showWIPProgress, setShowWIPProgress] = useState(false);
   const [stats, setStats] = useState({
@@ -48,6 +50,12 @@ const SupervisorDashboard = () => {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
+        // Load configurations first
+        const [machines, skills] = await Promise.all([
+          ConfigService.getMachines(),
+          ConfigService.getSkills()
+        ]);
+        
         // Load operators from Firestore first, fallback to localStorage
         let operators = [];
         try {
@@ -59,17 +67,74 @@ const SupervisorDashboard = () => {
           operators = [];
         }
         
-        const operatorData = operators.map(user => ({
-          id: user.id,
-          name: user.name,
-          nameNp: user.nameNp || user.name,
-          station: user.station,
-          stationNp: user.stationNp || user.station,
-          completed: 0, // Will be calculated from work data
-          target: 50,
-          efficiency: 0,
-          status: 'active'
-        }));
+        // Helper function to get operator's primary skill
+        const getOperatorSkill = (operator) => {
+          if (operator.skills && operator.skills.length > 0) {
+            const skillId = operator.skills[0];
+            const skill = skills.find(s => s.id === skillId);
+            return skill ? { name: skill.name, nameNp: skill.nameNp } : null;
+          }
+          
+          // Fallback: determine skill from assigned machines
+          if (operator.assignedMachines && operator.assignedMachines.length > 0) {
+            const machineId = operator.assignedMachines[0];
+            const machine = machines.find(m => m.id === machineId);
+            const machineType = machine?.type?.toLowerCase() || machineId;
+            
+            const skill = skills.find(s => 
+              s.machineTypes && s.machineTypes.includes(machineType)
+            );
+            
+            if (skill) {
+              return { name: skill.name, nameNp: skill.nameNp };
+            }
+          }
+          
+          // Final fallback
+          return { name: 'General Operator', nameNp: 'सामान्य अपरेटर' };
+        };
+        
+        // Helper function to get operator's assigned machine display name
+        const getOperatorMachineDisplay = (operator) => {
+          if (operator.assignedMachines && operator.assignedMachines.length > 0) {
+            const machineId = operator.assignedMachines[0];
+            const machine = machines.find(m => m.id === machineId);
+            if (machine) {
+              return {
+                name: machine.name,
+                nameNp: machine.nameNp || machine.name,
+                icon: machine.icon || '⚙️'
+              };
+            }
+          }
+          
+          // Fallback to station if no machine assigned
+          return {
+            name: operator.station || `Station-${operator.id?.slice(-2) || '01'}`,
+            nameNp: operator.stationNp || operator.station || `स्टेशन-${operator.id?.slice(-2) || '01'}`,
+            icon: '🏭'
+          };
+        };
+        
+        const operatorData = operators.map(user => {
+          const skill = getOperatorSkill(user);
+          const machineDisplay = getOperatorMachineDisplay(user);
+          
+          return {
+            id: user.id,
+            name: user.name,
+            nameNp: user.nameNp || user.name,
+            skill: skill.name,
+            skillNp: skill.nameNp,
+            machineDisplay: machineDisplay.name,
+            machineDisplayNp: machineDisplay.nameNp,
+            machineIcon: machineDisplay.icon,
+            completed: 0, // Will be calculated from work data
+            target: 50,
+            efficiency: user.efficiency || 85,
+            status: 'active'
+          };
+        });
         
         setOperatorPerformance(operatorData);
         
@@ -206,7 +271,49 @@ const SupervisorDashboard = () => {
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
             <button
-              onClick={() => setShowWIPBoard(true)}
+              onClick={async () => {
+                console.log('🔄 Loading WIP data for Status Board...');
+                try {
+                  const wipResult = await WIPService.getAllWIPEntries();
+                  if (wipResult.success && wipResult.entries && wipResult.entries.length > 0) {
+                    // Transform WIP entries to the format WIPStatusBoard expects
+                    const transformedWipData = {
+                      colors: []
+                    };
+                    
+                    wipResult.entries.forEach(wipEntry => {
+                      if (wipEntry.rolls && wipEntry.rolls.length > 0) {
+                        wipEntry.rolls.forEach(roll => {
+                          const existingColor = transformedWipData.colors.find(c => c.name === roll.colorName);
+                          if (existingColor) {
+                            existingColor.pieces += roll.pieces || 0;
+                            existingColor.rolls.push(roll);
+                          } else {
+                            transformedWipData.colors.push({
+                              name: roll.colorName,
+                              pieces: roll.pieces || 0,
+                              rolls: [roll],
+                              lotNumber: wipEntry.lotNumber,
+                              article: wipEntry.parsedStyles?.[0]?.articleNumber,
+                              styleName: wipEntry.parsedStyles?.[0]?.styleName
+                            });
+                          }
+                        });
+                      }
+                    });
+                    
+                    console.log('✅ Transformed WIP data for Status Board:', transformedWipData);
+                    setWipData(transformedWipData);
+                  } else {
+                    console.log('ℹ️ No WIP entries found');
+                    setWipData(null);
+                  }
+                } catch (error) {
+                  console.error('❌ Error loading WIP data for Status Board:', error);
+                  setWipData(null);
+                }
+                setShowWIPBoard(true);
+              }}
               className="flex flex-col items-center p-4 border-2 border-dashed border-blue-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-colors"
             >
               <div className="text-3xl mb-2">📊</div>
@@ -321,7 +428,13 @@ const SupervisorDashboard = () => {
                       </div>
                       <div>
                         <p className="font-medium text-gray-900">{isNepali ? operator.nameNp : operator.name}</p>
-                        <p className="text-sm text-gray-600">{isNepali ? operator.stationNp : operator.station}</p>
+                        <p className="text-sm text-blue-600 font-medium">
+                          {isNepali ? operator.skillNp : operator.skill}
+                        </p>
+                        <div className="flex items-center space-x-1 text-xs text-gray-600">
+                          <span>{operator.machineIcon}</span>
+                          <span>{isNepali ? operator.machineDisplayNp : operator.machineDisplay}</span>
+                        </div>
                       </div>
                     </div>
                     <div className="text-right">
@@ -432,6 +545,7 @@ const SupervisorDashboard = () => {
 
       {showWIPBoard && (
         <WIPStatusBoard
+          wipData={wipData}
           onClose={() => setShowWIPBoard(false)}
         />
       )}

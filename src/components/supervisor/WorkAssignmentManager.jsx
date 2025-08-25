@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import { WIPService, OperatorService } from '../../services/firebase-services';
 import WorkAssignmentBoard from './WorkAssignmentBoard';
 
 const WorkAssignmentManager = ({ onClose }) => {
@@ -9,38 +10,76 @@ const WorkAssignmentManager = ({ onClose }) => {
   const isNepali = currentLanguage === 'np';
   
   const [workItems, setWorkItems] = useState([]);
+  const [operators, setOperators] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadWorkItems();
+    loadOperators();
   }, []);
 
-  const loadWorkItems = () => {
+  const loadWorkItems = async () => {
     try {
-      // No localStorage loading - use empty array
-      const savedWorkItems = [];
+      const result = await WIPService.getWorkItemsFromWIP();
       
-      // Filter for unassigned work items
-      const availableWorkItems = savedWorkItems.filter(item => 
-        !item.assignedOperator && 
-        (item.status === 'ready' || item.status === 'waiting')
-      );
+      if (result.success) {
+        // Filter for unassigned work items
+        const availableWorkItems = result.workItems.filter(item => 
+          !item.assignedOperator && 
+          (item.status === 'ready' || item.status === 'waiting')
+        );
+        
+        setWorkItems(availableWorkItems);
+        console.log('✅ Loaded work items from WIP:', availableWorkItems.length);
+        
+        addError({
+          message: `${isNepali ? 'लोड गरियो' : 'Loaded'} ${availableWorkItems.length} ${isNepali ? 'काम आइटम' : 'work items'}`,
+          component: 'WorkAssignmentManager',
+          action: 'Load Work Items'
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+      } else {
+        console.warn('⚠️ No work items found from WIP');
+        setWorkItems([]);
+        addError({
+          message: `${isNepali ? 'कुनै काम आइटम फेला परेनन्' : 'No work items found'}`,
+          component: 'WorkAssignmentManager',
+          action: 'Load Work Items'
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+      }
       
-      setWorkItems(availableWorkItems);
       setLoading(false);
-      
-      addError({
-        message: `${isNepali ? 'लोड गरियो' : 'Loaded'} ${availableWorkItems.length} ${isNepali ? 'काम आइटम' : 'work items'}`,
-        component: 'WorkAssignmentManager',
-        action: 'Load Work Items'
-      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
       
     } catch (error) {
       setLoading(false);
+      console.error('❌ Error loading work items:', error);
       addError({
         message: 'Failed to load work items',
         component: 'WorkAssignmentManager',
         action: 'Load Work Items',
+        data: { error: error.message }
+      }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+    }
+  };
+
+  const loadOperators = async () => {
+    try {
+      const result = await OperatorService.getActiveOperators();
+      
+      if (result.success) {
+        setOperators(result.operators);
+        console.log('✅ Loaded operators for work assignment:', result.operators.length);
+      } else {
+        console.warn('⚠️ No operators found');
+        setOperators([]);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error loading operators:', error);
+      setOperators([]);
+      addError({
+        message: 'Failed to load operators',
+        component: 'WorkAssignmentManager',
+        action: 'Load Operators',
         data: { error: error.message }
       }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
     }
@@ -151,6 +190,7 @@ const WorkAssignmentManager = ({ onClose }) => {
           
           <WorkAssignmentBoard
             workItems={workItems}
+            operators={operators}
             onAssignmentComplete={handleAssignmentComplete}
             onCancel={onClose}
           />

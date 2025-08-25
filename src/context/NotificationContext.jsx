@@ -32,6 +32,8 @@ export const NotificationProvider = ({ children }) => {
         vibrate: [100, 50, 100]
       });
     }
+
+    return newNotification;
   };
 
   const markAsRead = (notificationId) => {
@@ -70,7 +72,7 @@ export const NotificationProvider = ({ children }) => {
   };
 
   const showNotification = (message, type = 'info') => {
-    addNotification({
+    const notification = {
       title: type === 'error' ? (currentLanguage === 'np' ? 'त्रुटि' : 'Error') :
              type === 'success' ? (currentLanguage === 'np' ? 'सफल' : 'Success') :
              type === 'warning' ? (currentLanguage === 'np' ? 'चेतावनी' : 'Warning') :
@@ -78,7 +80,17 @@ export const NotificationProvider = ({ children }) => {
       message: message,
       type: type,
       priority: type === 'error' ? 'high' : type === 'warning' ? 'medium' : 'low'
-    });
+    };
+    
+    const newNotification = addNotification(notification);
+    
+    // Auto-dismiss after 3 seconds for success/info, 5 seconds for warning/error
+    const dismissTime = (type === 'success' || type === 'info') ? 3000 : 5000;
+    setTimeout(() => {
+      removeNotification(newNotification.id);
+    }, dismissTime);
+    
+    return newNotification;
   };
 
   const sendWorkAssigned = (articleNumber, operation) => {

@@ -25,6 +25,7 @@ const LoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [selectedRole, setSelectedRole] = useState("operator");
   const [errors, setErrors] = useState({});
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
 
   // Load users from localStorage
   const [availableUsers, setAvailableUsers] = useState({
@@ -33,9 +34,16 @@ const LoginPage = () => {
     management: []
   });
 
-  useEffect(() => {
-    const loadUsers = async () => {
-      try {
+  // Manual refresh function that can be called externally
+  const refreshUsers = async () => {
+    setIsLoadingUsers(true);
+    await loadUsers();
+    setIsLoadingUsers(false);
+  };
+
+  const loadUsers = async () => {
+    try {
+      console.log('🔄 Loading users for login dropdown from Firestore...');
         const usersByRole = {
           operator: [],
           supervisor: [],
@@ -46,37 +54,49 @@ const LoginPage = () => {
         const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
         operatorsSnapshot.forEach((doc) => {
           const userData = doc.data();
-          usersByRole.operator.push({
-            username: userData.username,
-            password: 'password123', // Default password for demo
-            name: userData.nameNepali || userData.name,
-            machine: userData.machine || userData.assignedMachine,
-          });
+          if (userData.username && userData.active !== false) { // Only include active users with username
+            usersByRole.operator.push({
+              username: userData.username,
+              password: 'password123', // Default password for demo
+              name: userData.nameNepali || userData.name,
+              machine: userData.machine || userData.assignedMachine,
+            });
+          }
         });
 
         const supervisorsSnapshot = await getDocs(collection(db, COLLECTIONS.SUPERVISORS));
         supervisorsSnapshot.forEach((doc) => {
           const userData = doc.data();
-          usersByRole.supervisor.push({
-            username: userData.username,
-            password: 'password123', // Default password for demo
-            name: userData.nameNepali || userData.name,
-          });
+          if (userData.username && userData.active !== false) {
+            usersByRole.supervisor.push({
+              username: userData.username,
+              password: 'password123', // Default password for demo
+              name: userData.nameNepali || userData.name,
+            });
+          }
         });
 
         const managementSnapshot = await getDocs(collection(db, COLLECTIONS.MANAGEMENT));
         managementSnapshot.forEach((doc) => {
           const userData = doc.data();
-          usersByRole.management.push({
-            username: userData.username,
-            password: 'password123', // Default password for demo
-            name: userData.nameNepali || userData.name,
-          });
+          if (userData.username && userData.active !== false) {
+            usersByRole.management.push({
+              username: userData.username,
+              password: 'password123', // Default password for demo
+              name: userData.nameNepali || userData.name,
+            });
+          }
+        });
+
+        console.log('✅ Loaded users for login:', {
+          operators: usersByRole.operator.length,
+          supervisors: usersByRole.supervisor.length,
+          management: usersByRole.management.length
         });
 
         setAvailableUsers(usersByRole);
       } catch (error) {
-        console.error('Error loading users from Firestore:', error);
+        console.error('❌ Error loading users from Firestore:', error);
         // No fallback - set empty users
         setAvailableUsers({
           operator: [],
@@ -86,7 +106,16 @@ const LoginPage = () => {
       }
     };
 
+  useEffect(() => {
     loadUsers();
+    
+    // Auto-refresh users every 30 seconds to catch new additions
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing login user list...');
+      loadUsers();
+    }, 30000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const handleInputChange = (field, value) => {
@@ -296,9 +325,19 @@ const LoginPage = () => {
 
           {/* Demo Users Section */}
           <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">
-              {currentLanguage === "np" ? "डेमो यूजरहरू:" : "Demo Users:"}
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-gray-700">
+                {currentLanguage === "np" ? "डेमो यूजरहरू:" : "Demo Users:"}
+              </h3>
+              <button
+                onClick={refreshUsers}
+                disabled={isLoadingUsers}
+                className="text-xs text-blue-600 hover:text-blue-800 flex items-center space-x-1 disabled:opacity-50"
+              >
+                <span className={isLoadingUsers ? 'animate-spin' : ''}>🔄</span>
+                <span>{isLoadingUsers ? 'Loading...' : 'Refresh'}</span>
+              </button>
+            </div>
             <div className="space-y-2">
               {availableUsers[selectedRole].length > 0 ? (
                 availableUsers[selectedRole].map((user, index) => (

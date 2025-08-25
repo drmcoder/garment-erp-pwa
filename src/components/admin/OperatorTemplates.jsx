@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { db, collection, getDocs, COLLECTIONS } from '../../config/firebase';
 
 const OperatorTemplates = ({ onStatsUpdate }) => {
   const { currentLanguage } = useLanguage();
@@ -36,11 +37,19 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
     loadData();
   }, []);
 
-  const loadData = () => {
+  const loadData = async () => {
     try {
-      // No localStorage data loading - use empty arrays
-      const savedTemplates = [];
-      const savedMachines = [];
+      console.log('🔄 Loading operator templates data from Firestore...');
+      
+      const [templatesSnapshot, machinesSnapshot] = await Promise.all([
+        getDocs(collection(db, COLLECTIONS.ARTICLE_TEMPLATES)),
+        getDocs(collection(db, COLLECTIONS.MACHINE_CONFIGS))
+      ]);
+      
+      const savedTemplates = templatesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const savedMachines = machinesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      console.log('✅ Loaded templates and machines:', { templates: savedTemplates.length, machines: savedMachines.length });
       
       setTemplates(savedTemplates);
       setMachines(savedMachines);

@@ -38,7 +38,8 @@
       "Bash(BROWSER=none PORT=3001 npm start)",
       "Bash(firebase use:*)",
       "WebFetch(domain:localhost)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(unset HOST)"
     ],
     "deny": [],
     "ask": []

@@ -7,64 +7,53 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
   const [selectedLot, setSelectedLot] = useState(null);
   const [processStep, setProcessStep] = useState(0);
 
-  // Mock WIP data if not provided
-  const mockWIPData = {
-    lotNumber: 'S-85',
-    articles: ['8085'],
-    buyer: 'ABC Garments',
-    orderNumber: 'ORD-2024-001',
-    style: 'Polo T-Shirt',
-    totalPieces: 1050,
-    totalBundles: 35,
-    processSteps: [
-      'काँध जोड्ने',
-      'प्लाकेट',
-      'कलर अट्याच', 
-      'स्लिभ अट्याच',
-      'साइड सिम',
-      'हेम फोल्ड'
-    ],
-    colors: [
-      {
-        name: 'नीलो-1',
-        pieces: { 'XS': 45, 'S': 60, 'M': 80, 'L': 85, 'XL': 70, '2XL': 40, '3XL': 25 },
-        status: {
-          'काँध जोड्ने': { completed: 305, inProgress: 0, pending: 0 },
-          'प्लाकेट': { completed: 245, inProgress: 60, pending: 0 },
-          'कलर अट्याच': { completed: 185, inProgress: 60, pending: 60 },
-          'स्लिभ अट्याच': { completed: 125, inProgress: 60, pending: 120 },
-          'साइड सिम': { completed: 65, inProgress: 60, pending: 180 },
-          'हेम फोल्ड': { completed: 0, inProgress: 65, pending: 240 }
-        }
-      },
-      {
-        name: 'रातो-1',
-        pieces: { 'XS': 40, 'S': 55, 'M': 75, 'L': 80, 'XL': 65, '2XL': 35, '3XL': 20 },
-        status: {
-          'काँध जोड्ने': { completed: 270, inProgress: 100, pending: 0 },
-          'प्लाकेट': { completed: 170, inProgress: 100, pending: 0 },
-          'कलर अट्याच': { completed: 70, inProgress: 100, pending: 100 },
-          'स्लिभ अट्याच': { completed: 0, inProgress: 70, pending: 200 },
-          'साइड सिम': { completed: 0, inProgress: 0, pending: 270 },
-          'हेम फोल्ड': { completed: 0, inProgress: 0, pending: 270 }
-        }
-      },
-      {
-        name: 'सेतो-1',
-        pieces: { 'XS': 35, 'S': 50, 'M': 70, 'L': 75, 'XL': 60, '2XL': 30, '3XL': 15 },
-        status: {
-          'काँध जोड्ने': { completed: 335, inProgress: 0, pending: 0 },
-          'प्लाकेट': { completed: 275, inProgress: 60, pending: 0 },
-          'कलर अट्याच': { completed: 215, inProgress: 60, pending: 60 },
-          'स्लिभ अट्याच': { completed: 155, inProgress: 60, pending: 120 },
-          'साइड सिम': { completed: 95, inProgress: 60, pending: 180 },
-          'हेम फोल्ड': { completed: 35, inProgress: 60, pending: 240 }
-        }
-      }
-    ]
-  };
+  // If no WIP data provided, show empty state instead of mock data
+  if (!wipData || !wipData.colors || wipData.colors.length === 0) {
+    return (
+      <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[95vh] overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-bold">
+                📊 {currentLanguage === 'np' ? 'WIP स्थिति बोर्ड' : 'WIP Status Board'}
+              </h2>
+              <button
+                onClick={onClose}
+                className="text-white hover:text-gray-200 text-2xl font-bold"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+          
+          <div className="p-8 text-center">
+            <div className="mb-4">
+              <svg className="w-16 h-16 text-gray-400 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              {currentLanguage === 'np' ? 'कुनै WIP डेटा फेला परेन' : 'No WIP Data Found'}
+            </h3>
+            <p className="text-gray-500 mb-4">
+              {currentLanguage === 'np' 
+                ? 'WIP स्थिति देखाउन कुनै डेटा उपलब्ध छैन। कृपया पहिले WIP डेटा प्रविष्ट गर्नुहोस्।'
+                : 'No data available to display WIP status. Please enter WIP data first.'
+              }
+            </p>
+            <button
+              onClick={onClose}
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              {currentLanguage === 'np' ? 'बन्द गर्नुहोस्' : 'Close'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const data = wipData || mockWIPData;
+  const data = wipData;
   const sizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 
   // Calculate completion percentages

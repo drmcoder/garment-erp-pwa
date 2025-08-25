@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { OperatorService, WIPService } from '../../services/firebase-services';
+import { db, collection, getDocs, COLLECTIONS } from '../../config/firebase';
 import OperatorManagement from './OperatorManagement';
 import SupervisorManagement from './SupervisorManagement';
 import OperatorTemplates from './OperatorTemplates';
 import MachineManagement from './MachineManagement';
+import WorkflowTemplateManagement from './WorkflowTemplateManagement';
 
 const AdminDashboard = () => {
   const { currentLanguage } = useLanguage();
@@ -12,7 +15,8 @@ const AdminDashboard = () => {
     totalOperators: 0,
     totalSupervisors: 0,
     totalMachines: 0,
-    totalOperationTemplates: 0
+    totalOperationTemplates: 0,
+    totalWorkflowTemplates: 0
   });
 
   // Load stats from localStorage or API
@@ -20,22 +24,43 @@ const AdminDashboard = () => {
     loadStats();
   }, []);
 
-  const loadStats = () => {
+  const loadStats = async () => {
     try {
-      // No localStorage loading - use empty arrays
-      const operators = [];
-      const supervisors = [];
-      const machines = [];
-      const operationTemplates = [];
+      console.log('🔄 Loading admin dashboard stats from Firestore...');
+      
+      // Load real data from Firestore
+      const [operatorsResult, supervisorsSnapshot, machinesSnapshot, templatesSnapshot, workflowTemplatesSnapshot] = await Promise.all([
+        OperatorService.getActiveOperators(),
+        getDocs(collection(db, COLLECTIONS.SUPERVISORS)),
+        getDocs(collection(db, COLLECTIONS.MACHINE_CONFIGS)),
+        getDocs(collection(db, COLLECTIONS.ARTICLE_TEMPLATES)),
+        getDocs(collection(db, 'workflow_templates'))
+      ]);
+
+      const operators = operatorsResult.success ? operatorsResult.operators : [];
+      const supervisors = supervisorsSnapshot.docs || [];
+      const machines = machinesSnapshot.docs || [];
+      const operationTemplates = templatesSnapshot.docs || [];
+      const workflowTemplates = workflowTemplatesSnapshot.docs || [];
+
+      console.log('✅ Admin dashboard stats loaded:', {
+        operators: operators.length,
+        supervisors: supervisors.length, 
+        machines: machines.length,
+        templates: operationTemplates.length,
+        workflowTemplates: workflowTemplates.length
+      });
 
       setStats({
         totalOperators: operators.length,
         totalSupervisors: supervisors.length,
         totalMachines: machines.length,
-        totalOperationTemplates: operationTemplates.length
+        totalOperationTemplates: operationTemplates.length,
+        totalWorkflowTemplates: workflowTemplates.length
       });
     } catch (error) {
-      console.error('Error loading stats:', error);
+      console.error('❌ Error loading admin dashboard stats:', error);
+      // Keep existing stats on error
     }
   };
 
@@ -63,6 +88,12 @@ const AdminDashboard = () => {
       label: currentLanguage === 'en' ? 'Operator Templates' : 'अपरेटर टेम्प्लेटहरू',
       icon: '📋',
       count: stats.totalOperationTemplates
+    },
+    {
+      id: 'workflows',
+      label: currentLanguage === 'en' ? 'Workflow Templates' : 'वर्कफ्लो टेम्प्लेटहरू',
+      icon: '🔄',
+      count: stats.totalWorkflowTemplates
     }
   ];
 
@@ -76,6 +107,8 @@ const AdminDashboard = () => {
         return <MachineManagement onStatsUpdate={loadStats} />;
       case 'templates':
         return <OperatorTemplates onStatsUpdate={loadStats} />;
+      case 'workflows':
+        return <WorkflowTemplateManagement onStatsUpdate={loadStats} />;
       default:
         return <OperatorManagement onStatsUpdate={loadStats} />;
     }

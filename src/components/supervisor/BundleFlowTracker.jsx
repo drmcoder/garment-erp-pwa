@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { db, collection, getDocs, query, orderBy, COLLECTIONS } from '../../config/firebase';
+import { WIPService } from '../../services/firebase-services';
 import BundleWorkflowCards from '../common/BundleWorkflowCards';
 
 const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
@@ -17,31 +18,56 @@ const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
   const [selectedBundles, setSelectedBundles] = useState([]);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'workflow'
 
-  // Load bundles from Firestore or localStorage fallback
+  // Load work items from WIP instead of old bundles
   useEffect(() => {
     const loadBundles = async () => {
       try {
-        // Try loading from Firestore first
-        const bundlesRef = collection(db, COLLECTIONS.BUNDLES);
-        const q = query(bundlesRef, orderBy('createdAt', 'desc'));
-        const snapshot = await getDocs(q);
+        console.log('🔄 Loading work items from WIP for Bundle Flow Tracker...');
         
-        if (!snapshot.empty) {
-          const firestoreBundles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          setBundles(firestoreBundles);
-          console.log('✅ Loaded bundles from Firestore:', firestoreBundles.length);
+        // Load work items from WIP (this is where real data is)
+        const wipWorkItemsResult = await WIPService.getWorkItemsFromWIP();
+        
+        if (wipWorkItemsResult.success && wipWorkItemsResult.workItems.length > 0) {
+          // Convert work items to bundle format for display
+          const workItemsAsBundles = wipWorkItemsResult.workItems.map(workItem => ({
+            id: workItem.id,
+            bundleNumber: workItem.bundleNumber || workItem.lotNumber || `WI-${workItem.id?.slice(-4)}`,
+            article: workItem.articleNumber || workItem.article,
+            articleName: workItem.styleName || `Article ${workItem.articleNumber}`,
+            color: workItem.colorName || workItem.color || 'N/A',
+            size: workItem.size || 'N/A',
+            quantity: workItem.pieces || workItem.quantity || 0,
+            operation: workItem.currentOperation || 'सिलाई',
+            machineType: workItem.machineType || 'single-needle',
+            status: workItem.status || 'pending',
+            priority: workItem.priority || 'medium',
+            assignedOperator: workItem.assignedOperator,
+            createdAt: workItem.createdAt,
+            wipEntryId: workItem.wipEntryId,
+            rollNumber: workItem.rollNumber
+          }));
+          
+          console.log('✅ Loaded work items as bundles:', workItemsAsBundles.length);
+          setBundles(workItemsAsBundles);
         } else {
-          // No fallback - use empty array
-          console.log('ℹ️ No bundles in Firestore, using empty array');
+          console.log('ℹ️ No work items from WIP found, Bundle Flow Tracker empty');
           setBundles([]);
         }
       } catch (error) {
-        console.warn('Failed to load bundles from Firestore:', error);
+        console.error('❌ Failed to load work items for Bundle Flow Tracker:', error);
         setBundles([]);
       }
     };
 
     loadBundles();
+    
+    // Auto-refresh every 30 seconds to catch new WIP work items
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing Bundle Flow Tracker...');
+      loadBundles();
+    }, 30000);
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   // Filter bundles based on search and filters
