@@ -5,89 +5,16 @@ const OperationsSequenceEditor = ({ onClose }) => {
   const { currentLanguage } = useLanguage();
   const isNepali = currentLanguage === 'np';
 
-  // Sample operations that can be edited
-  const [operations, setOperations] = useState([
-    {
-      id: 1,
-      name: 'Cutting',
-      nameNp: 'काटना',
-      machineType: 'cutting',
-      time: 0.5,
-      rate: 1.0,
-      skillLevel: 'easy',
-      sequence: 1
-    },
-    {
-      id: 2,
-      name: 'Shoulder Join',
-      nameNp: 'काँध जोड्ने',
-      machineType: 'overlock',
-      time: 2.5,
-      rate: 2.5,
-      skillLevel: 'easy',
-      sequence: 2
-    },
-    {
-      id: 3,
-      name: 'Side Seam',
-      nameNp: 'साइड सिम',
-      machineType: 'overlock',
-      time: 3.0,
-      rate: 3.0,
-      skillLevel: 'easy',
-      sequence: 3
-    },
-    {
-      id: 4,
-      name: 'Hem Fold',
-      nameNp: 'हेम फोल्ड',
-      machineType: 'flatlock',
-      time: 1.5,
-      rate: 2.0,
-      skillLevel: 'easy',
-      sequence: 4
-    },
-    {
-      id: 5,
-      name: 'Armhole',
-      nameNp: 'आर्महोल',
-      machineType: 'overlock',
-      time: 2.0,
-      rate: 2.5,
-      skillLevel: 'medium',
-      sequence: 5
-    },
-    {
-      id: 6,
-      name: 'Neckline',
-      nameNp: 'नेकलाइन',
-      machineType: 'flatlock',
-      time: 2.5,
-      rate: 3.0,
-      skillLevel: 'hard',
-      sequence: 6
-    },
-    {
-      id: 7,
-      name: 'Placket',
-      nameNp: 'प्लाकेट',
-      machineType: 'singleNeedle',
-      time: 4.0,
-      rate: 4.0,
-      skillLevel: 'hard',
-      sequence: 7
-    },
-    {
-      id: 8,
-      name: 'Buttonhole',
-      nameNp: 'बटनहोल',
-      machineType: 'buttonhole',
-      time: 1.0,
-      rate: 2.0,
-      skillLevel: 'medium',
-      sequence: 8
+  // Load operations from localStorage or start with empty array
+  const [operations, setOperations] = useState(() => {
+    try {
+      // No localStorage loading - use empty array
+      return [];
+    } catch (error) {
+      console.error('Error loading operations sequence:', error);
+      return [];
     }
-  ]);
+  });
 
   const [editingOperation, setEditingOperation] = useState(null);
 
@@ -140,7 +67,7 @@ const OperationsSequenceEditor = ({ onClose }) => {
       updatedAt: new Date().toISOString()
     };
     
-    localStorage.setItem('customOperationsSequence', JSON.stringify(sequenceData));
+    // No localStorage saving - only log
     
     console.log('✅ Operations sequence saved:', sequenceData);
     alert(isNepali ? 'सञ्चालन क्रम बचत गरियो!' : 'Operations sequence saved!');

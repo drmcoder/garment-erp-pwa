@@ -370,7 +370,9 @@ const SimpleWorkCompletion = ({ currentWork, onWorkCompleted, onCancel }) => {
                       </h4>
                       <div className="space-y-2 text-gray-600">
                         <div>{currentWork.articleName}</div>
-                        <div>{currentWork.operation}</div>
+                        <div>{typeof currentWork.operation === 'string' 
+                          ? currentWork.operation 
+                          : currentWork.operation?.nameEn || currentWork.operation?.name || 'Unknown Operation'}</div>
                         <div>{currentWork.color} • {currentWork.size}</div>
                       </div>
                     </div>

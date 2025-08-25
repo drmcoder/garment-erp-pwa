@@ -52,19 +52,59 @@ const PayrollSystem = ({ onBack }) => {
     return format(date, formatStr);
   };
 
+  // Nepali months mapping
+  const nepaliMonths = [
+    'बैशाख', 'जेठ', 'आषाढ़', 'श्रावण', 'भाद्र', 'आश्विन',
+    'कार्तिक', 'मंसिर', 'पुष', 'माघ', 'फाल्गुन', 'चैत्र'
+  ];
+
   // Helper function to format month display
   const formatMonth = (date) => {
     if (isNepali) {
       const nepaliDate = new NepaliDate(date);
-      const nepaliMonths = [
-        'बैशाख', 'जेठ', 'आषाढ़', 'श्रावण', 'भाद्र', 'आश्विन',
-        'कार्तिक', 'मंसिर', 'पुष', 'माघ', 'फाल्गुन', 'चैत्र'
-      ];
       const month = nepaliMonths[nepaliDate.getMonth()];
       const year = nepaliDate.getYear();
       return `${month} ${year}`;
     }
     return format(date, "MMMM yyyy");
+  };
+
+  // Helper function to get Nepali fiscal year
+  const getNepaliFiscalYear = (date) => {
+    const nepaliDate = new NepaliDate(date);
+    const month = nepaliDate.getMonth();
+    const year = nepaliDate.getYear();
+    
+    // Nepali fiscal year starts from Shrawan (month 3)
+    if (month >= 3) { // Shrawan onwards
+      return `${year}-${String(year + 1).slice(-2)}`;
+    } else { // Baisakh to Ashadh
+      return `${year - 1}-${String(year).slice(-2)}`;
+    }
+  };
+
+  // Helper function to navigate Nepali months
+  const addNepaliMonth = (date, increment) => {
+    if (isNepali) {
+      const nepaliDate = new NepaliDate(date);
+      let month = nepaliDate.getMonth();
+      let year = nepaliDate.getYear();
+      
+      month += increment;
+      
+      if (month > 11) {
+        year += Math.floor(month / 12);
+        month = month % 12;
+      } else if (month < 0) {
+        year += Math.floor(month / 12);
+        month = ((month % 12) + 12) % 12;
+      }
+      
+      // Create new Nepali date and convert back to JS Date
+      const newNepaliDate = new NepaliDate(year, month, 1);
+      return newNepaliDate.toJsDate();
+    }
+    return increment > 0 ? addMonths(date, increment) : subMonths(date, Math.abs(increment));
   };
 
   // State Management
@@ -306,7 +346,19 @@ const PayrollSystem = ({ onBack }) => {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `payroll-${format(selectedMonth, "yyyy-MM")}.csv`;
+    
+    // Generate filename based on current language
+    let filename;
+    if (isNepali) {
+      const nepaliDate = new NepaliDate(selectedMonth);
+      const month = nepaliMonths[nepaliDate.getMonth()];
+      const year = nepaliDate.getYear();
+      filename = `payroll-${month}-${year}.csv`;
+    } else {
+      filename = `payroll-${format(selectedMonth, "yyyy-MM")}.csv`;
+    }
+    
+    a.download = filename;
     a.click();
   };
 
@@ -342,6 +394,11 @@ const PayrollSystem = ({ onBack }) => {
                 {currentLanguage === "np" ? "महिना" : "Month"}:{" "}
                 {formatMonth(selectedMonth)}
               </p>
+              {isNepali && (
+                <p className="text-xs text-gray-400">
+                  आर्थिक वर्ष: {getNepaliFiscalYear(selectedMonth)}
+                </p>
+              )}
             </div>
 
             {/* Employee Details */}
@@ -582,22 +639,79 @@ const PayrollSystem = ({ onBack }) => {
             </div>
           </div>
 
-          <div className="flex space-x-3 mt-4 lg:mt-0">
+          <div className="flex space-x-3 mt-4 lg:mt-0 items-center">
             <button
-              onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}
+              onClick={() => setSelectedMonth(addNepaliMonth(selectedMonth, -1))}
               className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
             >
               ← {currentLanguage === "np" ? "अघिल्लो महिना" : "Previous"}
             </button>
-            <div className="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg font-medium">
-              {formatMonth(selectedMonth)}
+            
+            {/* Month/Year Selector */}
+            <div className="flex space-x-2">
+              {/* Month Dropdown */}
+              <select
+                value={isNepali ? new NepaliDate(selectedMonth).getMonth() : selectedMonth.getMonth()}
+                onChange={(e) => {
+                  if (isNepali) {
+                    const nepaliDate = new NepaliDate(selectedMonth);
+                    const newNepaliDate = new NepaliDate(nepaliDate.getYear(), parseInt(e.target.value), 1);
+                    setSelectedMonth(newNepaliDate.toJsDate());
+                  } else {
+                    const newDate = new Date(selectedMonth);
+                    newDate.setMonth(parseInt(e.target.value));
+                    setSelectedMonth(newDate);
+                  }
+                }}
+                className="px-3 py-2 bg-blue-100 text-blue-800 rounded-lg font-medium border-0 focus:ring-2 focus:ring-blue-500"
+              >
+                {isNepali ? 
+                  nepaliMonths.map((month, index) => (
+                    <option key={index} value={index}>{month}</option>
+                  )) :
+                  [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                  ].map((month, index) => (
+                    <option key={index} value={index}>{month}</option>
+                  ))
+                }
+              </select>
+              
+              {/* Year Input */}
+              <input
+                type="number"
+                value={isNepali ? new NepaliDate(selectedMonth).getYear() : selectedMonth.getFullYear()}
+                onChange={(e) => {
+                  const year = parseInt(e.target.value);
+                  if (isNepali) {
+                    const nepaliDate = new NepaliDate(selectedMonth);
+                    const newNepaliDate = new NepaliDate(year, nepaliDate.getMonth(), 1);
+                    setSelectedMonth(newNepaliDate.toJsDate());
+                  } else {
+                    const newDate = new Date(selectedMonth);
+                    newDate.setFullYear(year);
+                    setSelectedMonth(newDate);
+                  }
+                }}
+                className="px-3 py-2 bg-blue-100 text-blue-800 rounded-lg font-medium border-0 focus:ring-2 focus:ring-blue-500 w-20 text-center"
+                min={isNepali ? 2070 : 2020}
+                max={isNepali ? 2090 : 2030}
+              />
             </div>
+            
             <button
-              onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
+              onClick={() => setSelectedMonth(addNepaliMonth(selectedMonth, 1))}
               className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
             >
               {currentLanguage === "np" ? "अर्को महिना" : "Next"} →
             </button>
+            
+            {isNepali && (
+              <div className="px-3 py-2 bg-purple-100 text-purple-800 rounded-lg text-sm font-medium">
+                आ.व. {getNepaliFiscalYear(selectedMonth)}
+              </div>
+            )}
           </div>
         </div>
 

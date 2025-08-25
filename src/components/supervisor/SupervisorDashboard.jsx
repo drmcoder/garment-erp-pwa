@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { db, collection, addDoc, serverTimestamp } from '../../config/firebase';
+import { db, collection, addDoc, getDocs, setDoc, doc, query, where, orderBy, serverTimestamp, COLLECTIONS } from '../../config/firebase';
 import BundleFlowTracker from './BundleFlowTracker';
 import WIPStatusBoard from './WIPStatusBoard';
 import WIPImportSimplified from './WIPImportSimplified';
@@ -31,276 +31,86 @@ const SupervisorDashboard = () => {
   const [showWorkAssignment, setShowWorkAssignment] = useState(false);
   const [showWIPProgress, setShowWIPProgress] = useState(false);
   const [stats, setStats] = useState({
-    totalOperators: 12,
-    activeOperators: 10,
-    todayTarget: 500,
-    todayCompleted: 425,
-    efficiency: 85,
-    qualityScore: 94,
-    pendingBundles: 8,
-    completedBundles: 32
+    totalOperators: 0,
+    activeOperators: 0,
+    todayTarget: 0,
+    todayCompleted: 0,
+    efficiency: 0,
+    qualityScore: 0,
+    pendingBundles: 0,
+    completedBundles: 0
   });
 
-  const [operatorPerformance, setOperatorPerformance] = useState([
-    { 
-      id: 1, 
-      name: 'Ram Bahadur', 
-      nameNp: 'राम बहादुर', 
-      station: 'Station-1', 
-      stationNp: 'स्टेसन-1', 
-      completed: 45, 
-      target: 50, 
-      efficiency: 90, 
-      status: 'active' 
-    },
-    { 
-      id: 2, 
-      name: 'Sita Devi', 
-      nameNp: 'सीता देवी', 
-      station: 'Station-2', 
-      stationNp: 'स्टेसन-2', 
-      completed: 48, 
-      target: 50, 
-      efficiency: 96, 
-      status: 'active' 
-    },
-    { 
-      id: 3, 
-      name: 'Hari Prasad', 
-      nameNp: 'हरि प्रसाद', 
-      station: 'Station-3', 
-      stationNp: 'स्टेसन-3', 
-      completed: 42, 
-      target: 50, 
-      efficiency: 84, 
-      status: 'active' 
-    },
-    { 
-      id: 4, 
-      name: 'Geeta Shrestha', 
-      nameNp: 'गीता श्रेष्ठ', 
-      station: 'Station-4', 
-      stationNp: 'स्टेसन-4', 
-      completed: 50, 
-      target: 50, 
-      efficiency: 100, 
-      status: 'active' 
-    },
-    { 
-      id: 5, 
-      name: 'Kamal Thapa', 
-      nameNp: 'कमल थापा', 
-      station: 'Station-5', 
-      stationNp: 'स्टेसन-5', 
-      completed: 38, 
-      target: 50, 
-      efficiency: 76, 
-      status: 'break' 
-    },
-  ]);
+  const [operatorPerformance, setOperatorPerformance] = useState([]);
+  const [linePerformance, setLinePerformance] = useState([]);
 
-  const [linePerformance, setLinePerformance] = useState([
-    { line: 'Line A', lineNp: 'लाइन A', target: 200, completed: 180, efficiency: 90, operators: 5 },
-    { line: 'Line B', lineNp: 'लाइन B', target: 200, completed: 165, efficiency: 82.5, operators: 4 },
-    { line: 'Line C', lineNp: 'लाइन C', target: 100, completed: 80, efficiency: 80, operators: 3 },
-  ]);
-
-  // Initialize sample work items for testing
+  // Load data from Firestore/localStorage fallback
   useEffect(() => {
-    const initializeSampleWork = async () => {
-      const existingWorkItems = JSON.parse(localStorage.getItem('workItems') || '[]');
-      
-      if (existingWorkItems.length === 0) {
-        const sampleWorkItems = [
-          {
-            id: 'work_001',
-            bundleId: 'bundle_001',
-            articleNumber: '8085',
-            articleName: 'Polo T-Shirt',
-            color: 'Blue-1',
-            size: 'M',
-            pieces: 25,
-            operation: 'shoulderJoin',
-            machineType: 'overlock',
-            status: 'ready',
-            priority: 'high',
-            rate: 2.50,
-            estimatedTime: 30,
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: 'work_002',
-            bundleId: 'bundle_002',
-            articleNumber: '6635',
-            articleName: '3-Button Tops',
-            color: 'Navy-2',
-            size: 'S',
-            pieces: 20,
-            operation: 'placket',
-            machineType: 'single-needle',
-            status: 'ready',
-            priority: 'medium',
-            rate: 3.00,
-            estimatedTime: 45,
-            createdAt: new Date().toISOString()
-          },
-          {
-            id: 'work_003',
-            bundleId: 'bundle_003',
-            articleNumber: '8085',
-            articleName: 'Polo T-Shirt',
-            color: 'Red-2',
-            size: 'L',
-            pieces: 28,
-            operation: 'hemFold',
-            machineType: 'flatlock',
-            status: 'ready',
-            priority: 'medium',
-            rate: 2.75,
-            estimatedTime: 40,
-            createdAt: new Date().toISOString()
-          }
-        ];
-
-        // Store in localStorage
-        localStorage.setItem('workItems', JSON.stringify(sampleWorkItems));
-        
-        // Also store in Firestore
+    const loadDashboardData = async () => {
+      try {
+        // Load operators from Firestore first, fallback to localStorage
+        let operators = [];
         try {
-          console.log('🔄 Storing sample data in Firestore...');
-          const bundlesCollection = collection(db, 'bundles');
-          
-          for (const workItem of sampleWorkItems) {
-            // Convert work item to bundle format for Firestore
-            const bundleData = {
-              id: workItem.bundleId,
-              bundleNumber: workItem.bundleId,
-              article: workItem.articleNumber,
-              articleName: workItem.articleName,
-              color: workItem.color,
-              size: workItem.size,
-              pieceCount: workItem.pieces,
-              quantity: workItem.pieces,
-              currentOperation: workItem.operation,
-              machineType: workItem.machineType,
-              status: workItem.status,
-              priority: workItem.priority,
-              rate: workItem.rate,
-              estimatedTime: workItem.estimatedTime,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp()
-            };
-            
-            await addDoc(bundlesCollection, bundleData);
-          }
-          
-          console.log('✅ Sample data stored in both localStorage and Firestore');
-        } catch (firebaseError) {
-          console.warn('⚠️ Firebase storage failed, using localStorage only:', firebaseError.message);
+          const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
+          operators = operatorsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })).filter(user => user.active !== false);
+        } catch (error) {
+          console.warn('Failed to load operators from Firestore:', error);
+          // Use empty array instead of localStorage fallback
+          operators = [];
         }
         
-        console.log('✅ Sample work items initialized for testing');
-        console.log('🔧 Available work by machine:');
-        console.log('- Overlock: shoulderJoin (ram.singh can pick this up)');
-        console.log('- Single-needle: placket (sita.devi can pick this up)');
-        console.log('- Flatlock: hemFold (other operators can pick this up)');
+        const operatorData = operators.map(user => ({
+          id: user.id,
+          name: user.name,
+          nameNp: user.nameNp || user.name,
+          station: user.station,
+          stationNp: user.stationNp || user.station,
+          completed: 0, // Will be calculated from work data
+          target: 50,
+          efficiency: 0,
+          status: 'active'
+        }));
+        
+        setOperatorPerformance(operatorData);
+        
+        // Update stats
+        setStats(prev => ({
+          ...prev,
+          totalOperators: operators.length,
+          activeOperators: operators.length // Assume all are active for now
+        }));
+        
+        // Load work data from Firestore first, fallback to localStorage
+        let workItems = [];
+        try {
+          const workItemsSnapshot = await getDocs(collection(db, COLLECTIONS.WORK_ASSIGNMENTS));
+          workItems = workItemsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        } catch (error) {
+          console.warn('Failed to load work items from Firestore:', error);
+          // Use empty array instead of localStorage fallback
+          workItems = [];
+        }
+        
+        const completedToday = workItems.filter(item => 
+          item.status === 'completed' && 
+          new Date(item.completedAt).toDateString() === new Date().toDateString()
+        );
+        
+        setStats(prev => ({
+          ...prev,
+          todayCompleted: completedToday.reduce((sum, item) => sum + (item.pieces || 0), 0),
+          completedBundles: completedToday.length
+        }));
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
       }
     };
-
-    initializeSampleWork();
+    
+    loadDashboardData();
   }, []);
 
-  // Manual function to reinitialize sample data for testing
-  const reinitializeSampleData = async () => {
-    localStorage.removeItem('workItems');
-    console.log('🔄 Manually reinitializing sample data...');
-    
-    const sampleWorkItems = [
-      {
-        id: 'work_001',
-        bundleId: 'bundle_001',
-        articleNumber: '8085',
-        articleName: 'Polo T-Shirt',
-        color: 'Blue-1',
-        size: 'M',
-        pieces: 25,
-        operation: 'shoulderJoin',
-        machineType: 'overlock',
-        status: 'ready',
-        priority: 'high',
-        rate: 2.50,
-        estimatedTime: 30,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'work_002',
-        bundleId: 'bundle_002',
-        articleNumber: '6635',
-        articleName: '3-Button Tops',
-        color: 'Navy-2',
-        size: 'S',
-        pieces: 20,
-        operation: 'placket',
-        machineType: 'single-needle',
-        status: 'ready',
-        priority: 'medium',
-        rate: 3.00,
-        estimatedTime: 45,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'work_003',
-        bundleId: 'bundle_003',
-        articleNumber: '8085',
-        articleName: 'Polo T-Shirt',
-        color: 'Red-2',
-        size: 'L',
-        pieces: 28,
-        operation: 'hemFold',
-        machineType: 'flatlock',
-        status: 'ready',
-        priority: 'medium',
-        rate: 2.75,
-        estimatedTime: 40,
-        createdAt: new Date().toISOString()
-      }
-    ];
+  // No sample work initialization - use real data only
 
-    localStorage.setItem('workItems', JSON.stringify(sampleWorkItems));
-    
-    try {
-      console.log('🔄 Storing fresh sample data in Firestore...');
-      const bundlesCollection = collection(db, 'bundles');
-      
-      for (const workItem of sampleWorkItems) {
-        const bundleData = {
-          id: workItem.bundleId,
-          bundleNumber: workItem.bundleId,
-          article: workItem.articleNumber,
-          articleName: workItem.articleName,
-          color: workItem.color,
-          size: workItem.size,
-          pieceCount: workItem.pieces,
-          quantity: workItem.pieces,
-          currentOperation: workItem.operation,
-          machineType: workItem.machineType,
-          status: workItem.status,
-          priority: workItem.priority,
-          rate: workItem.rate,
-          estimatedTime: workItem.estimatedTime,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp()
-        };
-        
-        await addDoc(bundlesCollection, bundleData);
-      }
-      
-      alert('✅ Sample data refreshed in both localStorage and Firestore! Operators should now see work items.');
-    } catch (error) {
-      console.warn('⚠️ Firebase storage failed:', error);
-      alert('✅ Sample data refreshed in localStorage! (Firebase connection issue)');
-    }
-  };
 
   const getEfficiencyColor = (efficiency) => {
     if (efficiency >= 95) return 'text-green-600 bg-green-50 border-green-200';
@@ -604,16 +414,6 @@ const SupervisorDashboard = () => {
                 </div>
               </button>
 
-              <button 
-                onClick={reinitializeSampleData}
-                className="flex items-center p-4 border border-green-300 rounded-lg hover:bg-green-50 transition-colors bg-green-25"
-              >
-                <BarChart3 className="w-5 h-5 text-green-600 mr-3" />
-                <div className="text-left">
-                  <p className="font-medium text-gray-900">{isNepali ? 'नमूना डेटा रिफ्रेश' : 'Refresh Sample Data'}</p>
-                  <p className="text-sm text-gray-600">{isNepali ? 'परीक्षणका लागि काम आइटम पुनः लोड' : 'Reload work items for testing'}</p>
-                </div>
-              </button>
             </div>
           </div>
         </div>
@@ -640,46 +440,55 @@ const SupervisorDashboard = () => {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
             <WIPImportSimplified 
-              onImport={(result) => {
+              onImport={async (result) => {
                 console.log('🔥 SUPERVISOR DASHBOARD - WIP IMPORT COMPLETED CALLBACK');
                 console.log('📋 Import Result:', JSON.stringify(result, null, 2));
                 
-                // Save WIP data to localStorage for WIPDataManager
+                // Save WIP data to Firestore first, fallback to localStorage
                 if (result.wipData) {
-                  console.log('💾 Saving WIP data to localStorage...');
-                  const existingEntries = JSON.parse(localStorage.getItem('wipEntries') || '[]');
-                  console.log('📊 Existing WIP entries count:', existingEntries.length);
-                  
-                  const wipEntry = {
-                    ...result.wipData,
-                    id: Date.now(),
-                    status: 'completed',
-                    createdAt: new Date().toISOString(),
-                    updatedAt: new Date().toISOString(),
-                    bundles: result.bundles,
-                    workItems: result.workItems,
-                    assignments: result.assignments,
-                    template: result.template
-                  };
-                  const updatedEntries = [wipEntry, ...existingEntries];
-                  localStorage.setItem('wipEntries', JSON.stringify(updatedEntries));
-                  console.log('✅ WIP entry saved. New total:', updatedEntries.length);
+                  console.log('💾 Saving WIP data to Firestore...');
+                  try {
+                    const wipEntry = {
+                      ...result.wipData,
+                      status: 'completed',
+                      createdAt: serverTimestamp(),
+                      updatedAt: serverTimestamp(),
+                      bundles: result.bundles,
+                      workItems: result.workItems,
+                      assignments: result.assignments,
+                      template: result.template
+                    };
+                    
+                    const docRef = doc(collection(db, 'wipEntries'));
+                    await setDoc(docRef, { ...wipEntry, id: docRef.id });
+                    console.log('✅ WIP entry saved to Firestore with ID:', docRef.id);
+                  } catch (error) {
+                    console.error('Failed to save WIP data to Firestore:', error);
+                    // Skip localStorage fallback - data will not be saved
+                  }
                 }
                 
-                // Save work items to localStorage for work assignment components
+                // Save work items to Firestore first, fallback to localStorage
                 if (result.workItems && result.workItems.length > 0) {
-                  console.log('💾 Saving work items to localStorage...');
-                  const existingWorkItems = JSON.parse(localStorage.getItem('workItems') || '[]');
-                  console.log('📊 Existing work items count:', existingWorkItems.length);
-                  
-                  const newWorkItems = result.workItems.map(item => ({
-                    ...item,
-                    wipId: result.wipData?.id || Date.now(),
-                    createdAt: new Date().toISOString()
-                  }));
-                  const updatedWorkItems = [...newWorkItems, ...existingWorkItems];
-                  localStorage.setItem('workItems', JSON.stringify(updatedWorkItems));
-                  console.log('✅ Work items saved. New total:', updatedWorkItems.length);
+                  console.log('💾 Saving work items to Firestore...');
+                  try {
+                    const batch = [];
+                    const newWorkItems = result.workItems.map(item => ({
+                      ...item,
+                      wipId: result.wipData?.id || Date.now(),
+                      createdAt: serverTimestamp()
+                    }));
+                    
+                    for (const item of newWorkItems) {
+                      const docRef = doc(collection(db, COLLECTIONS.WORK_ASSIGNMENTS));
+                      await setDoc(docRef, { ...item, id: docRef.id });
+                    }
+                    
+                    console.log('✅ Work items saved to Firestore. Total:', newWorkItems.length);
+                  } catch (error) {
+                    console.error('Failed to save work items to Firestore:', error);
+                    // Skip localStorage fallback - data will not be saved
+                  }
                 }
                 
                 console.log('🔄 Closing WIP import dialog...');

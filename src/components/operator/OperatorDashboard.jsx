@@ -30,7 +30,7 @@ import {
 } from "../../services/firebase-services";
 
 const OperatorDashboard = () => {
-  const { user, getUserDisplayInfo } = useAuth();
+  const { user, getUserDisplayName, getUserRoleDisplay, getUserSpecialityDisplay } = useAuth();
   const {
     t,
     currentLanguage,
@@ -60,7 +60,11 @@ const OperatorDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  const userInfo = getUserDisplayInfo();
+  const userInfo = {
+    displayName: user ? getUserDisplayName() : '',
+    roleDisplay: user ? getUserRoleDisplay() : '',
+    specialityDisplay: user ? getUserSpecialityDisplay() : ''
+  };
 
   // Real-time clock update
   useEffect(() => {
@@ -78,6 +82,18 @@ const OperatorDashboard = () => {
     }
   }, [user]);
 
+  // Early return if user is not loaded yet
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Load operator's current work and queue
   const loadOperatorData = async () => {
     if (!user?.id) return;
@@ -93,7 +109,33 @@ const OperatorDashboard = () => {
       const bundlesResult = await BundleService.getOperatorBundles(user.id, operatorMachine);
 
       if (bundlesResult.success) {
-        const bundles = bundlesResult.bundles;
+        // Filter out problematic bundles before processing
+        const bundles = bundlesResult.bundles.filter(bundle => {
+          // Comprehensive bundle validation
+          const hasValidId = bundle.id && typeof bundle.id === 'string' && bundle.id.trim().length > 0;
+          const hasValidStatus = bundle.status && bundle.status.trim().length > 0;
+          const hasValidData = bundle.article || bundle.articleNumber || bundle.articleName;
+          
+          // Extra check for specific problematic bundle IDs
+          if (bundle.id === 'B727970-w-DD-S' || bundle.id === 'B759524-43--4XL') {
+            console.warn(`🚫 [Dashboard] Blocking known problematic bundle: ${bundle.id}`);
+            return false;
+          }
+          
+          if (!hasValidId || !hasValidStatus || !hasValidData) {
+            console.warn(`🚫 [Dashboard] Filtering out invalid bundle:`, {
+              id: bundle.id,
+              hasValidId,
+              hasValidStatus,
+              hasValidData,
+              status: bundle.status
+            });
+            return false;
+          }
+          
+          return true;
+        });
+        
         console.log("📦 Loaded bundles:", bundles.length);
 
         // Find current work (in-progress or assigned)
@@ -141,24 +183,8 @@ const OperatorDashboard = () => {
     } catch (error) {
       console.error("❌ Error loading operator data:", error);
       setError(error.message);
-
-      // Fallback to sample data
-      setCurrentWork({
-        id: "B001-85-BL-XL",
-        bundleNumber: "B001",
-        article: "8085",
-        articleName: "Polo T-Shirt",
-        color: "Blue-1",
-        size: "XL",
-        pieces: 30,
-        currentOperation: "shoulderJoin",
-        nextOperation: "topStitch",
-        machineType: "overlock",
-        rate: 2.5,
-        status: "assigned",
-        completedPieces: 0,
-        estimatedTime: 60,
-      });
+      
+      // No fallback data - show empty state
     } finally {
       setLoading(false);
     }
@@ -278,6 +304,59 @@ const OperatorDashboard = () => {
   const handleReportQuality = () => {
     if (!currentWork) return;
     setShowQualityReport(true);
+  };
+
+  // Handle work item click from queue
+  const handleWorkItemClick = (work) => {
+    console.log("🖱️ Work item clicked:", work.id);
+    // Set as current work if no current work
+    if (!currentWork) {
+      setCurrentWork(work);
+    }
+  };
+
+  // Start work from queue
+  const handleStartWork = async (work) => {
+    try {
+      setLoading(true);
+      
+      // Start the work item
+      const result = await BundleService.startWork(work.id, user.id);
+      
+      if (result.success) {
+        setCurrentWork(work);
+        setIsWorkStarted(true);
+        setWorkStartTime(new Date());
+        
+        addNotification(
+          currentLanguage === "np" 
+            ? "काम सुरु गरियो!" 
+            : "Work started!",
+          "success"
+        );
+        
+        // Refresh data
+        await loadOperatorData();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error("❌ Start work error:", error);
+      addNotification(
+        currentLanguage === "np" 
+          ? "काम सुरु गर्न समस्या भयो" 
+          : "Failed to start work",
+        "error"
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Complete work directly from queue
+  const handleCompleteWorkDirect = (work) => {
+    setCurrentWork(work);
+    setShowWorkCompletion(true);
   };
 
   // Handle work completion
@@ -633,6 +712,86 @@ const OperatorDashboard = () => {
             <RefreshCw className="w-4 h-4 inline mr-2" />
             {currentLanguage === "np" ? "रिफ्रेस गर्नुहोस्" : "Refresh"}
           </button>
+        </div>
+      )}
+
+      {/* Assigned Work Queue Section */}
+      {workQueue && workQueue.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md border border-gray-200 m-4">
+          <div className="p-4 border-b border-gray-100">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+                <Package className="w-5 h-5 mr-2 text-green-600" />
+                {currentLanguage === "np" ? "तोकिएको काम" : "Assigned Work"}
+              </h2>
+              <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                {workQueue.length} {currentLanguage === "np" ? "काम" : "items"}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 space-y-3">
+            {workQueue.map((work) => (
+              <div 
+                key={work.id}
+                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleWorkItemClick(work)}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-medium text-gray-800">
+                        {work.article}# {work.articleName}
+                      </h3>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getWorkStatusColor(work.status)}`}
+                      >
+                        {t(work.status)}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                      <div>
+                        <span className="font-medium">{t("operation")}:</span> {t(work.currentOperation)}
+                      </div>
+                      <div>
+                        <span className="font-medium">{t("pieces")}:</span> {work.pieces}
+                      </div>
+                      <div>
+                        <span className="font-medium">{t("color")}:</span> {work.color}
+                      </div>
+                      <div>
+                        <span className="font-medium">{t("size")}:</span> {work.sizes?.[0] || work.size}
+                      </div>
+                    </div>
+
+                    {work.status === 'assigned' && (
+                      <div className="mt-3 flex space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartWork(work);
+                          }}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                        >
+                          {currentLanguage === "np" ? "सुरु गर्नुहोस्" : "Start Work"}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCompleteWorkDirect(work);
+                          }}
+                          className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+                        >
+                          {currentLanguage === "np" ? "पूरा गर्नुहोस्" : "Complete"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

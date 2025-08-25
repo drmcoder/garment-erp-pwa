@@ -446,13 +446,53 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
   ];
 
   useEffect(() => {
-    // Load custom templates from localStorage and combine with defaults
-    const loadTemplates = () => {
+    // Load custom templates from Firestore and localStorage, combine with defaults
+    const loadTemplates = async () => {
       try {
-        const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
-        const deletedDefaultTemplates = JSON.parse(localStorage.getItem('deletedDefaultTemplates') || '[]');
-        console.log('Loading custom templates:', customTemplates);
+        // Load from Firestore
+        let firestoreTemplates = [];
+        try {
+          const templatesSnapshot = await getDocs(collection(db, COLLECTIONS.ARTICLE_TEMPLATES));
+          firestoreTemplates = templatesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            customTemplate: true
+          }));
+          console.log('Loaded templates from Firestore:', firestoreTemplates);
+        } catch (firestoreError) {
+          console.warn('Failed to load templates from Firestore:', firestoreError);
+        }
+        
+        // Load deleted default templates from Firestore
+        let deletedDefaultTemplates = [];
+        try {
+          const deletedSnapshot = await getDocs(collection(db, COLLECTIONS.DELETED_TEMPLATES));
+          const firestoreDeleted = deletedSnapshot.docs
+            .map(doc => doc.data())
+            .filter(deletion => deletion.type === 'default')
+            .map(deletion => deletion.templateId);
+          deletedDefaultTemplates = firestoreDeleted;
+          console.log('Loaded deleted templates from Firestore:', deletedDefaultTemplates);
+        } catch (deletedError) {
+          console.warn('Failed to load deleted templates from Firestore:', deletedError);
+          // No fallback - use empty array
+          deletedDefaultTemplates = [];
+        }
+        
+        // Use only Firestore templates
+        let localCustomTemplates = [];
+        if (firestoreTemplates.length === 0) {
+          console.log('No Firestore templates found, using empty array');
+          localCustomTemplates = [];
+        }
+        
         console.log('Deleted default templates:', deletedDefaultTemplates);
+        
+        // Combine Firestore and localStorage templates (prefer Firestore)
+        const allCustomTemplates = [
+          ...firestoreTemplates,
+          ...localCustomTemplates.filter(local => !firestoreTemplates.find(fs => fs.name === local.name))
+        ];
         
         // Filter out deleted default templates
         const availableDefaultTemplates = defaultTemplates.filter(template => 
@@ -460,11 +500,11 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
         );
         
         // Combine available defaults with custom templates
-        const combinedTemplates = [...availableDefaultTemplates, ...customTemplates];
+        const combinedTemplates = [...availableDefaultTemplates, ...allCustomTemplates];
         setTemplates(combinedTemplates);
         
         addError({
-          message: `Loaded ${customTemplates.length} custom templates, ${availableDefaultTemplates.length} default templates`,
+          message: `Loaded ${allCustomTemplates.length} custom templates (${firestoreTemplates.length} from Firestore), ${availableDefaultTemplates.length} default templates`,
           component: 'ProcessTemplateManager',
           action: 'Load Templates'
         }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
@@ -526,14 +566,7 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
       // Update in templates array
       setTemplates(prev => prev.map(t => t.id === updatedTemplate.id ? updatedTemplate : t));
 
-      // Update in localStorage if it's a custom template
-      if (updatedTemplate.customTemplate) {
-        const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
-        const updatedCustomTemplates = customTemplates.map(t => 
-          t.id === updatedTemplate.id ? updatedTemplate : t
-        );
-        localStorage.setItem('customTemplates', JSON.stringify(updatedCustomTemplates));
-      }
+      // No localStorage backup needed
 
       setShowCreateNew(false);
       setEditingTemplate(null);
@@ -581,22 +614,27 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
             }
           ]
         },
-        onSuccess: (deletedTemplate) => {
+        onSuccess: async (deletedTemplate) => {
           // Remove from local state
           setTemplates(prev => prev.filter(t => t.id !== templateId));
           
           if (deletedTemplate.customTemplate) {
-            // Remove from custom templates in localStorage
-            const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
-            const updatedCustomTemplates = customTemplates.filter(t => t.id !== templateId);
-            localStorage.setItem('customTemplates', JSON.stringify(updatedCustomTemplates));
+            // No localStorage update needed
           } else {
-            // Track deleted default template
-            const deletedDefaults = JSON.parse(localStorage.getItem('deletedDefaultTemplates') || '[]');
-            if (!deletedDefaults.includes(templateId)) {
-              deletedDefaults.push(templateId);
-              localStorage.setItem('deletedDefaultTemplates', JSON.stringify(deletedDefaults));
+            // Track deleted default template in Firestore and localStorage
+            try {
+              await addDoc(collection(db, COLLECTIONS.DELETED_TEMPLATES), {
+                templateId: templateId,
+                deletedBy: user?.id || 'supervisor',
+                deletedAt: serverTimestamp(),
+                type: 'default'
+              });
+              console.log('Default template deletion recorded in Firestore');
+            } catch (error) {
+              console.warn('Failed to record deletion in Firestore:', error);
             }
+            
+            // No localStorage backup needed
           }
           
           // Clear selection if deleted template was selected
@@ -640,21 +678,39 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
           <TemplateBuilder
-            onTemplateCreated={(template) => {
-              // Add to templates list and localStorage
-              const customTemplates = JSON.parse(localStorage.getItem('customTemplates') || '[]');
-              customTemplates.push(template);
-              localStorage.setItem('customTemplates', JSON.stringify(customTemplates));
-              
-              setTemplates(prev => [...prev, template]);
-              setShowCreateNew(false);
-              setEditingTemplate(null);
-              
-              addError({
-                message: currentLanguage === 'np' ? 'टेम्प्लेट सिर्जना गरियो' : 'Template created successfully',
+            onTemplateCreated={async (template) => {
+              try {
+                // Save to Firestore
+                const templateData = {
+                  ...template,
+                  customTemplate: true,
+                  createdBy: user?.id || 'supervisor',
+                  createdAt: serverTimestamp(),
+                  updatedAt: serverTimestamp()
+                };
+                
+                const docRef = await addDoc(collection(db, COLLECTIONS.ARTICLE_TEMPLATES), templateData);
+                const savedTemplate = { ...templateData, id: docRef.id };
+                
+                // No localStorage backup needed
+                
+                setTemplates(prev => [...prev, savedTemplate]);
+                setShowCreateNew(false);
+                setEditingTemplate(null);
+                
+                addError({
+                  message: currentLanguage === 'np' ? 'टेम्प्लेट सिर्जना गरियो' : 'Template created successfully',
                 component: 'ProcessTemplateManager',
                 action: 'Create Template'
-              }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+                }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+              } catch (error) {
+                console.error('Error saving template to Firestore:', error);
+                addError({
+                  message: currentLanguage === 'np' ? 'टेम्प्लेट सेभ गर्न सकिएन' : 'Failed to save template',
+                  component: 'ProcessTemplateManager',
+                  action: 'Create Template'
+                }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+              }
             }}
             onCancel={() => {
               setShowCreateNew(false);

@@ -39,8 +39,9 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
 
   const loadData = () => {
     try {
-      const savedSupervisors = JSON.parse(localStorage.getItem('supervisors') || '[]');
-      const savedOperators = JSON.parse(localStorage.getItem('operators') || '[]');
+      // No localStorage loading - use empty arrays
+      const savedSupervisors = [];
+      const savedOperators = [];
       
       setSupervisors(savedSupervisors);
       setOperators(savedOperators);
@@ -53,7 +54,7 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
 
   const saveSupervisors = (updatedSupervisors) => {
     try {
-      localStorage.setItem('supervisors', JSON.stringify(updatedSupervisors));
+      // No localStorage saving - only update state
       setSupervisors(updatedSupervisors);
       if (onStatsUpdate) onStatsUpdate();
     } catch (error) {

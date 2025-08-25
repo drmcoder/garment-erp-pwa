@@ -5,6 +5,7 @@ import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../contexts/AuthContext";
 import { LanguageContext } from "../../contexts/LanguageContext";
 import { NotificationContext } from "../../contexts/NotificationContext";
+import { db, collection, getDocs, query, where, orderBy, COLLECTIONS } from "../../config/firebase";
 
 const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
   const { user } = useContext(AuthContext);
@@ -42,111 +43,74 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
   const loadWorkQueue = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      // Mock work queue data
-      const mockQueue = [
-        {
-          id: "queue_001",
-          bundleId: "bundle_001",
-          articleNumber: "8085",
-          articleName: isNepali ? "नीलो टी-शर्ट" : "Blue T-Shirt",
-          color: "नीलो-१",
-          size: "XL",
-          pieces: 30,
-          operation: isNepali ? "काँध जोड्ने" : "Shoulder Join",
-          machineType: isNepali ? "ओभरलक" : "Overlock",
-          rate: 2.5,
-          estimatedTime: 25,
-          priority: isNepali ? "सामान्य" : "Normal",
-          status: "in_progress",
-          assignedAt: new Date(Date.now() - 3600000).toISOString(),
-          startedAt: new Date(Date.now() - 1800000).toISOString(),
-          progress: 75,
-          completedPieces: 22,
-          earnings: 55.0,
-        },
-        {
-          id: "queue_002",
-          bundleId: "bundle_002",
-          articleNumber: "2233",
-          articleName: isNepali ? "हरियो पोलो" : "Green Polo",
-          color: "हरियो-२",
-          size: "2XL",
-          pieces: 28,
-          operation: isNepali ? "साइड सिम" : "Side Seam",
-          machineType: isNepali ? "ओभरलक" : "Overlock",
-          rate: 2.8,
-          estimatedTime: 22,
-          priority: isNepali ? "उच्च" : "High",
-          status: "assigned",
-          assignedAt: new Date(Date.now() - 900000).toISOString(),
-          progress: 0,
-          completedPieces: 0,
-          earnings: 0,
-        },
-        {
-          id: "queue_003",
-          bundleId: "bundle_003",
-          articleNumber: "6635",
-          articleName: isNepali ? "सेतो शर्ट" : "White Shirt",
-          color: "सेतो",
-          size: "L",
-          pieces: 40,
-          operation: isNepali ? "हेम फोल्ड" : "Hem Fold",
-          machineType: isNepali ? "फ्ल्यालक" : "Flatlock",
-          rate: 2.2,
-          estimatedTime: 35,
-          priority: isNepali ? "सामान्य" : "Normal",
-          status: "pending",
-          assignedAt: new Date(Date.now() - 300000).toISOString(),
-          progress: 0,
-          completedPieces: 0,
-          earnings: 0,
-        },
-        {
-          id: "queue_004",
-          bundleId: "bundle_004",
-          articleNumber: "8085",
-          articleName: isNepali ? "नीलो टी-शर्ट" : "Blue T-Shirt",
-          color: "नीलो-२",
-          size: "L",
-          pieces: 35,
-          operation: isNepali ? "काँध जोड्ने" : "Shoulder Join",
-          machineType: isNepali ? "ओभरलक" : "Overlock",
-          rate: 2.5,
-          estimatedTime: 28,
-          priority: isNepali ? "कम" : "Low",
-          status: "scheduled",
-          scheduledAt: new Date(Date.now() + 3600000).toISOString(),
-          progress: 0,
-          completedPieces: 0,
-          earnings: 0,
-        },
-        {
-          id: "queue_005",
-          bundleId: "bundle_005",
-          articleNumber: "7799",
-          articleName: isNepali ? "कालो जैकेट" : "Black Jacket",
-          color: "कालो",
-          size: "XL",
-          pieces: 20,
-          operation: isNepali ? "जिप लगाउने" : "Zipper Attach",
-          machineType: isNepali ? "एकल सुई" : "Single Needle",
-          rate: 5.0,
-          estimatedTime: 45,
-          priority: isNepali ? "उच्च" : "High",
-          status: "scheduled",
-          scheduledAt: new Date(Date.now() + 7200000).toISOString(),
-          progress: 0,
-          completedPieces: 0,
-          earnings: 0,
-        },
-      ];
+      let workQueueData = [];
+      
+      // Try loading from Firestore first
+      try {
+        const workItemsRef = collection(db, COLLECTIONS.WORK_ASSIGNMENTS);
+        let q = workItemsRef;
+        
+        // Filter by operator if user is available
+        if (user?.id) {
+          q = query(workItemsRef, where('assignedOperator', '==', user.id));
+        }
+        
+        q = query(q, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        
+        workQueueData = snapshot.docs.map((doc, index) => {
+          const item = doc.data();
+          return {
+            id: doc.id,
+            bundleId: item.bundleId,
+            articleNumber: item.articleNumber || item.article,
+            articleName: item.articleName,
+            color: item.color,
+            size: item.size,
+            pieces: item.pieces || item.quantity,
+            operation: item.operation || item.currentOperation,
+            machineType: item.machineType,
+            rate: item.rate,
+            estimatedTime: item.estimatedTime,
+            priority: item.priority || "Normal",
+            status: item.status || "pending",
+            assignedAt: item.assignedAt,
+            startedAt: item.startedAt,
+            progress: item.progress || 0,
+            completedPieces: item.completedPieces || 0,
+            earnings: item.earnings || 0,
+          };
+        });
+        
+        console.log('✅ Loaded work queue from Firestore:', workQueueData.length);
+      } catch (firestoreError) {
+        console.warn('Failed to load from Firestore, falling back to localStorage:', firestoreError);
+        
+        // No localStorage fallback - use empty array
+        workQueueData = [];
+          id: `queue_${String(index + 1).padStart(3, '0')}`,
+          bundleId: item.bundleId,
+          articleNumber: item.articleNumber,
+          articleName: item.articleName,
+          color: item.color,
+          size: item.size,
+          pieces: item.pieces || item.quantity,
+          operation: item.operation,
+          machineType: item.machineType,
+          rate: item.rate,
+          estimatedTime: item.estimatedTime,
+          priority: item.priority || "Normal",
+          status: item.status || "pending",
+          assignedAt: item.assignedAt,
+          startedAt: item.startedAt,
+          progress: item.progress || 0,
+          completedPieces: item.completedPieces || 0,
+          earnings: item.earnings || 0,
+        }));
+      }
 
       // Apply filter
-      let filteredQueue = mockQueue;
+      let filteredQueue = workQueueData;
       
       // Filter by operator's machine speciality first
       if (user && user.speciality) {
@@ -158,7 +122,7 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
         };
         
         const allowedMachineTypes = machineMatches[user.speciality] || [];
-        filteredQueue = mockQueue.filter(work => 
+        filteredQueue = workQueueData.filter(work => 
           allowedMachineTypes.includes(work.machineType)
         );
       }

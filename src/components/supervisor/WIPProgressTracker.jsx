@@ -19,9 +19,9 @@ const WIPProgressTracker = ({ onClose }) => {
 
   const loadProgressData = () => {
     try {
-      // Load WIP entries
-      const savedWipEntries = JSON.parse(localStorage.getItem('wipEntries') || '[]');
-      const savedWorkItems = JSON.parse(localStorage.getItem('workItems') || '[]');
+      // No localStorage loading - use empty arrays
+      const savedWipEntries = [];
+      const savedWorkItems = [];
       
       // Enhance WIP entries with progress calculations
       const enhancedWipEntries = savedWipEntries.map(wip => {

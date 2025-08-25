@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 import BackButton from '../common/BackButton';
+import { db, collection, addDoc, getDocs, updateDoc, deleteDoc, doc, COLLECTIONS } from '../../config/firebase';
 
 const UserManagement = ({ onBack }) => {
   const { currentLanguage } = useLanguage();
@@ -10,65 +11,78 @@ const UserManagement = ({ onBack }) => {
   
   const [users, setUsers] = useState([]);
 
-  // Load users from localStorage or initialize with default data
+  // Load users from Firestore
   useEffect(() => {
-    const savedUsers = localStorage.getItem('users');
-    if (savedUsers) {
-      setUsers(JSON.parse(savedUsers));
-    } else {
-      // Initialize with default users
-      const defaultUsers = [
-        {
-          id: 1,
-          username: 'ram.singh',
-          name: 'Ram Bahadur Singh',
-          nameNp: 'राम बहादुर सिंह',
-          role: 'operator',
-          station: 'Station-1',
-          stationNp: 'स्टेसन-१',
-          machines: ['overlock', 'flatlock'],
-          skillLevel: 'medium',
-          active: true,
-          createdAt: new Date('2024-01-15')
-        },
-        {
-          id: 2,
-          username: 'sita.devi',
-          name: 'Sita Devi Sharma',
-          nameNp: 'सीता देवी शर्मा',
-          role: 'operator',
-          station: 'Station-2',
-          stationNp: 'स्टेसन-२',
-          machines: ['singleNeedle', 'buttonhole'],
-          skillLevel: 'high',
-          active: true,
-          createdAt: new Date('2024-01-20')
-        },
-        {
-          id: 3,
-          username: 'hari.supervisor',
-          name: 'Hari Prasad Thapa',
-          nameNp: 'हरि प्रसाद थापा',
-          role: 'supervisor',
-          station: 'Supervisor Desk',
-          stationNp: 'सुपरवाइजर डेस्क',
-          machines: [],
-          skillLevel: 'high',
-          active: true,
-          createdAt: new Date('2024-01-10')
-        }
-      ];
-      setUsers(defaultUsers);
-      localStorage.setItem('users', JSON.stringify(defaultUsers));
-    }
-  }, []);
+    const loadUsersFromFirestore = async () => {
+      try {
+        const allUsers = [];
+        
+        // Load operators
+        const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
+        operatorsSnapshot.forEach((doc) => {
+          const userData = doc.data();
+          allUsers.push({
+            id: doc.id,
+            username: userData.username,
+            name: userData.name || userData.nameEn,
+            nameNp: userData.nameNepali || userData.name,
+            role: 'operator',
+            station: userData.station,
+            stationNp: userData.stationNp || userData.station,
+            machines: userData.assignedMachine ? [userData.assignedMachine] : userData.machines || [],
+            skillLevel: userData.skillLevel || 'medium',
+            active: userData.active !== false,
+            createdAt: userData.createdAt?.toDate() || new Date()
+          });
+        });
 
-  // Save users to localStorage whenever users change
-  useEffect(() => {
-    if (users.length > 0) {
-      localStorage.setItem('users', JSON.stringify(users));
-    }
-  }, [users]);
+        // Load supervisors
+        const supervisorsSnapshot = await getDocs(collection(db, COLLECTIONS.SUPERVISORS));
+        supervisorsSnapshot.forEach((doc) => {
+          const userData = doc.data();
+          allUsers.push({
+            id: doc.id,
+            username: userData.username,
+            name: userData.name || userData.nameEn,
+            nameNp: userData.nameNepali || userData.name,
+            role: 'supervisor',
+            station: userData.station || 'Supervisor Desk',
+            stationNp: userData.stationNp || 'सुपरवाइजर डेस्क',
+            machines: [],
+            skillLevel: 'high',
+            active: userData.active !== false,
+            createdAt: userData.createdAt?.toDate() || new Date()
+          });
+        });
+
+        // Load management
+        const managementSnapshot = await getDocs(collection(db, COLLECTIONS.MANAGEMENT));
+        managementSnapshot.forEach((doc) => {
+          const userData = doc.data();
+          allUsers.push({
+            id: doc.id,
+            username: userData.username,
+            name: userData.name || userData.nameEn,
+            nameNp: userData.nameNepali || userData.name,
+            role: 'management',
+            station: userData.station || 'Management Office',
+            stationNp: userData.stationNp || 'व्यवस्थापन कार्यालय',
+            machines: [],
+            skillLevel: 'high',
+            active: userData.active !== false,
+            createdAt: userData.createdAt?.toDate() || new Date()
+          });
+        });
+
+        setUsers(allUsers);
+      } catch (error) {
+        console.error('Error loading users from Firestore:', error);
+        setUsers([]); // No fallback - use empty array
+      }
+    };
+
+    loadUsersFromFirestore();
+  }, []);
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -105,11 +119,58 @@ const UserManagement = ({ onBack }) => {
     { id: 'management', nameEn: 'Manager', nameNp: 'म्यानेजर' }
   ];
 
-  const handleCreateUser = () => {
+  const handleCreateUser = async () => {
     try {
+      const collectionName = formData.role === 'operator' ? COLLECTIONS.OPERATORS :
+                           formData.role === 'supervisor' ? COLLECTIONS.SUPERVISORS :
+                           COLLECTIONS.MANAGEMENT;
+
+      const newUserData = {
+        username: formData.username,
+        name: formData.name,
+        nameEn: formData.name,
+        nameNepali: formData.nameNp,
+        station: formData.station,
+        stationNp: formData.stationNp,
+        assignedMachine: formData.machines[0] || null,
+        machines: formData.machines,
+        skillLevel: formData.skillLevel,
+        active: true,
+        createdAt: new Date(),
+        password: formData.password
+      };
+
+      // Add additional fields based on role
+      if (formData.role === 'operator') {
+        newUserData.dailyTarget = 50;
+        newUserData.rate = 2.5;
+        newUserData.shift = 'morning';
+        newUserData.assignedLine = 'line-1';
+        newUserData.department = 'sewing';
+        newUserData.permissions = ['work_view', 'work_update', 'quality_report'];
+      } else if (formData.role === 'supervisor') {
+        newUserData.assignedLine = 'line-1';
+        newUserData.department = 'sewing';
+        newUserData.shift = 'morning';
+        newUserData.permissions = ['all_view', 'work_assign', 'quality_manage', 'report_view'];
+      } else if (formData.role === 'management') {
+        newUserData.department = 'administration';
+        newUserData.permissions = ['admin', 'all_view', 'all_manage', 'reports', 'analytics'];
+      }
+
+      const docRef = await addDoc(collection(db, collectionName), newUserData);
+      
+      // Add to local state
       const newUser = {
-        ...formData,
-        id: users.length + 1,
+        id: docRef.id,
+        username: formData.username,
+        name: formData.name,
+        nameNp: formData.nameNp,
+        role: formData.role,
+        station: formData.station,
+        stationNp: formData.stationNp,
+        machines: formData.machines,
+        skillLevel: formData.skillLevel,
         active: true,
         createdAt: new Date()
       };
@@ -122,7 +183,7 @@ const UserManagement = ({ onBack }) => {
         message: isNepali ? 'नयाँ प्रयोगकर्ता सिर्जना गरियो' : `User ${formData.name} created successfully`,
         component: 'UserManagement',
         action: 'Create User',
-        data: { userId: newUser.id, username: newUser.username }
+        data: { userId: docRef.id, username: newUser.username }
       }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
 
     } catch (error) {

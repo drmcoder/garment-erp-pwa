@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { db, collection, getDocs, query, orderBy, COLLECTIONS } from '../../config/firebase';
+import BundleWorkflowCards from '../common/BundleWorkflowCards';
 
 const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
   const { currentLanguage, t } = useLanguage();
@@ -13,90 +15,30 @@ const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
   const [splitMode, setSplitMode] = useState(false);
   const [mergeMode, setMergeMode] = useState(false);
   const [selectedBundles, setSelectedBundles] = useState([]);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'workflow'
 
-  // Load bundles from localStorage or API
+  // Load bundles from Firestore or localStorage fallback
   useEffect(() => {
-    const loadBundles = () => {
-      // Mock data - in real app, this would come from API
-      const mockBundles = [
-        {
-          id: 'B001-8085-N-L-1',
-          bundleNumber: 'B001-8085-N-L',
-          lotNumber: 'S-85',
-          article: '8085',
-          color: 'नीलो-1',
-          size: 'L',
-          pieces: 30,
-          operation: 'काँध जोड्ने',
-          operationStep: 1,
-          machine: 'ओभरलक',
-          status: 'in_progress',
-          operator: 'राम बहादुर',
-          startTime: '2024-08-23T02:30:00Z',
-          estimatedCompletion: '2024-08-23T03:00:00Z',
-          actualCompletion: null,
-          qcStatus: 'pending',
-          defects: 0
-        },
-        {
-          id: 'B001-8085-N-L-2',
-          bundleNumber: 'B001-8085-N-L',
-          lotNumber: 'S-85',
-          article: '8085',
-          color: 'नीलो-1',
-          size: 'L',
-          pieces: 30,
-          operation: 'प्लाकेट',
-          operationStep: 2,
-          machine: 'एकल सुई',
-          status: 'pending',
-          operator: null,
-          startTime: null,
-          estimatedCompletion: null,
-          actualCompletion: null,
-          qcStatus: 'pending',
-          defects: 0
-        },
-        {
-          id: 'B002-8085-R-XL-1',
-          bundleNumber: 'B002-8085-R-XL',
-          lotNumber: 'S-85',
-          article: '8085',
-          color: 'रातो-1',
-          size: 'XL',
-          pieces: 28,
-          operation: 'काँध जोड्ने',
-          operationStep: 1,
-          machine: 'ओभरलक',
-          status: 'completed',
-          operator: 'हरि श्रेष्ठ',
-          startTime: '2024-08-23T01:30:00Z',
-          estimatedCompletion: '2024-08-23T02:00:00Z',
-          actualCompletion: '2024-08-23T01:55:00Z',
-          qcStatus: 'passed',
-          defects: 0
-        },
-        {
-          id: 'B002-8085-R-XL-2',
-          bundleNumber: 'B002-8085-R-XL',
-          lotNumber: 'S-85',
-          article: '8085',
-          color: 'रातो-1',
-          size: 'XL',
-          pieces: 28,
-          operation: 'प्लाकेट',
-          operationStep: 2,
-          machine: 'एकल सुई',
-          status: 'ready',
-          operator: null,
-          startTime: null,
-          estimatedCompletion: null,
-          actualCompletion: null,
-          qcStatus: 'pending',
-          defects: 0
+    const loadBundles = async () => {
+      try {
+        // Try loading from Firestore first
+        const bundlesRef = collection(db, COLLECTIONS.BUNDLES);
+        const q = query(bundlesRef, orderBy('createdAt', 'desc'));
+        const snapshot = await getDocs(q);
+        
+        if (!snapshot.empty) {
+          const firestoreBundles = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setBundles(firestoreBundles);
+          console.log('✅ Loaded bundles from Firestore:', firestoreBundles.length);
+        } else {
+          // No fallback - use empty array
+          console.log('ℹ️ No bundles in Firestore, using empty array');
+          setBundles([]);
         }
-      ];
-      setBundles(mockBundles);
+      } catch (error) {
+        console.warn('Failed to load bundles from Firestore:', error);
+        setBundles([]);
+      }
     };
 
     loadBundles();
@@ -214,12 +156,39 @@ const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
                 {currentLanguage === 'np' ? 'सिलाई प्रक्रियाहरू बीच बन्डल ट्र्याकिङ र व्यवस्थापन' : 'Track and manage bundles between sewing operations'}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-indigo-200 text-2xl"
-            >
-              ✕
-            </button>
+            
+            <div className="flex items-center space-x-4">
+              {/* View Mode Toggle */}
+              <div className="flex bg-white/20 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-white hover:text-indigo-200'
+                  }`}
+                >
+                  📋 {currentLanguage === 'np' ? 'सूची' : 'List'}
+                </button>
+                <button
+                  onClick={() => setViewMode('workflow')}
+                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'workflow'
+                      ? 'bg-white text-indigo-600 shadow-sm'
+                      : 'text-white hover:text-indigo-200'
+                  }`}
+                >
+                  🔄 {currentLanguage === 'np' ? 'वर्कफ्लो' : 'Workflow'}
+                </button>
+              </div>
+              
+              <button
+                onClick={onClose}
+                className="text-white hover:text-indigo-200 text-2xl"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         </div>
 
@@ -326,8 +295,10 @@ const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
           {/* Main Content - Bundle List */}
           <div className="flex-1 overflow-hidden">
             <div className="h-full overflow-y-auto p-6">
-              {/* Bundle Grid */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+              {viewMode === 'list' ? (
+                /* Bundle Grid - List View */
+                <div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {filteredBundles.map((bundle) => (
                   <div
                     key={bundle.id}
@@ -437,6 +408,71 @@ const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
                   <p className="text-gray-500">
                     {currentLanguage === 'np' ? 'फिल्टर परिवर्तन गर्नुहोस् वा नयाँ WIP आयात गर्नुहोस्' : 'Try changing filters or import new WIP data'}
                   </p>
+                </div>
+              )}
+            </div>
+              ) : (
+                /* High-Density Workflow Cards View */
+                <div className="space-y-3 max-h-[calc(100vh-200px)] overflow-y-auto">
+                  {filteredBundles.length > 0 ? (
+                    filteredBundles.map((bundle) => {
+                      // Load workflow steps from bundle data - no mock data
+                      const workflowSteps = bundle.workItems || [];
+
+                      return (
+                        <BundleWorkflowCards
+                          key={bundle.id}
+                          bundle={{
+                            bundleId: bundle.bundleNumber || bundle.id,
+                            articleNumber: bundle.article,
+                            color: bundle.color,
+                            size: bundle.size,
+                            pieces: bundle.pieces
+                          }}
+                          workItems={workflowSteps}
+                          onOperationClick={(operation) => {
+                            setSelectedBundle(bundle);
+                          }}
+                          onStatusUpdate={(operationId, newStatus) => {
+                            // Update bundle status and relevant fields
+                            setBundles(prev => prev.map(b => {
+                              if (b.id === bundle.id) {
+                                const updates = { status: newStatus };
+                                
+                                // Set timestamps based on status
+                                if (newStatus === 'in_progress') {
+                                  updates.startTime = new Date().toISOString();
+                                  updates.estimatedCompletion = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+                                } else if (newStatus === 'completed') {
+                                  updates.actualCompletion = new Date().toISOString();
+                                  updates.qcStatus = 'pending';
+                                }
+                                
+                                return { ...b, ...updates };
+                              }
+                              return b;
+                            }));
+                            
+                            if (onBundleUpdate) {
+                              onBundleUpdate(bundle.id, newStatus);
+                            }
+                          }}
+                          showProgress={true}
+                          compact={true}
+                        />
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-12">
+                      <div className="text-4xl mb-4">🔄</div>
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {currentLanguage === 'np' ? 'कुनै बन्डल फेला परेन' : 'No bundles found'}
+                      </h3>
+                      <p className="text-gray-500">
+                        {currentLanguage === 'np' ? 'फिल्टर परिवर्तन गर्नुहोस् वा नयाँ WIP आयात गर्नुहोस्' : 'Try changing filters or import new WIP data'}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

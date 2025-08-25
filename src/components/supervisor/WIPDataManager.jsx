@@ -74,9 +74,9 @@ const WIPDataManager = ({ onClose }) => {
   const loadWIPEntries = () => {
     console.log('🔥 WIP DATA MANAGER - LOADING ENTRIES');
     try {
-      const savedEntries = JSON.parse(localStorage.getItem('wipEntries') || '[]');
-      console.log('📊 Raw entries from localStorage:', savedEntries.length);
-      console.log('📋 Raw entries data:', JSON.stringify(savedEntries, null, 2));
+      // No localStorage loading - use empty array
+      const savedEntries = [];
+      console.log('📊 Raw entries from empty array:', savedEntries.length);
       
       // Add status and metadata to existing entries if not present
       const enrichedEntries = savedEntries.map(entry => ({
@@ -114,7 +114,7 @@ const WIPDataManager = ({ onClose }) => {
 
   const saveWIPEntries = (entries) => {
     try {
-      localStorage.setItem('wipEntries', JSON.stringify(entries));
+      // No localStorage saving
     } catch (error) {
       addError({
         message: 'Failed to save WIP entries',

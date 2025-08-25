@@ -36,9 +36,10 @@ const OperatorManagement = ({ onStatsUpdate }) => {
 
   const loadData = () => {
     try {
-      const savedOperators = JSON.parse(localStorage.getItem('operators') || '[]');
-      const savedMachines = JSON.parse(localStorage.getItem('machines') || '[]');
-      const savedTemplates = JSON.parse(localStorage.getItem('operationTemplates') || '[]');
+      // No localStorage loading - use empty arrays
+      const savedOperators = [];
+      const savedMachines = [];
+      const savedTemplates = [];
       
       setOperators(savedOperators);
       setMachines(savedMachines);
@@ -52,7 +53,7 @@ const OperatorManagement = ({ onStatsUpdate }) => {
 
   const saveOperators = (updatedOperators) => {
     try {
-      localStorage.setItem('operators', JSON.stringify(updatedOperators));
+      // No localStorage saving - only update state
       setOperators(updatedOperators);
       if (onStatsUpdate) onStatsUpdate();
     } catch (error) {

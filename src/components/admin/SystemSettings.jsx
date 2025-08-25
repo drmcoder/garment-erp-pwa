@@ -5,6 +5,7 @@ import React, { useState, useContext, useEffect } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
+import { db, collection, doc, getDoc, setDoc, COLLECTIONS } from '../../config/firebase';
 import BackButton from '../common/BackButton';
 
 const SystemSettings = ({ onBack }) => {
@@ -41,14 +42,21 @@ const SystemSettings = ({ onBack }) => {
 
   const loadSystemSettings = async () => {
     try {
-      // Load from localStorage for now, can be moved to Firebase later
-      const savedSettings = localStorage.getItem('systemSettings');
-      if (savedSettings) {
-        const parsed = JSON.parse(savedSettings);
-        setSettings(parsed);
+      // Try loading from Firestore first
+      const settingsDoc = doc(db, COLLECTIONS.SYSTEM_SETTINGS, 'global');
+      const docSnap = await getDoc(settingsDoc);
+      
+      if (docSnap.exists()) {
+        const firestoreSettings = docSnap.data();
+        setSettings(firestoreSettings);
+        console.log('✅ Loaded system settings from Firestore');
+      } else {
+        // No fallback - use default settings
+        console.log('ℹ️ No Firestore settings found, using default settings');
       }
     } catch (error) {
-      console.error('Failed to load system settings:', error);
+      console.error('Failed to load system settings from Firestore:', error);
+      // No localStorage fallback - use default settings
     }
   };
 
@@ -74,11 +82,14 @@ const SystemSettings = ({ onBack }) => {
   const saveSettings = async () => {
     setLoading(true);
     try {
-      // Save to localStorage for now
-      localStorage.setItem('systemSettings', JSON.stringify(settings));
+      // Save to Firestore first
+      const settingsDoc = doc(db, COLLECTIONS.SYSTEM_SETTINGS, 'global');
+      await setDoc(settingsDoc, settings);
+      console.log('✅ Saved system settings to Firestore');
       
-      // In a real app, you would save to Firebase here
-      // await SystemSettingsService.saveSettings(settings);
+      // No localStorage backup needed
+      
+      // Settings saved successfully
       
       setHasChanges(false);
       showNotification(

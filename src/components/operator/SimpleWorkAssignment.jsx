@@ -13,77 +13,7 @@ const SimpleWorkAssignment = ({ onWorkAssigned }) => {
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(0);
   
-  // Simple work data - would normally come from Firebase
-  const mockWork = [
-    {
-      id: 'W001',
-      articleNumber: '8085',
-      articleName: currentLanguage === 'np' ? 'पोलो टी-शर्ट' : 'Polo T-Shirt',
-      color: currentLanguage === 'np' ? 'नीलो-१' : 'Blue-1',
-      size: 'XL',
-      pieces: 30,
-      operation: currentLanguage === 'np' ? 'काँध जोड्ने' : 'Shoulder Join',
-      machineType: 'overlock',
-      rate: 2.5,
-      estimatedTime: 45,
-      difficulty: currentLanguage === 'np' ? 'सजिलो' : 'Easy',
-      priority: currentLanguage === 'np' ? 'उच्च' : 'High',
-      earnings: 75,
-      icon: '👕',
-      color_code: '#3B82F6'
-    },
-    {
-      id: 'W002', 
-      articleNumber: '8086',
-      articleName: currentLanguage === 'np' ? 'कार्गो प्यान्ट' : 'Cargo Pants',
-      color: currentLanguage === 'np' ? 'खैरो' : 'Brown',
-      size: 'L',
-      pieces: 25,
-      operation: currentLanguage === 'np' ? 'हेम फोल्ड' : 'Hem Fold',
-      machineType: 'flatlock',
-      rate: 3.0,
-      estimatedTime: 35,
-      difficulty: currentLanguage === 'np' ? 'सजिलो' : 'Easy',
-      priority: currentLanguage === 'np' ? 'सामान्य' : 'Normal',
-      earnings: 75,
-      icon: '👖',
-      color_code: '#10B981'
-    },
-    {
-      id: 'W003',
-      articleNumber: '8087', 
-      articleName: currentLanguage === 'np' ? 'फ्रक ड्रेस' : 'Frock Dress',
-      color: currentLanguage === 'np' ? 'गुलाफी' : 'Pink',
-      size: 'M',
-      pieces: 20,
-      operation: currentLanguage === 'np' ? 'साइड सिम' : 'Side Seam',
-      machineType: 'overlock',
-      rate: 3.5,
-      estimatedTime: 50,
-      difficulty: currentLanguage === 'np' ? 'मध्यम' : 'Medium',
-      priority: currentLanguage === 'np' ? 'उच्च' : 'High', 
-      earnings: 70,
-      icon: '👗',
-      color_code: '#F59E0B'
-    },
-    {
-      id: 'W004',
-      articleNumber: '8088',
-      articleName: currentLanguage === 'np' ? 'जुम्पर' : 'Jumper',
-      color: currentLanguage === 'np' ? 'कालो' : 'Black',
-      size: 'S',
-      pieces: 35,
-      operation: currentLanguage === 'np' ? 'प्लाकेट' : 'Placket',
-      machineType: 'singleNeedle',
-      rate: 2.8,
-      estimatedTime: 40,
-      difficulty: currentLanguage === 'np' ? 'मध्यम' : 'Medium',
-      priority: currentLanguage === 'np' ? 'सामान्य' : 'Normal',
-      earnings: 98,
-      icon: '🧥',
-      color_code: '#8B5CF6'
-    }
-  ];
+  // Load work data from Firebase/API - no mock data
 
   useEffect(() => {
     loadAvailableWork();
@@ -92,8 +22,11 @@ const SimpleWorkAssignment = ({ onWorkAssigned }) => {
   const loadAvailableWork = async () => {
     setLoading(true);
     try {
+      // No localStorage loading - use empty array
+      const storedWork = [];
+      
       // Filter work based on operator's machine type
-      const filteredWork = mockWork.filter(work => {
+      const filteredWork = storedWork.filter(work => {
         if (!user?.machine) return true;
         
         const machineMap = {
@@ -275,7 +208,9 @@ const SimpleWorkAssignment = ({ onWorkAssigned }) => {
                   <div className="text-sm text-gray-600 mb-1">
                     {currentLanguage === 'np' ? 'काम' : 'Operation'}
                   </div>
-                  <div className="font-bold text-gray-800">{work.operation}</div>
+                  <div className="font-bold text-gray-800">{typeof work.operation === 'string' 
+                    ? work.operation 
+                    : work.operation?.nameEn || work.operation?.name || 'Unknown Operation'}</div>
                 </div>
                 
                 <div className="bg-green-50 rounded-2xl p-4 text-center">
@@ -374,7 +309,9 @@ const SimpleWorkAssignment = ({ onWorkAssigned }) => {
                   <div className="text-4xl">{selectedWork.icon}</div>
                   <div>
                     <div className="text-xl font-bold">{selectedWork.articleName}</div>
-                    <div className="text-gray-600">{selectedWork.operation}</div>
+                    <div className="text-gray-600">{typeof selectedWork.operation === 'string' 
+                      ? selectedWork.operation 
+                      : selectedWork.operation?.nameEn || selectedWork.operation?.name || 'Unknown Operation'}</div>
                   </div>
                 </div>
                 

@@ -4,6 +4,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { LanguageContext } from './LanguageContext';
 import { ActivityLogService } from '../services/firebase-services';
+import { db, collection, getDocs, COLLECTIONS } from '../config/firebase';
 
 export const AuthContext = createContext();
 
@@ -13,326 +14,86 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
-  // Complete mock user data - in real app, this would come from Firebase
-  const mockUsers = [
-    {
-      id: 'op_001',
-      username: 'ram.singh',
-      name: isNepali ? 'राम सिंह' : 'Ram Singh',
-      role: 'operator',
-      machine: 'overlock', // Primary machine assignment
-      speciality: 'overlock',
-      specialityNepali: 'ओभरलक',
-      experience: 5,
-      efficiency: 92,
-      qualityScore: 96,
-      station: 'overlock_01',
-      shift: 'morning',
-      employeeId: 'EMP001',
-      joinDate: '2020-01-15',
-      skills: ['shoulder_join', 'side_seam', 'armhole'],
-      preferences: {
-        language: 'np',
-        notifications: true,
-        autoAssign: false
-      },
-      stats: {
-        todayPieces: 85,
-        todayEarnings: 237.50,
-        weeklyPieces: 520,
-        weeklyEarnings: 1456.00,
-        monthlyPieces: 2480,
-        monthlyEarnings: 6205.00
-      },
-      currentWork: {
-        bundleId: 'bundle_001',
-        articleNumber: '8085',
-        operation: isNepali ? 'काँध जोड्ने' : 'Shoulder Join',
-        pieces: 30,
-        completed: 25,
-        rate: 2.50
-      }
-    },
-    {
-      id: 'op_002',
-      username: 'sita.devi',
-      name: isNepali ? 'सीता देवी' : 'Sita Devi',
-      role: 'operator',
-      machine: 'single-needle', // Primary machine assignment
-      speciality: 'single-needle',
-      specialityNepali: 'एकल सुई',
-      experience: 3,
-      efficiency: 88,
-      qualityScore: 94,
-      station: 'single_needle_01',
-      shift: 'morning',
-      employeeId: 'EMP002',
-      joinDate: '2021-03-10',
-      skills: ['placket', 'collar', 'buttonhole'],
-      preferences: {
-        language: 'np',
-        notifications: true,
-        autoAssign: true
-      },
-      stats: {
-        todayPieces: 72,
-        todayEarnings: 201.60,
-        weeklyPieces: 456,
-        weeklyEarnings: 1276.80,
-        monthlyPieces: 2016,
-        monthlyEarnings: 5644.80
-      },
-      currentWork: null
-    },
-    {
-      id: 'op_003',
-      username: 'hari.bahadur',
-      name: isNepali ? 'हरि बहादुर' : 'Hari Bahadur',
-      role: 'operator',
-      speciality: 'single_needle',
-      specialityNepali: 'एकल सुई',
-      experience: 7,
-      efficiency: 90,
-      qualityScore: 98,
-      station: 'single_needle_01',
-      shift: 'morning',
-      employeeId: 'EMP003',
-      joinDate: '2019-05-20',
-      skills: ['placket', 'buttonhole', 'top_stitch'],
-      preferences: {
-        language: 'np',
-        notifications: true,
-        autoAssign: false
-      },
-      stats: {
-        todayPieces: 95,
-        todayEarnings: 285.00,
-        weeklyPieces: 612,
-        weeklyEarnings: 1836.00,
-        monthlyPieces: 2856,
-        monthlyEarnings: 7140.00
-      },
-      currentWork: {
-        bundleId: 'bundle_003',
-        articleNumber: '6635',
-        operation: isNepali ? 'प्लाकेट' : 'Placket',
-        pieces: 40,
-        completed: 35,
-        rate: 1.90
-      }
-    },
-    {
-      id: 'op_004',
-      username: 'mina.tamang',
-      name: isNepali ? 'मिना तामाङ' : 'Mina Tamang',
-      role: 'operator',
-      speciality: 'overlock',
-      specialityNepali: 'ओभरलक',
-      experience: 2,
-      efficiency: 78,
-      qualityScore: 92,
-      station: 'overlock_02',
-      shift: 'morning',
-      employeeId: 'EMP004',
-      joinDate: '2022-08-10',
-      skills: ['side_seam', 'hem_fold'],
-      preferences: {
-        language: 'np',
-        notifications: true,
-        autoAssign: true
-      },
-      stats: {
-        todayPieces: 58,
-        todayEarnings: 162.40,
-        weeklyPieces: 378,
-        weeklyEarnings: 1058.40,
-        monthlyPieces: 1680,
-        monthlyEarnings: 4704.00
-      },
-      currentWork: null
-    },
-    {
-      id: 'op_005',
-      username: 'kumar.gurung',
-      name: isNepali ? 'कुमार गुरुङ' : 'Kumar Gurung',
-      role: 'operator',
-      speciality: 'buttonhole',
-      specialityNepali: 'बटनहोल',
-      experience: 4,
-      efficiency: 85,
-      qualityScore: 95,
-      station: 'buttonhole_01',
-      shift: 'morning',
-      employeeId: 'EMP005',
-      joinDate: '2020-12-15',
-      skills: ['buttonhole', 'button_attach'],
-      preferences: {
-        language: 'np',
-        notifications: true,
-        autoAssign: false
-      },
-      stats: {
-        todayPieces: 45,
-        todayEarnings: 180.00,
-        weeklyPieces: 315,
-        weeklyEarnings: 1260.00,
-        monthlyPieces: 1350,
-        monthlyEarnings: 5400.00
-      },
-      currentWork: {
-        bundleId: 'bundle_005',
-        articleNumber: '2233',
-        operation: isNepali ? 'बटनहोल' : 'Buttonhole',
-        pieces: 20,
-        completed: 15,
-        rate: 4.00
-      }
-    },
-    {
-      id: 'sup_001',
-      username: 'hari.supervisor',
-      name: isNepali ? 'हरि बहादुर सुपरभाइजर' : 'Hari Bahadur Supervisor',
-      role: 'supervisor',
-      department: 'production_line_1',
-      experience: 8,
-      employeeId: 'SUP001',
-      joinDate: '2018-06-01',
-      permissions: ['assign_work', 'view_reports', 'manage_quality', 'view_line_status'],
-      preferences: {
-        language: 'np',
-        notifications: true
-      },
-      lineAssigned: 'line_1',
-      operatorsManaged: 25,
-      stats: {
-        lineEfficiency: 87,
-        dailyProduction: 2450,
-        qualityScore: 94,
-        onTimeDelivery: 96
-      }
-    },
-    {
-      id: 'sup_002',
-      username: 'gita.supervisor',
-      name: isNepali ? 'गीता शर्मा सुपरभाइजर' : 'Gita Sharma Supervisor',
-      role: 'supervisor',
-      department: 'production_line_2',
-      experience: 6,
-      employeeId: 'SUP002',
-      joinDate: '2019-03-15',
-      permissions: ['assign_work', 'view_reports', 'manage_quality', 'view_line_status'],
-      preferences: {
-        language: 'np',
-        notifications: true
-      },
-      lineAssigned: 'line_2',
-      operatorsManaged: 25,
-      stats: {
-        lineEfficiency: 91,
-        dailyProduction: 2680,
-        qualityScore: 97,
-        onTimeDelivery: 98
-      }
-    },
-    {
-      id: 'mgr_001',
-      username: 'admin.manager',
-      name: isNepali ? 'उत्पादन व्यवस्थापक' : 'Production Manager',
-      role: 'manager',
-      department: 'production',
-      experience: 12,
-      employeeId: 'MGR001',
-      joinDate: '2015-01-01',
-      permissions: ['all'],
-      preferences: {
-        language: 'en',
-        notifications: true
-      },
-      stats: {
-        totalEmployees: 50,
-        dailyProduction: 5130,
-        monthlyRevenue: 2850000,
-        overallEfficiency: 89,
-        qualityScore: 95.5
-      }
-    },
-    {
-      id: 'mgr_002',
-      username: 'quality.manager',
-      name: isNepali ? 'गुणस्तर व्यवस्थापक' : 'Quality Manager',
-      role: 'manager',
-      department: 'quality',
-      experience: 10,
-      employeeId: 'QMG001',
-      joinDate: '2016-08-01',
-      permissions: ['manage_quality', 'view_reports', 'quality_analysis'],
-      preferences: {
-        language: 'np',
-        notifications: true
-      },
-      stats: {
-        qualityScore: 96.2,
-        defectRate: 3.8,
-        reworkRate: 2.1,
-        customerComplaints: 0.5
-      }
+  // Load users from Firestore
+  const [allUsers, setAllUsers] = useState([]);
+
+  // Function to load users from Firestore
+  const loadUsersFromFirestore = async () => {
+    try {
+      const usersData = [];
+      
+      // Load operators
+      const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
+      operatorsSnapshot.forEach((doc) => {
+        const userData = { ...doc.data(), id: doc.id, role: 'operator' };
+        // Ensure stats object exists
+        if (!userData.stats) {
+          userData.stats = {
+            todayPieces: 0,
+            todayEarnings: 0,
+            weeklyPieces: 0,
+            weeklyEarnings: 0,
+            monthlyPieces: 0,
+            monthlyEarnings: 0
+          };
+        }
+        usersData.push(userData);
+      });
+
+      // Load supervisors
+      const supervisorsSnapshot = await getDocs(collection(db, COLLECTIONS.SUPERVISORS));
+      supervisorsSnapshot.forEach((doc) => {
+        const userData = { ...doc.data(), id: doc.id, role: 'supervisor' };
+        // Ensure stats object exists
+        if (!userData.stats) {
+          userData.stats = {
+            todayPieces: 0,
+            todayEarnings: 0,
+            weeklyPieces: 0,
+            weeklyEarnings: 0,
+            monthlyPieces: 0,
+            monthlyEarnings: 0
+          };
+        }
+        usersData.push(userData);
+      });
+
+      // Load management
+      const managementSnapshot = await getDocs(collection(db, COLLECTIONS.MANAGEMENT));
+      managementSnapshot.forEach((doc) => {
+        const userData = { ...doc.data(), id: doc.id, role: 'manager' };
+        // Ensure stats object exists
+        if (!userData.stats) {
+          userData.stats = {
+            todayPieces: 0,
+            todayEarnings: 0,
+            weeklyPieces: 0,
+            weeklyEarnings: 0,
+            monthlyPieces: 0,
+            monthlyEarnings: 0
+          };
+        }
+        usersData.push(userData);
+      });
+
+      setAllUsers(usersData);
+      return usersData;
+    } catch (error) {
+      console.error('Error loading users from Firestore:', error);
+      setAllUsers([]); // No fallback - use empty array
+      return [];
     }
-  ];
+  };
 
   useEffect(() => {
-    // Check for existing session
-    const checkAuth = async () => {
-      setLoading(true);
-      try {
-        // Check localStorage for saved session
-        const savedUser = localStorage.getItem('garmentErpUser');
-        const savedToken = localStorage.getItem('garmentErpToken');
-        
-        if (savedUser && savedToken) {
-          const userData = JSON.parse(savedUser);
-          
-          // Validate token (in real app, verify with server)
-          const tokenValid = await validateToken(savedToken);
-          
-          if (tokenValid) {
-            setUser(userData);
-            setIsAuthenticated(true);
-          } else {
-            // Clear invalid session
-            localStorage.removeItem('garmentErpUser');
-            localStorage.removeItem('garmentErpToken');
-          }
-        } else {
-          // Check sessionStorage for session-only login
-          const sessionUser = sessionStorage.getItem('garmentErpUser');
-          const sessionToken = sessionStorage.getItem('garmentErpToken');
-          
-          if (sessionUser && sessionToken) {
-            const userData = JSON.parse(sessionUser);
-            const tokenValid = await validateToken(sessionToken);
-            
-            if (tokenValid) {
-              setUser(userData);
-              setIsAuthenticated(true);
-            } else {
-              sessionStorage.removeItem('garmentErpUser');
-              sessionStorage.removeItem('garmentErpToken');
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Auth check failed:', error);
-        // Clear potentially corrupted session
-        localStorage.removeItem('garmentErpUser');
-        localStorage.removeItem('garmentErpToken');
-        sessionStorage.removeItem('garmentErpUser');
-        sessionStorage.removeItem('garmentErpToken');
-      } finally {
-        setLoading(false);
-      }
-    };
+    loadUsersFromFirestore();
+  }, [isNepali]);
 
-    checkAuth();
+  const mockUsers = allUsers;
+
+  useEffect(() => {
+    // No session persistence - users must login each time
+    setLoading(false);
   }, []);
 
   // Validate token (mock implementation)
@@ -355,11 +116,43 @@ export const AuthProvider = ({ children }) => {
   const login = async (username, password, rememberMe = false) => {
     setLoading(true);
     try {
+      // Ensure users are loaded from Firestore before attempting login
+      if (allUsers.length === 0) {
+        console.log('🔄 Users not loaded yet, refreshing from Firestore...');
+        const freshUsers = await loadUsersFromFirestore();
+        if (freshUsers.length > 0) {
+          // Use the freshly loaded users for authentication
+          const foundUser = freshUsers.find(u => u.username === username);
+          
+          if (!foundUser) {
+            throw new Error(isNepali ? 'प्रयोगकर्ता फेला परेन' : 'User not found');
+          }
+          
+          // Simple password check
+          if (password !== 'password123') {
+            throw new Error(isNepali ? 'गलत पासवर्ड' : 'Invalid password');
+          }
+          
+          // Set user and return early
+          setUser(foundUser);
+          setIsAuthenticated(true);
+          
+          // Log activity
+          await ActivityLogService.logActivity(foundUser.id, 'login', {
+            role: foundUser.role,
+            station: foundUser.station || 'unknown',
+            timestamp: new Date().toISOString()
+          });
+          
+          return { success: true, user: foundUser };
+        }
+      }
+      
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Find user in mock data
-      const foundUser = mockUsers.find(u => u.username === username);
+      // Find user in loaded data
+      const foundUser = allUsers.find(u => u.username === username);
       
       if (!foundUser) {
         throw new Error(isNepali ? 'प्रयोगकर्ता फेला परेन' : 'User not found');
@@ -373,15 +166,7 @@ export const AuthProvider = ({ children }) => {
       // Create mock JWT token
       const token = createMockToken(foundUser);
       
-      // Save to localStorage if remember me is checked
-      if (rememberMe) {
-        localStorage.setItem('garmentErpUser', JSON.stringify(foundUser));
-        localStorage.setItem('garmentErpToken', token);
-      } else {
-        // Save to sessionStorage for session-only login
-        sessionStorage.setItem('garmentErpUser', JSON.stringify(foundUser));
-        sessionStorage.setItem('garmentErpToken', token);
-      }
+      // No storage persistence - session exists only in memory
       
       setUser(foundUser);
       setIsAuthenticated(true);
@@ -417,11 +202,7 @@ export const AuthProvider = ({ children }) => {
         });
       }
       
-      // Clear all storage
-      localStorage.removeItem('garmentErpUser');
-      localStorage.removeItem('garmentErpToken');
-      sessionStorage.removeItem('garmentErpUser');
-      sessionStorage.removeItem('garmentErpToken');
+      // No storage to clear - session only exists in memory
       
       setUser(null);
       setIsAuthenticated(false);
@@ -466,9 +247,7 @@ export const AuthProvider = ({ children }) => {
       
       const updatedUser = { ...user, ...updates };
       
-      // Update storage
-      const storage = localStorage.getItem('garmentErpUser') ? localStorage : sessionStorage;
-      storage.setItem('garmentErpUser', JSON.stringify(updatedUser));
+      // No storage updates - session only exists in memory
       
       setUser(updatedUser);
       
@@ -517,9 +296,7 @@ export const AuthProvider = ({ children }) => {
       if (updatedUser) {
         setUser(updatedUser);
         
-        // Update storage
-        const storage = localStorage.getItem('garmentErpUser') ? localStorage : sessionStorage;
-        storage.setItem('garmentErpUser', JSON.stringify(updatedUser));
+        // No storage updates - session only exists in memory
       }
       
       return updatedUser;
@@ -604,9 +381,7 @@ export const AuthProvider = ({ children }) => {
       
       setUser(updatedUser);
       
-      // Update storage
-      const storage = localStorage.getItem('garmentErpUser') ? localStorage : sessionStorage;
-      storage.setItem('garmentErpUser', JSON.stringify(updatedUser));
+      // No storage updates - session only exists in memory
       
       return updatedUser;
     } catch (error) {
@@ -638,9 +413,7 @@ export const AuthProvider = ({ children }) => {
       
       setUser(updatedUser);
       
-      // Update storage
-      const storage = localStorage.getItem('garmentErpUser') ? localStorage : sessionStorage;
-      storage.setItem('garmentErpUser', JSON.stringify(updatedUser));
+      // No storage updates - session only exists in memory
       
       return { success: true, earnings };
     } catch (error) {

@@ -96,85 +96,15 @@ const MachineManagement = ({ onStatsUpdate, onBack }) => {
       if (onStatsUpdate) onStatsUpdate();
     } catch (error) {
       console.error('❌ Error loading machine data from Firebase:', error);
-      // Fallback to localStorage if Firebase fails
+      // No localStorage fallback - use empty array
       try {
-        const savedMachines = JSON.parse(localStorage.getItem('machines') || '[]');
+        const savedMachines = [];
         
-        // If no machines exist, add sample machines
-        if (savedMachines.length === 0) {
-          const sampleMachines = [
-            {
-              id: 'overlock_001',
-              name: 'Overlock Machine #1',
-              type: 'Overlock',
-              brand: 'Juki',
-              model: 'MO-6814S',
-              serialNumber: 'OVL001',
-              status: 'active',
-              location: 'Line A',
-              assignedOperator: 'ram.singh',
-              specifications: {
-                maxSpeed: '7000',
-                needleType: 'DC×27',
-                threadCount: '4',
-                power: '550W'
-              },
-              maintenanceSchedule: 'monthly',
-              lastMaintenance: '2024-01-15',
-              nextMaintenance: '2024-02-15',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'single_needle_001',
-              name: 'Single Needle Machine #1',
-              type: 'Single Needle',
-              brand: 'Brother',
-              model: 'S-1000A-3',
-              serialNumber: 'SN001',
-              status: 'active',
-              location: 'Line B',
-              assignedOperator: 'sita.devi',
-              specifications: {
-                maxSpeed: '5500',
-                needleType: 'DP×5',
-                threadCount: '1',
-                power: '400W'
-              },
-              maintenanceSchedule: 'weekly',
-              lastMaintenance: '2024-01-20',
-              nextMaintenance: '2024-01-27',
-              createdAt: new Date().toISOString()
-            },
-            {
-              id: 'flatlock_001',
-              name: 'Flatlock Machine #1',
-              type: 'Flat Lock',
-              brand: 'Pegasus',
-              model: 'M752-13',
-              serialNumber: 'FL001',
-              status: 'active',
-              location: 'Line C',
-              assignedOperator: '',
-              specifications: {
-                maxSpeed: '6500',
-                needleType: 'DC×27',
-                threadCount: '3',
-                power: '500W'
-              },
-              maintenanceSchedule: 'monthly',
-              lastMaintenance: '2024-01-10',
-              nextMaintenance: '2024-02-10',
-              createdAt: new Date().toISOString()
-            }
-          ];
-          
-          localStorage.setItem('machines', JSON.stringify(sampleMachines));
-          setMachines(sampleMachines);
-          console.log('✨ Created sample machines for demo');
-        } else {
-          setMachines(savedMachines);
-          console.log('📦 Loaded machines from localStorage as fallback');
-        }
+        // No machines to load - start with empty array
+        setMachines(savedMachines);
+        console.log(`📦 Loaded ${savedMachines.length} machines from localStorage as fallback`);
+        
+        if (onStatsUpdate) onStatsUpdate();
       } catch (localError) {
         console.error('Error loading from localStorage:', localError);
       }
@@ -207,9 +137,9 @@ const MachineManagement = ({ onStatsUpdate, onBack }) => {
       return result;
     } catch (error) {
       console.error('❌ Error saving machine to Firebase:', error);
-      // Fallback to localStorage
+      // No localStorage fallback
       try {
-        const currentMachines = JSON.parse(localStorage.getItem('machines') || '[]');
+        const currentMachines = [];
         let updatedMachines;
         
         if (isUpdate && machineId) {
@@ -218,9 +148,9 @@ const MachineManagement = ({ onStatsUpdate, onBack }) => {
           updatedMachines = [...currentMachines, machineData];
         }
         
-        localStorage.setItem('machines', JSON.stringify(updatedMachines));
+        // No localStorage saving
         setMachines(updatedMachines);
-        console.log('📦 Saved to localStorage as fallback');
+        console.log('📦 Machine updated (no localStorage save)');
         
         if (onStatsUpdate) onStatsUpdate();
         return machineData.id;
@@ -360,25 +290,15 @@ const MachineManagement = ({ onStatsUpdate, onBack }) => {
           // Reload data after delete
           await loadData();
           
-          // Fallback: also remove from localStorage
-          try {
-            const currentMachines = JSON.parse(localStorage.getItem('machines') || '[]');
-            const updatedMachines = currentMachines.filter(machine => machine.id !== machineId);
-            localStorage.setItem('machines', JSON.stringify(updatedMachines));
-          } catch (localError) {
-            console.error('Error updating localStorage:', localError);
-          }
+          // No localStorage update needed
         },
         onError: async (errorMessage) => {
           console.error('❌ Error deleting machine from Firebase:', errorMessage);
           
-          // Fallback to localStorage
+          // No localStorage fallback
           try {
-            const currentMachines = JSON.parse(localStorage.getItem('machines') || '[]');
-            const updatedMachines = currentMachines.filter(machine => machine.id !== machineId);
-            localStorage.setItem('machines', JSON.stringify(updatedMachines));
-            setMachines(updatedMachines);
-            console.log('📦 Deleted from localStorage as fallback');
+            setMachines(prev => prev.filter(machine => machine.id !== machineId));
+            console.log('📦 Machine removed from state');
             
             if (onStatsUpdate) onStatsUpdate();
             alert(currentLanguage === 'np' ? 'मेसिन सफलतापूर्वक मेटाइयो!' : 'Machine deleted successfully!');

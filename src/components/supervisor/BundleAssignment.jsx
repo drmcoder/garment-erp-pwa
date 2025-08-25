@@ -19,13 +19,28 @@ const BundleAssignment = () => {
   };
 
   const loadOperators = async () => {
-    // Mock operators data for now - can be replaced with actual Firebase call
-    const mockOperators = [
-      { id: 'op001', name: 'राम सिंह', speciality: 'Overlock' },
-      { id: 'op002', name: 'सीता देवी', speciality: 'Flatlock' },
-      { id: 'op003', name: 'हरि बहादुर', speciality: 'Single Needle' }
-    ];
-    setOperators(mockOperators);
+    try {
+      // No localStorage loading - use empty array
+      const savedOperators = [];
+      
+      if (savedOperators.length > 0) {
+        // Filter for active operators with machine assignments
+        const activeOperators = savedOperators.filter(op => 
+          op.isActive && op.machineType
+        ).map(op => ({
+          id: op.id,
+          name: op.name,
+          speciality: op.machineType
+        }));
+        setOperators(activeOperators);
+      } else {
+        // Start with empty array if no operators found
+        setOperators([]);
+      }
+    } catch (error) {
+      console.error('Error loading operators:', error);
+      setOperators([]);
+    }
   };
 
   const assignBundle = async (bundleId, operatorId) => {

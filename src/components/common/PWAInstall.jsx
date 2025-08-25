@@ -47,19 +47,12 @@ const PWAInstall = () => {
 
   const handleDismiss = () => {
     setShowInstall(false);
-    localStorage.setItem("pwa-install-dismissed", Date.now().toString());
+    // No localStorage saving for dismiss state
   };
 
   useEffect(() => {
-    const dismissed = localStorage.getItem("pwa-install-dismissed");
-    if (dismissed) {
-      const dismissTime = parseInt(dismissed);
-      const twentyFourHours = 24 * 60 * 60 * 1000;
-
-      if (Date.now() - dismissTime < twentyFourHours) {
-        setShowInstall(false);
-      }
-    }
+    // No localStorage checking for dismiss state
+    // PWA install prompt will show every time if available
   }, []);
 
   if (!showInstall) return null;

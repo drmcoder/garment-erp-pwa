@@ -22,10 +22,11 @@ const AdminDashboard = () => {
 
   const loadStats = () => {
     try {
-      const operators = JSON.parse(localStorage.getItem('operators') || '[]');
-      const supervisors = JSON.parse(localStorage.getItem('supervisors') || '[]');
-      const machines = JSON.parse(localStorage.getItem('machines') || '[]');
-      const operationTemplates = JSON.parse(localStorage.getItem('operationTemplates') || '[]');
+      // No localStorage loading - use empty arrays
+      const operators = [];
+      const supervisors = [];
+      const machines = [];
+      const operationTemplates = [];
 
       setStats({
         totalOperators: operators.length,

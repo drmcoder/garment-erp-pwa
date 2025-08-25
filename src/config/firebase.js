@@ -128,6 +128,7 @@ export const COLLECTIONS = {
   SIZE_CONFIGS: "sizeConfigs",
   MACHINE_CONFIGS: "machineConfigs",
   ARTICLE_TEMPLATES: "articleTemplates",
+  DELETED_TEMPLATES: "deletedTemplates",
   DAILY_REPORTS: "dailyReports",
   EFFICIENCY_LOGS: "efficiencyLogs",
   LINE_STATUS: "lineStatus",

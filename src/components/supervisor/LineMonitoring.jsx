@@ -5,6 +5,7 @@ import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../contexts/AuthContext";
 import { LanguageContext } from "../../contexts/LanguageContext";
 import { NotificationContext } from "../../contexts/NotificationContext";
+import { db, collection, getDocs, query, where, orderBy, COLLECTIONS } from "../../config/firebase";
 
 const LineMonitoring = () => {
   const { user } = useContext(AuthContext);
@@ -46,192 +47,41 @@ const LineMonitoring = () => {
   const loadLineData = async () => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
+      let stations = [];
+      let operators = [];
+      
+      // Try loading from Firestore first
+      try {
+        // Load line stations from Firestore
+        const stationsSnapshot = await getDocs(collection(db, COLLECTIONS.LINE_STATUS));
+        stations = stationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        // Load operators from Firestore
+        const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
+        operators = operatorsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        
+        console.log('✅ Loaded line data from Firestore - stations:', stations.length, 'operators:', operators.length);
+      } catch (firestoreError) {
+        console.warn('Failed to load line data from Firestore, falling back to localStorage:', firestoreError);
+        
+        // No localStorage fallback - use empty arrays
+        stations = [];
+        operators = savedOperators.length > 0 ? savedOperators : [];
+      }
 
-      // Mock line data with 50 operators across different stations
-      const mockStations = [
-        {
-          id: "cutting",
-          name: isNepali ? "कटिङ स्टेसन" : "Cutting Station",
-          type: "cutting",
-          capacity: 8,
-          activeOperators: 7,
-          currentWork: 45,
-          targetWork: 50,
-          efficiency: 90,
-          avgIdleTime: 5,
-          bottleneck: false,
-        },
-        {
-          id: "overlock",
-          name: isNepali ? "ओभरलक स्टेसन" : "Overlock Station",
-          type: "overlock",
-          capacity: 15,
-          activeOperators: 14,
-          currentWork: 380,
-          targetWork: 420,
-          efficiency: 85,
-          avgIdleTime: 8,
-          bottleneck: false,
-        },
-        {
-          id: "flatlock",
-          name: isNepali ? "फ्ल्यालक स्टेसन" : "Flatlock Station",
-          type: "flatlock",
-          capacity: 12,
-          activeOperators: 11,
-          currentWork: 220,
-          targetWork: 300,
-          efficiency: 73,
-          avgIdleTime: 18,
-          bottleneck: true,
-        },
-        {
-          id: "single_needle",
-          name: isNepali ? "एकल सुई स्टेसन" : "Single Needle Station",
-          type: "single_needle",
-          capacity: 10,
-          activeOperators: 9,
-          currentWork: 180,
-          targetWork: 200,
-          efficiency: 90,
-          avgIdleTime: 6,
-          bottleneck: false,
-        },
-        {
-          id: "buttonhole",
-          name: isNepali ? "बटनहोल स्टेसन" : "Buttonhole Station",
-          type: "buttonhole",
-          capacity: 3,
-          activeOperators: 3,
-          currentWork: 45,
-          targetWork: 60,
-          efficiency: 75,
-          avgIdleTime: 12,
-          bottleneck: false,
-        },
-        {
-          id: "finishing",
-          name: isNepali ? "फिनिसिङ स्टेसन" : "Finishing Station",
-          type: "finishing",
-          capacity: 8,
-          activeOperators: 7,
-          currentWork: 95,
-          targetWork: 120,
-          efficiency: 79,
-          avgIdleTime: 10,
-          bottleneck: false,
-        },
-      ];
-
-      const mockOperators = [
-        // Overlock operators
-        {
-          id: "op_001",
-          name: isNepali ? "राम सिंह" : "Ram Singh",
-          station: "overlock",
-          machineId: "OV001",
-          status: "working",
-          currentWork: {
-            bundleId: "bundle_001",
-            article: "8085",
-            operation: isNepali ? "काँध जोड्ने" : "Shoulder Join",
-            pieces: 30,
-            completed: 22,
-            progress: 73,
-          },
-          efficiency: 92,
-          qualityScore: 96,
-          idleTime: 5,
-          todayPieces: 85,
-          todayEarnings: 237.5,
-          lastActivity: new Date(Date.now() - 300000).toISOString(),
-        },
-        {
-          id: "op_002",
-          name: isNepali ? "सीता देवी" : "Sita Devi",
-          station: "flatlock",
-          machineId: "FL001",
-          status: "working",
-          currentWork: {
-            bundleId: "bundle_002",
-            article: "2233",
-            operation: isNepali ? "हेम फोल्ड" : "Hem Fold",
-            pieces: 28,
-            completed: 15,
-            progress: 54,
-          },
-          efficiency: 88,
-          qualityScore: 94,
-          idleTime: 3,
-          todayPieces: 72,
-          todayEarnings: 201.6,
-          lastActivity: new Date(Date.now() - 180000).toISOString(),
-        },
-        {
-          id: "op_003",
-          name: isNepali ? "हरि बहादुर" : "Hari Bahadur",
-          station: "single_needle",
-          machineId: "SN001",
-          status: "working",
-          currentWork: {
-            bundleId: "bundle_003",
-            article: "6635",
-            operation: isNepali ? "प्लाकेट" : "Placket",
-            pieces: 40,
-            completed: 35,
-            progress: 88,
-          },
-          efficiency: 90,
-          qualityScore: 98,
-          idleTime: 2,
-          todayPieces: 95,
-          todayEarnings: 285.0,
-          lastActivity: new Date(Date.now() - 120000).toISOString(),
-        },
-        {
-          id: "op_004",
-          name: isNepali ? "मिना तामाङ" : "Mina Tamang",
-          station: "overlock",
-          machineId: "OV002",
-          status: "idle",
-          currentWork: null,
-          efficiency: 78,
-          qualityScore: 92,
-          idleTime: 25,
-          todayPieces: 58,
-          todayEarnings: 162.4,
-          lastActivity: new Date(Date.now() - 1500000).toISOString(),
-        },
-        {
-          id: "op_005",
-          name: isNepali ? "कुमार गुरुङ" : "Kumar Gurung",
-          station: "buttonhole",
-          machineId: "BH001",
-          status: "break",
-          currentWork: null,
-          efficiency: 85,
-          qualityScore: 95,
-          idleTime: 15,
-          todayPieces: 45,
-          todayEarnings: 180.0,
-          lastActivity: new Date(Date.now() - 900000).toISOString(),
-        },
-      ];
-
-      const totalProduction = mockStations.reduce(
-        (sum, station) => sum + station.currentWork,
+      // Calculate real-time production metrics
+      const totalProduction = stations.reduce(
+        (sum, station) => sum + (station.currentWork || 0),
         0
       );
-      const totalTarget = mockStations.reduce(
-        (sum, station) => sum + station.targetWork,
+      const totalTarget = stations.reduce(
+        (sum, station) => sum + (station.targetWork || 0),
         0
       );
-      const overallEfficiency = Math.round(
+      const overallEfficiency = totalTarget > 0 ? Math.round(
         (totalProduction / totalTarget) * 100
-      );
-      const bottlenecks = mockStations.filter((station) => station.bottleneck);
+      ) : 0;
+      const bottlenecks = stations.filter((station) => station.bottleneck);
 
       setLineData({
         lineInfo: {
@@ -241,8 +91,8 @@ const LineMonitoring = () => {
           startTime: "08:00",
           endTime: "17:00",
         },
-        stations: mockStations,
-        operators: mockOperators,
+        stations,
+        operators,
         currentProduction: totalProduction,
         targetProduction: totalTarget,
         efficiency: overallEfficiency,
@@ -250,8 +100,8 @@ const LineMonitoring = () => {
       });
 
       // Send alerts for idle operators if auto-alerts enabled
-      if (alertSettings.autoAlerts) {
-        mockOperators.forEach((operator) => {
+      if (alertSettings.autoAlerts && operators.length > 0) {
+        operators.forEach((operator) => {
           if (
             operator.status === "idle" &&
             operator.idleTime >= alertSettings.idleTimeThreshold
@@ -642,7 +492,9 @@ const LineMonitoring = () => {
                               #{operator.currentWork.article}
                             </div>
                             <div className="text-gray-500">
-                              {operator.currentWork.operation}
+                              {typeof operator.currentWork.operation === 'string' 
+                                ? operator.currentWork.operation 
+                                : operator.currentWork.operation?.nameEn || operator.currentWork.operation?.name || 'Unknown Operation'}
                             </div>
                             <div className="text-xs text-blue-600">
                               {operator.currentWork.completed}/

@@ -6,7 +6,16 @@ import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
 import { BundleService } from "../../services/firebase-services";
+import { db, collection, getDocs, setDoc, doc, COLLECTIONS } from "../../config/firebase";
 import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
+
+// Mock operation types for fallback
+const mockOperationTypes = [
+  { id: 'overlock', english: 'Overlock Stitching', nepali: 'ओभरलक सिलाई', machine: 'Overlock' },
+  { id: 'flatlock', english: 'Flatlock Stitching', nepali: 'फ्ल्याटलक सिलाई', machine: 'Flatlock' },
+  { id: 'singleNeedle', english: 'Single Needle', nepali: 'एकल सुई', machine: 'Single Needle' },
+  { id: 'buttonhole', english: 'Buttonhole', nepali: 'बटनहोल', machine: 'Buttonhole' },
+];
 
 const SelfAssignmentSystem = () => {
   const { user } = useContext(AuthContext);
@@ -24,135 +33,32 @@ const SelfAssignmentSystem = () => {
   });
   const [showOperationsEditor, setShowOperationsEditor] = useState(false);
 
-  // Mock data removed - now using Firebase data
-
-  const mockOperationTypes = [
-    {
-      id: "shoulder_join",
-      nepali: "काँध जोड्ने",
-      english: "Shoulder Join",
-      machine: "ओभरलक",
-    },
-    {
-      id: "hem_fold",
-      nepali: "हेम फोल्ड",
-      english: "Hem Fold",
-      machine: "फ्ल्यालक",
-    },
-    {
-      id: "side_seam",
-      nepali: "साइड सिम",
-      english: "Side Seam",
-      machine: "ओभरलक",
-    },
-    {
-      id: "placket",
-      nepali: "प्लाकेट",
-      english: "Placket",
-      machine: "एकल सुई",
-    },
-    { id: "armhole", nepali: "आर्महोल", english: "Armhole", machine: "ओभरलक" },
-    {
-      id: "neckline",
-      nepali: "नेकलाइन",
-      english: "Neckline",
-      machine: "फ्ल्यालक",
-    },
-  ];
-
-  // Create sample work items for testing when Firebase is empty
-  const createSampleWorkForMachine = (machineType) => {
-    const sampleWorkMap = {
-      overlock: [
-        {
-          id: 'sample_overlock_1',
-          articleNumber: '8085',
-          articleName: 'Polo T-Shirt',
-          englishName: 'Polo T-Shirt',
-          color: 'Blue-1',
-          size: 'M',
-          pieces: 25,
-          operation: 'shoulderJoin',
-          englishOperation: 'Shoulder Join',
-          machineType: 'overlock',
-          englishMachine: 'Overlock',
-          rate: 2.50,
-          estimatedTime: 30,
-          priority: 'high',
-          englishPriority: 'High',
-          difficulty: 'Medium',
-          englishDifficulty: 'Medium',
-          recommendations: ['Focus on stitch quality', 'Maintain consistent seam allowance']
-        },
-        {
-          id: 'sample_overlock_2',
-          articleNumber: '2233',
-          articleName: 'Round Neck T-Shirt',
-          englishName: 'Round Neck T-Shirt',
-          color: 'White-1',
-          size: 'L',
-          pieces: 30,
-          operation: 'sideSeam',
-          englishOperation: 'Side Seam',
-          machineType: 'overlock',
-          englishMachine: 'Overlock',
-          rate: 2.25,
-          estimatedTime: 35,
-          priority: 'medium',
-          englishPriority: 'Medium',
-          difficulty: 'Easy',
-          englishDifficulty: 'Easy',
-          recommendations: ['Check seam alignment', 'Ensure proper thread tension']
+  // Load operation types from Firestore or localStorage fallback
+  useEffect(() => {
+    const loadOperationTypes = async () => {
+      try {
+        // Try loading from Firestore first
+        const operationsSnapshot = await getDocs(collection(db, 'operationTypes'));
+        if (!operationsSnapshot.empty) {
+          const operations = operationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          setOperationTypes(operations);
+          console.log('✅ Loaded operation types from Firestore:', operations.length);
+        } else {
+          // Use mock data if Firestore is empty
+          setOperationTypes(mockOperationTypes);
+          console.log('ℹ️ Using mock operation types - Firestore collection empty');
         }
-      ],
-      'single-needle': [
-        {
-          id: 'sample_single_1',
-          articleNumber: '6635',
-          articleName: '3-Button Tops',
-          englishName: '3-Button Tops',
-          color: 'Navy-2',
-          size: 'S',
-          pieces: 20,
-          operation: 'placket',
-          englishOperation: 'Placket',
-          machineType: 'single-needle',
-          englishMachine: 'Single Needle',
-          rate: 3.00,
-          estimatedTime: 45,
-          priority: 'high',
-          englishPriority: 'High',
-          difficulty: 'Hard',
-          englishDifficulty: 'Hard',
-          recommendations: ['Precise button placement', 'Double-check measurements']
-        }
-      ],
-      flatlock: [
-        {
-          id: 'sample_flatlock_1',
-          articleNumber: '8085',
-          articleName: 'Polo T-Shirt',
-          englishName: 'Polo T-Shirt',
-          color: 'Red-2',
-          size: 'XL',
-          pieces: 28,
-          operation: 'hemFold',
-          englishOperation: 'Hem Fold',
-          machineType: 'flatlock',
-          englishMachine: 'Flatlock',
-          rate: 2.75,
-          estimatedTime: 40,
-          priority: 'medium',
-          englishPriority: 'Medium',
-          difficulty: 'Medium',
-          englishDifficulty: 'Medium',
-          recommendations: ['Maintain consistent hem width', 'Check fabric alignment']
-        }
-      ]
+      } catch (error) {
+        console.warn('Failed to load operation types from Firestore, using mock data:', error);
+        // Use mock data as fallback instead of localStorage
+        setOperationTypes(mockOperationTypes);
+      }
     };
+    
+    loadOperationTypes();
+  }, []);
 
-    return sampleWorkMap[machineType] || sampleWorkMap['overlock'];
-  };
+  // Sample work creation removed - using only real Firestore data
 
   const loadAvailableWork = useCallback(async () => {
     setLoading(true);
@@ -168,31 +74,64 @@ const SelfAssignmentSystem = () => {
 
       if (result.success) {
         // Map Firebase data to component format with AI recommendations
-        let filteredWork = result.bundles.map(bundle => ({
-          id: bundle.id,
-          articleNumber: bundle.article?.toString() || bundle.articleNumber,
-          articleName: bundle.articleName || `Article ${bundle.article}`,
-          englishName: bundle.articleName || `Article ${bundle.article}`,
-          color: bundle.color || 'N/A',
-          size: bundle.sizes?.[0] || bundle.size || 'N/A',
-          pieces: bundle.quantity || bundle.pieces || bundle.pieceCount || 0,
-          operation: bundle.currentOperation || 'Operation',
-          englishOperation: bundle.currentOperation || 'Operation',
-          machineType: bundle.machineType,
-          englishMachine: bundle.machineType,
-          rate: bundle.rate || 0,
-          estimatedTime: bundle.estimatedTime || 30,
-          priority: bundle.priority || 'medium',
-          englishPriority: bundle.priority || 'medium',
-          difficulty: calculateDifficulty(bundle),
-          englishDifficulty: calculateDifficulty(bundle),
-          recommendations: generateRecommendations(bundle, user)
-        }));
+        let filteredWork = result.bundles
+          .filter(bundle => {
+            // Comprehensive bundle validation
+            const hasValidId = bundle.id && typeof bundle.id === 'string' && bundle.id.trim().length > 0;
+            const hasValidStatus = bundle.status && ['pending', 'ready', 'assigned', 'waiting'].includes(bundle.status);
+            const hasValidData = bundle.article || bundle.articleNumber || bundle.articleName;
+            const hasValidMachine = bundle.machineType && bundle.machineType.trim().length > 0;
+            const hasValidOperation = bundle.currentOperation && bundle.currentOperation.trim().length > 0;
+            
+            // Log problematic bundles for debugging
+            if (!hasValidId || !hasValidStatus || !hasValidData || !hasValidMachine || !hasValidOperation) {
+              console.warn(`🚫 Filtering out problematic bundle:`, {
+                id: bundle.id,
+                hasValidId,
+                hasValidStatus,
+                hasValidData,
+                hasValidMachine,
+                hasValidOperation,
+                status: bundle.status,
+                article: bundle.article,
+                machineType: bundle.machineType,
+                operation: bundle.currentOperation
+              });
+              return false;
+            }
+            
+            // Extra check for specific problematic bundle IDs
+            if (bundle.id === 'B727970-w-DD-S' || bundle.id === 'B759524-43--4XL') {
+              console.warn(`🚫 Blocking known problematic bundle: ${bundle.id}`);
+              return false;
+            }
+            
+            return true;
+          })
+          .map(bundle => ({
+            id: bundle.id,
+            articleNumber: bundle.article?.toString() || bundle.articleNumber,
+            articleName: bundle.articleName || `Article ${bundle.article}`,
+            englishName: bundle.articleName || `Article ${bundle.article}`,
+            color: bundle.color || 'N/A',
+            size: bundle.sizes?.[0] || bundle.size || 'N/A',
+            pieces: bundle.quantity || bundle.pieces || bundle.pieceCount || 0,
+            operation: bundle.currentOperation || 'Operation',
+            englishOperation: bundle.currentOperation || 'Operation',
+            machineType: bundle.machineType,
+            englishMachine: bundle.machineType,
+            rate: bundle.rate || 0,
+            estimatedTime: bundle.estimatedTime || 30,
+            priority: bundle.priority || 'medium',
+            englishPriority: bundle.priority || 'medium',
+            difficulty: calculateDifficulty(bundle),
+            englishDifficulty: calculateDifficulty(bundle),
+            recommendations: generateRecommendations(bundle, user)
+          }));
 
-        // If no work from Firebase, create sample work items for testing
+        // No sample work - use empty array when no real data available
         if (filteredWork.length === 0) {
-          console.log(`⚠️ No work found in Firebase for ${operatorMachine}, creating sample work...`);
-          filteredWork = createSampleWorkForMachine(operatorMachine);
+          console.log(`ℹ️ No work found in Firebase for ${operatorMachine}. Add bundles to see available work.`);
         }
 
         console.log(`✅ Loaded ${filteredWork.length} work items for ${operatorMachine} machine`);
@@ -279,14 +218,9 @@ const SelfAssignmentSystem = () => {
     };
   };
 
-  const loadOperationTypes = useCallback(() => {
-    setOperationTypes(mockOperationTypes);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
   useEffect(() => {
     loadAvailableWork();
-    loadOperationTypes();
-  }, [loadAvailableWork, loadOperationTypes]);
+  }, [loadAvailableWork]);
 
   const handleWorkSelection = (work) => {
     setSelectedWork(work);
@@ -303,6 +237,24 @@ const SelfAssignmentSystem = () => {
       }
 
       console.log(`🔍 Attempting to assign bundle: ${selectedWork.id} to operator: ${user.id}`);
+
+      // Prevent assignment of sample/demo data
+      if (selectedWork.isSample || selectedWork.status === 'sample_demo_only' || selectedWork.id?.startsWith('sample_')) {
+        throw new Error(
+          isNepali 
+            ? "यो नमुना डेटा हो - वास्तविक काम असाइनमेन्टका लागि नयाँ डेटा थप्नुहोस्"
+            : "This is sample data - add real work data for actual assignments"
+        );
+      }
+
+      // Pre-validate bundle exists by checking current available bundles
+      const currentBundles = await BundleService.getAvailableBundles();
+      if (currentBundles.success) {
+        const bundleExists = currentBundles.bundles.some(bundle => bundle.id === selectedWork.id);
+        if (!bundleExists) {
+          throw new Error(`Bundle ${selectedWork.id} not found in Firestore - it may have been assigned to another operator`);
+        }
+      }
 
       // Self-assign work using Firebase service
       const assignResult = await BundleService.assignBundle(
@@ -722,14 +674,20 @@ const SelfAssignmentSystem = () => {
               <div className="flex space-x-4">
                 <button
                   onClick={handleSelfAssign}
-                  disabled={loading}
-                  className="flex-1 bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium"
+                  disabled={loading || selectedWork?.isSample || selectedWork?.status === 'sample_demo_only' || selectedWork?.id?.startsWith('sample_')}
+                  className={`flex-1 py-3 px-6 rounded-md transition-colors font-medium ${
+                    selectedWork?.isSample || selectedWork?.status === 'sample_demo_only' || selectedWork?.id?.startsWith('sample_')
+                      ? 'bg-gray-400 text-white cursor-not-allowed'
+                      : 'bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed'
+                  }`}
                 >
                   {loading ? (
                     <div className="flex items-center justify-center">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                       {isNepali ? "असाइन गर्दै..." : "Assigning..."}
                     </div>
+                  ) : selectedWork?.isSample || selectedWork?.status === 'sample_demo_only' || selectedWork?.id?.startsWith('sample_') ? (
+                    isNepali ? "📋 नमुना डेटा मात्र" : "📋 Sample Data Only"
                   ) : isNepali ? (
                     "🎯 काम स्वीकार गर्नुहोस्"
                   ) : (

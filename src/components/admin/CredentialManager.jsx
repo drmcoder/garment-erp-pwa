@@ -51,11 +51,8 @@ const CredentialManager = ({ onClose }) => {
 
   const loadCredentials = () => {
     try {
-      const saved = localStorage.getItem('systemCredentials');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setCredentials(parsed);
-      }
+      // No localStorage loading - use default credentials
+      // Keep default credentials as they are initialized
     } catch (error) {
       addError({
         message: 'Failed to load credentials',
@@ -68,7 +65,7 @@ const CredentialManager = ({ onClose }) => {
 
   const saveCredentials = () => {
     try {
-      localStorage.setItem('systemCredentials', JSON.stringify(credentials));
+      // No localStorage saving - only update state
       setHasChanges(false);
       
       addError({

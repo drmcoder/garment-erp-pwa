@@ -35,21 +35,21 @@ const SizeConfiguration = ({ onClose, onSave }) => {
   const [errors, setErrors] = useState({});
   const [activeTab, setActiveTab] = useState("mappings");
 
-  // Sample articles for demonstration
-  const [articles, setArticles] = useState([
-    { number: "8085", name: "Polo T-Shirt", currentConfig: "standard-shirt" },
-    {
-      number: "2233",
-      name: "Round Neck T-Shirt",
-      currentConfig: "standard-shirt",
-    },
-    { number: "6635", name: "3-Button Tops", currentConfig: "kids-sizes" },
-    { number: "1020", name: "Ladies Pants", currentConfig: "numeric-sizes" },
-    { number: "1022", name: "Leggings", currentConfig: "numeric-sizes" },
-    { number: "9001", name: "Plus Size Shirt", currentConfig: "plus-sizes" },
-    { number: "7001", name: "Scarves", currentConfig: "free-size" },
-    { number: "S001", name: "Sports Shoes", currentConfig: "shoe-sizes" },
-  ]);
+  // Load articles from localStorage or start with empty array
+  const [articles, setArticles] = useState(() => {
+    try {
+      // No localStorage loading - use empty array
+      const savedArticles = [];
+      return savedArticles.map(article => ({
+        number: article.article || article.number,
+        name: article.articleName || article.name,
+        currentConfig: article.sizeConfig || 'standard-shirt'
+      }));
+    } catch (error) {
+      console.error('Error loading articles:', error);
+      return [];
+    }
+  });
 
   const validateArticleNumber = (number) => {
     if (!number) return "Article number is required";

@@ -17,7 +17,8 @@ const WorkAssignmentManager = ({ onClose }) => {
 
   const loadWorkItems = () => {
     try {
-      const savedWorkItems = JSON.parse(localStorage.getItem('workItems') || '[]');
+      // No localStorage loading - use empty array
+      const savedWorkItems = [];
       
       // Filter for unassigned work items
       const availableWorkItems = savedWorkItems.filter(item => 
@@ -47,8 +48,8 @@ const WorkAssignmentManager = ({ onClose }) => {
 
   const handleAssignmentComplete = (assignments) => {
     try {
-      // Update work items in localStorage with assignments
-      const savedWorkItems = JSON.parse(localStorage.getItem('workItems') || '[]');
+      // No localStorage updates - just update state
+      const savedWorkItems = [];
       
       const updatedWorkItems = savedWorkItems.map(item => {
         const assignment = assignments.find(a => a.workItemId === item.id);
@@ -63,12 +64,7 @@ const WorkAssignmentManager = ({ onClose }) => {
         return item;
       });
       
-      localStorage.setItem('workItems', JSON.stringify(updatedWorkItems));
-      
-      // Save assignments separately
-      const existingAssignments = JSON.parse(localStorage.getItem('workAssignments') || '[]');
-      const allAssignments = [...assignments, ...existingAssignments];
-      localStorage.setItem('workAssignments', JSON.stringify(allAssignments));
+      // No localStorage saving
       
       // Reload work items to show updated state
       loadWorkItems();

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import BundleWorkflowCards from '../common/BundleWorkflowCards';
 
 const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCancel }) => {
   const { currentLanguage } = useLanguage();
@@ -12,61 +13,12 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
   const [filterMachine, setFilterMachine] = useState('all');
   const [filterStatus, setFilterStatus] = useState('ready');
   const [assignments, setAssignments] = useState([]);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'workflow'
 
-  // Mock operators data - would come from props or API
-  const mockOperators = [
-    {
-      id: '001',
-      name: 'राम बहादुर',
-      nameEn: 'Ram Bahadur',
-      machine: 'overlock',
-      skillLevel: 'expert',
-      currentLoad: 2,
-      maxLoad: 5,
-      efficiency: 95,
-      photo: '👨‍🏭',
-      status: 'available'
-    },
-    {
-      id: '002', 
-      name: 'सीता देवी',
-      nameEn: 'Sita Devi',
-      machine: 'flatlock',
-      skillLevel: 'intermediate',
-      currentLoad: 1,
-      maxLoad: 4,
-      efficiency: 88,
-      photo: '👩‍🏭',
-      status: 'available'
-    },
-    {
-      id: '003',
-      name: 'कृष्ण राई',
-      nameEn: 'Krishna Rai', 
-      machine: 'singleNeedle',
-      skillLevel: 'expert',
-      currentLoad: 3,
-      maxLoad: 5,
-      efficiency: 92,
-      photo: '👨‍🔧',
-      status: 'busy'
-    },
-    {
-      id: '004',
-      name: 'माया तामाङ',
-      nameEn: 'Maya Tamang',
-      machine: 'overlock',
-      skillLevel: 'beginner', 
-      currentLoad: 0,
-      maxLoad: 3,
-      efficiency: 75,
-      photo: '👩‍🔧',
-      status: 'available'
-    }
-  ];
+  // Load operators from props or API - no mock data
 
   useEffect(() => {
-    setAvailableOperators(operators || mockOperators);
+    setAvailableOperators(operators || []);
   }, [operators]);
 
   const filteredWorkItems = workItems.filter(item => {
@@ -287,7 +239,32 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
                   📋 {currentLanguage === 'np' ? 'काम आइटमहरू' : 'Work Items'}
                 </h2>
                 
-                {/* Filters */}
+                {/* View Toggle & Filters */}
+                <div className="flex items-center space-x-3">
+                  {/* View Mode Toggle */}
+                  <div className="flex bg-gray-100 rounded-lg p-1">
+                    <button
+                      onClick={() => setViewMode('list')}
+                      className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                        viewMode === 'list'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      📋 {currentLanguage === 'np' ? 'सूची' : 'List'}
+                    </button>
+                    <button
+                      onClick={() => setViewMode('workflow')}
+                      className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                        viewMode === 'workflow'
+                          ? 'bg-white text-blue-600 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-800'
+                      }`}
+                    >
+                      🔄 {currentLanguage === 'np' ? 'वर्कफ्लो' : 'Workflow'}
+                    </button>
+                  </div>
+                
                 <div className="flex space-x-3">
                   <select
                     value={filterMachine}
@@ -311,6 +288,7 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
                     <option value="waiting">{currentLanguage === 'np' ? 'प्रतीक्षामा' : 'Waiting'}</option>
                     <option value="all">{currentLanguage === 'np' ? 'सबै' : 'All'}</option>
                   </select>
+                  </div>
                 </div>
               </div>
 
@@ -322,57 +300,74 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
                 </div>
               )}
 
-              <div className="space-y-3 max-h-96 overflow-y-auto">
-                {filteredWorkItems.map(item => (
-                  <div
-                    key={item.id}
-                    onClick={() => handleWorkItemSelect(item)}
-                    className={`border-2 rounded-lg p-4 cursor-pointer transition-all duration-200 ${
-                      selectedWorkItems.some(selected => selected.id === item.id)
-                        ? 'border-blue-400 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="text-2xl">{item.icon || '🧵'}</div>
-                      
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <span className="font-semibold text-gray-800">
-                            {item.bundleNumber || item.bundleId || item.id}
-                          </span>
-                          <span className="text-sm text-gray-500">→</span>
-                          <span className="font-medium text-gray-700">
-                            {item.operation || item.operationName || 'Proceed'}
-                          </span>
-                        </div>
+              {/* Conditional Rendering: List vs Workflow View */}
+              {viewMode === 'list' ? (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {filteredWorkItems.map(item => (
+                    <div
+                      key={item.id}
+                      onClick={() => handleWorkItemSelect(item)}
+                      className={`border-2 rounded-lg p-4 cursor-pointer transition-all duration-200 ${
+                        selectedWorkItems.some(selected => selected.id === item.id)
+                          ? 'border-blue-400 bg-blue-50'
+                          : 'border-gray-200 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className="text-2xl">{item.icon || '🧵'}</div>
                         
-                        <div className="text-sm text-gray-600">
-                          {item.articleNumber} • {item.color} • {item.size} • {item.pieces} pcs
-                        </div>
-                        
-                        <div className="flex items-center space-x-2 mt-1">
-                          <span className={`px-2 py-1 rounded border text-xs font-semibold ${getMachineTypeColor(item.machineType)}`}>
-                            {item.machineType}
-                          </span>
-                          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
-                            ⏱️ {item.estimatedTime || item.time || 0} min
-                          </span>
-                          {item.totalEarnings && (
-                            <span className="text-xs text-gray-500">
-                              रु. {item.totalEarnings}
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <span className="font-semibold text-gray-800">
+                              {item.bundleNumber || item.bundleId || item.id}
                             </span>
-                          )}
+                            <span className="text-sm text-gray-500">→</span>
+                            <span className="font-medium text-gray-700">
+                              {typeof item.operation === 'string' 
+                                ? item.operation 
+                                : item.operation?.nameEn || item.operation?.name || item.operationName || 'Proceed'}
+                            </span>
+                          </div>
+                          
+                          <div className="text-sm text-gray-600">
+                            {item.articleNumber} • {item.color} • {item.size} • {item.pieces} pcs
+                          </div>
+                          
+                          <div className="flex items-center space-x-2 mt-1">
+                            <span className={`px-2 py-1 rounded border text-xs font-semibold ${getMachineTypeColor(item.machineType)}`}>
+                              {item.machineType}
+                            </span>
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
+                              ⏱️ {item.estimatedTime || item.time || 0} min
+                            </span>
+                            {item.totalEarnings && (
+                              <span className="text-xs text-gray-500">
+                                रु. {item.totalEarnings}
+                              </span>
+                            )}
+                          </div>
                         </div>
+                        
+                        {selectedWorkItems.some(selected => selected.id === item.id) && (
+                          <div className="text-blue-600 text-xl">✓</div>
+                        )}
                       </div>
-                      
-                      {selectedWorkItems.some(selected => selected.id === item.id) && (
-                        <div className="text-blue-600 text-xl">✓</div>
-                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="max-h-96 overflow-y-auto">
+                  <div className="text-center py-8 text-gray-500">
+                    🔄 {currentLanguage === 'np' ? 'वर्कफ्लो दृश्य' : 'Workflow View'}
+                    <div className="text-sm mt-2">
+                      {filteredWorkItems.length === 0 
+                        ? (currentLanguage === 'np' ? 'कुनै काम आइटम फेला परेन' : 'No work items found')
+                        : `${filteredWorkItems.length} work items available`
+                      }
                     </div>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
             </div>
           </div>
 

@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useLanguage, LanguageToggle } from "../../context/LanguageContext";
 import { useAuth } from "../../context/AuthContext";
+import { db, collection, getDocs, COLLECTIONS } from "../../config/firebase";
 
 const LoginPage = () => {
   const { t, currentLanguage } = useLanguage();
@@ -25,35 +26,68 @@ const LoginPage = () => {
   const [selectedRole, setSelectedRole] = useState("operator");
   const [errors, setErrors] = useState({});
 
-  // Demo users for quick login
-  const demoUsers = {
-    operator: [
-      {
-        username: "ram.singh",
-        password: "password123",
-        name: "राम सिंह",
-        machine: "overlock",
-      },
-      {
-        username: "sita.devi",
-        password: "password123",
-        name: "सीता देवी",
-        machine: "flatlock",
-      },
-      {
-        username: "hari.bahadur",
-        password: "password123",
-        name: "हरि बहादुर",
-        machine: "singleNeedle",
-      },
-    ],
-    supervisor: [
-      { username: "supervisor", password: "super123", name: "श्याम पोखरेल" },
-    ],
-    management: [
-      { username: "management", password: "mgmt123", name: "Management User" },
-    ],
-  };
+  // Load users from localStorage
+  const [availableUsers, setAvailableUsers] = useState({
+    operator: [],
+    supervisor: [],
+    management: []
+  });
+
+  useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const usersByRole = {
+          operator: [],
+          supervisor: [],
+          management: []
+        };
+
+        // Load from Firestore
+        const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
+        operatorsSnapshot.forEach((doc) => {
+          const userData = doc.data();
+          usersByRole.operator.push({
+            username: userData.username,
+            password: 'password123', // Default password for demo
+            name: userData.nameNepali || userData.name,
+            machine: userData.machine || userData.assignedMachine,
+          });
+        });
+
+        const supervisorsSnapshot = await getDocs(collection(db, COLLECTIONS.SUPERVISORS));
+        supervisorsSnapshot.forEach((doc) => {
+          const userData = doc.data();
+          usersByRole.supervisor.push({
+            username: userData.username,
+            password: 'password123', // Default password for demo
+            name: userData.nameNepali || userData.name,
+          });
+        });
+
+        const managementSnapshot = await getDocs(collection(db, COLLECTIONS.MANAGEMENT));
+        managementSnapshot.forEach((doc) => {
+          const userData = doc.data();
+          usersByRole.management.push({
+            username: userData.username,
+            password: 'password123', // Default password for demo
+            name: userData.nameNepali || userData.name,
+          });
+        });
+
+        setAvailableUsers(usersByRole);
+      } catch (error) {
+        console.error('Error loading users from Firestore:', error);
+        // No fallback - set empty users
+        setAvailableUsers({
+          operator: [],
+          supervisor: [],
+          management: []
+        });
+      }
+    };
+
+    loadUsers();
+  }, []);
 
   const handleInputChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -266,29 +300,38 @@ const LoginPage = () => {
               {currentLanguage === "np" ? "डेमो यूजरहरू:" : "Demo Users:"}
             </h3>
             <div className="space-y-2">
-              {demoUsers[selectedRole].map((user, index) => (
-                <button
-                  key={index}
-                  onClick={() => handleDemoLogin(user)}
-                  className="w-full text-left p-2 rounded bg-white border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-sm">
-                        {currentLanguage === "np" && user.name
-                          ? user.name
-                          : user.username}
-                      </div>
-                      {user.machine && (
-                        <div className="text-xs text-gray-500">
-                          {t(user.machine)} {t("operator")}
+              {availableUsers[selectedRole].length > 0 ? (
+                availableUsers[selectedRole].map((user, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleDemoLogin(user)}
+                    className="w-full text-left p-2 rounded bg-white border border-gray-200 hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium text-sm">
+                          {currentLanguage === "np" && user.name
+                            ? user.name
+                            : user.username}
                         </div>
-                      )}
+                        {user.machine && (
+                          <div className="text-xs text-gray-500">
+                            {t(user.machine)} {t("operator")}
+                          </div>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400">{user.username}</div>
                     </div>
-                    <div className="text-xs text-gray-400">{user.username}</div>
-                  </div>
-                </button>
-              ))}
+                  </button>
+                ))
+              ) : (
+                <div className="text-center text-sm text-gray-500 py-4">
+                  {currentLanguage === "np" 
+                    ? `कुनै ${selectedRole} फेला परेन। पहिले User Management मा गएर यूजर बनाउनुहोस्।`
+                    : `No ${selectedRole} users found. Please create users in User Management first.`
+                  }
+                </div>
+              )}
             </div>
           </div>
         </div>

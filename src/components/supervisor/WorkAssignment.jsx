@@ -111,10 +111,9 @@ const WorkAssignment = () => {
         operators = result.operators;
         console.log('Loaded operators from Firebase:', operators.length);
       } else {
-        // Fallback to localStorage if Firebase is empty
-        const localOperators = JSON.parse(localStorage.getItem('operators') || '[]');
-        operators = localOperators.filter(op => op.status === 'active');
-        console.log('Loaded operators from localStorage:', operators.length);
+        // No localStorage fallback - use empty array
+        operators = [];
+        console.log('No operators found in Firebase, using empty array');
       }
 
       // Map data to component format
@@ -139,31 +138,12 @@ const WorkAssignment = () => {
 
     } catch (error) {
       console.error('Failed to load operators:', error);
-      // Try localStorage as final fallback
+      // No localStorage fallback
       try {
-        const localOperators = JSON.parse(localStorage.getItem('operators') || '[]');
-        const activeOperators = localOperators.filter(op => op.status === 'active');
-        
-        const mappedOperators = activeOperators.map(operator => ({
-          ...operator,
-          name: operator.name,
-          speciality: operator.assignedMachines?.[0] || 'General',
-          specialityNepali: operator.assignedMachines?.[0] || 'सामान्य',
-          status: 'available',
-          efficiency: 85,
-          qualityScore: 95,
-          currentWorkload: 0,
-          maxWorkload: 3,
-          skills: [],
-          todayPieces: 0,
-          estimatedFinishTime: null,
-          station: `Station-${operator.id?.slice(-2) || '01'}`
-        }));
-        
-        setOperators(mappedOperators);
-        console.log('Loaded from localStorage fallback:', mappedOperators.length);
+        setOperators([]);
+        console.log('No operators available - using empty array');
       } catch (localError) {
-        console.error('LocalStorage fallback also failed:', localError);
+        console.error('Error setting empty operators array:', localError);
         showNotification(
           isNepali ? 'ऑपरेटर लोड गर्न समस्या भयो' : 'Failed to load operators',
           'error'
@@ -241,7 +221,7 @@ const WorkAssignment = () => {
       // Send completion notification
       sendWorkCompleted(
         workItem.articleNumber,
-        workItem.operation,
+        workItem.operationName || (workItem.operation?.nameEn || workItem.operation?.name) || 'Unknown Operation',
         workItem.completedPieces,
         formatCurrency(earnings)
       );
@@ -594,7 +574,9 @@ const WorkAssignment = () => {
                           {assignment.bundle.articleNumber}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {assignment.bundle.operation} ({assignment.bundle.pieces} {isNepali ? 'पिस' : 'pcs'})
+                          {typeof assignment.bundle.operation === 'string' 
+                            ? assignment.bundle.operation 
+                            : assignment.bundle.operation?.nameEn || assignment.bundle.operation?.name || 'Unknown Operation'} ({assignment.bundle.pieces} {isNepali ? 'पिस' : 'pcs'})
                         </div>
                         <div className="text-lg">→</div>
                         <div className="bg-green-100 px-3 py-1 rounded text-sm font-medium">
@@ -797,7 +779,9 @@ const WorkAssignment = () => {
                     </div>
                     
                     <div className="flex justify-between items-center text-xs text-gray-600">
-                      <span>{bundle.operation}</span>
+                      <span>{typeof bundle.operation === 'string' 
+                        ? bundle.operation 
+                        : bundle.operation?.nameEn || bundle.operation?.name || 'Unknown Operation'}</span>
                       <span>{bundle.pieces} {isNepali ? 'पिस' : 'pcs'}</span>
                     </div>
                     
@@ -892,7 +876,11 @@ const WorkAssignment = () => {
             </label>
             <div className="p-2 border rounded-md bg-gray-50 text-sm">
               {selectedBundle 
-                ? `${selectedBundle.articleNumber} - ${selectedBundle.operation}`
+                ? `${typeof selectedBundle.articleNumber === 'string' 
+                    ? selectedBundle.articleNumber 
+                    : selectedBundle.articleNumber?.name || selectedBundle.articleNumber?.en || selectedBundle.articleNumber || 'Unknown Article'} - ${typeof selectedBundle.operation === 'string' 
+                    ? selectedBundle.operation 
+                    : selectedBundle.operation?.nameEn || selectedBundle.operation?.name || 'Unknown Operation'}`
                 : (isNepali ? 'बन्डल छनोट गर्नुहोस्' : 'Select a bundle')
               }
             </div>

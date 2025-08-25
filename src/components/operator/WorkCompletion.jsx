@@ -173,7 +173,7 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("garmentErpToken")}`,
+          // No localStorage token - would need proper auth
         },
         body: JSON.stringify({
           bundleId: bundleData.id,

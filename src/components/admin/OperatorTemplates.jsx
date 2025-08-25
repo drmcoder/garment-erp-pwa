@@ -21,47 +21,16 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
     notes: ''
   });
 
-  // Common garment operations with different machine requirements
-  const commonOperations = {
-    tshirt: [
-      { operation: 'Front & Back Join', machines: ['Overlock', 'Cover Stitch'], defaultPrice: 2.50 },
-      { operation: 'Shoulder Join', machines: ['Overlock'], defaultPrice: 2.20 },
-      { operation: 'Neck Binding', machines: ['Overlock', 'Cover Stitch'], defaultPrice: 2.80 },
-      { operation: 'Sleeve Attach', machines: ['Overlock'], defaultPrice: 2.60 },
-      { operation: 'Side Seam', machines: ['Overlock'], defaultPrice: 2.30 },
-      { operation: 'Bottom Hem', machines: ['Cover Stitch', 'Single Needle'], defaultPrice: 1.80 }
-    ],
-    polo: [
-      { operation: 'Front & Back Join', machines: ['Overlock'], defaultPrice: 2.80 },
-      { operation: 'Shoulder Join', machines: ['Overlock'], defaultPrice: 2.50 },
-      { operation: 'Placket Making', machines: ['Single Needle'], defaultPrice: 4.20 },
-      { operation: 'Collar Attach', machines: ['Single Needle'], defaultPrice: 5.50 },
-      { operation: 'Sleeve Attach', machines: ['Overlock'], defaultPrice: 3.20 },
-      { operation: 'Side Seam', machines: ['Overlock'], defaultPrice: 2.60 },
-      { operation: 'Bottom Hem', machines: ['Cover Stitch'], defaultPrice: 2.10 }
-    ],
-    shirt: [
-      { operation: 'Yoke Attach', machines: ['Single Needle'], defaultPrice: 3.80 },
-      { operation: 'Shoulder Join', machines: ['Single Needle'], defaultPrice: 3.20 },
-      { operation: 'Collar Making', machines: ['Single Needle'], defaultPrice: 6.50 },
-      { operation: 'Collar Attach', machines: ['Single Needle'], defaultPrice: 5.80 },
-      { operation: 'Sleeve Placket', machines: ['Single Needle'], defaultPrice: 4.20 },
-      { operation: 'Sleeve Attach', machines: ['Single Needle'], defaultPrice: 4.80 },
-      { operation: 'Side Seam', machines: ['Single Needle'], defaultPrice: 3.50 },
-      { operation: 'Button Hole', machines: ['Button Hole'], defaultPrice: 8.50 },
-      { operation: 'Bottom Hem', machines: ['Single Needle'], defaultPrice: 2.80 }
-    ],
-    trouser: [
-      { operation: 'Front Rise', machines: ['Single Needle'], defaultPrice: 4.20 },
-      { operation: 'Back Rise', machines: ['Single Needle'], defaultPrice: 3.80 },
-      { operation: 'Inseam', machines: ['Overlock'], defaultPrice: 3.50 },
-      { operation: 'Outseam', machines: ['Overlock'], defaultPrice: 3.20 },
-      { operation: 'Waistband', machines: ['Single Needle'], defaultPrice: 5.50 },
-      { operation: 'Pocket Attach', machines: ['Single Needle'], defaultPrice: 4.80 },
-      { operation: 'Zipper Attach', machines: ['Single Needle'], defaultPrice: 6.20 },
-      { operation: 'Bottom Hem', machines: ['Single Needle'], defaultPrice: 2.50 }
-    ]
-  };
+  // Load common garment operations from localStorage or use empty object
+  const [commonOperations, setCommonOperations] = useState(() => {
+    try {
+      // No localStorage fallback - use empty object
+      return {};
+    } catch (error) {
+      console.error('Error loading common operations:', error);
+      return {};
+    }
+  });
 
   useEffect(() => {
     loadData();
@@ -69,8 +38,9 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
 
   const loadData = () => {
     try {
-      const savedTemplates = JSON.parse(localStorage.getItem('operationTemplates') || '[]');
-      const savedMachines = JSON.parse(localStorage.getItem('machines') || '[]');
+      // No localStorage data loading - use empty arrays
+      const savedTemplates = [];
+      const savedMachines = [];
       
       setTemplates(savedTemplates);
       setMachines(savedMachines);
@@ -83,7 +53,7 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
 
   const saveTemplates = (updatedTemplates) => {
     try {
-      localStorage.setItem('operationTemplates', JSON.stringify(updatedTemplates));
+      // No localStorage saving - only set state
       setTemplates(updatedTemplates);
       if (onStatsUpdate) onStatsUpdate();
     } catch (error) {
