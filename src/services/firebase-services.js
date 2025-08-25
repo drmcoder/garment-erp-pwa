@@ -434,8 +434,11 @@ export class BundleService {
       // Check if bundle exists and is available
       const bundleDoc = await getDoc(bundleRef);
       if (!bundleDoc.exists()) {
-        // Fallback: Check if this is a localStorage bundle
-        return await this.assignLocalStorageBundle(bundleId, operatorId, supervisorId);
+        return { 
+          success: false, 
+          error: `Bundle ${bundleId} not found in Firestore`,
+          errorCode: 'BUNDLE_NOT_FOUND'
+        };
       }
 
       const bundleData = bundleDoc.data();

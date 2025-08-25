@@ -378,23 +378,6 @@ const SelfAssignmentSystem = () => {
     }
   };
 
-  const getPriorityColor = (priority) => {
-    const priorities = {
-      उच्च: "text-red-600 bg-red-50",
-      High: "text-red-600 bg-red-50",
-      सामान्य: "text-yellow-600 bg-yellow-50",
-      Normal: "text-yellow-600 bg-yellow-50",
-      कम: "text-green-600 bg-green-50",
-      Low: "text-green-600 bg-green-50",
-    };
-    return priorities[priority] || "text-gray-600 bg-gray-50";
-  };
-
-  const getMatchColor = (match) => {
-    if (match >= 90) return "text-green-600 bg-green-50";
-    if (match >= 75) return "text-yellow-600 bg-yellow-50";
-    return "text-red-600 bg-red-50";
-  };
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-6">
@@ -550,189 +533,6 @@ const SelfAssignmentSystem = () => {
 
         {/* Available Work List */}
         <div className="lg:col-span-2">
-                  totalPieces: 90,
-                  status: 'completed',
-                  createdAt: new Date().toISOString()
-                };
-                
-                // Create bundles that will show in Available Work
-                const availableWorkBundles = [
-                  {
-                    id: 'B001',
-                    bundleId: 'B001',
-                    bundleNumber: 'test lot-B001',
-                    article: 'T001',
-                    articleNumber: 'T001', 
-                    articleName: 'Round Neck T-shirt',
-                    color: 'Blue',
-                    size: 'M',
-                    pieces: 25,
-                    quantity: 25,
-                    operation: 'Shoulder Join',
-                    currentOperation: 'Shoulder Join',
-                    machineType: 'overlock',
-                    status: 'pending',
-                    priority: 'medium',
-                    rate: 2.5,
-                    estimatedTime: 30,
-                    createdAt: new Date().toISOString(),
-                    dueDate: new Date(Date.now() + 86400000).toISOString()
-                  },
-                  {
-                    id: 'B002',
-                    bundleId: 'B002', 
-                    bundleNumber: 'test lot-B002',
-                    article: 'T001',
-                    articleNumber: 'T001',
-                    articleName: 'Round Neck T-shirt',
-                    color: 'Red',
-                    size: 'L', 
-                    pieces: 30,
-                    quantity: 30,
-                    operation: 'Neck Join',
-                    currentOperation: 'Neck Join',
-                    machineType: 'overlock',
-                    status: 'pending',
-                    priority: 'high',
-                    rate: 3.0,
-                    estimatedTime: 40,
-                    createdAt: new Date().toISOString(),
-                    dueDate: new Date(Date.now() + 86400000).toISOString()
-                  }
-                ];
-                
-                // Save data
-                localStorage.setItem('wipEntries', JSON.stringify([wipEntry]));
-                localStorage.setItem('bundles', JSON.stringify(availableWorkBundles));
-                localStorage.setItem('workItems', JSON.stringify(availableWorkBundles));
-                
-                console.log('✅ Created WIP entry and work bundles');
-                console.log('📋 WIP: test lot-B001 (90 pieces)');
-                console.log('📦 Bundles: 2 bundles ready for assignment');
-                console.log('🎯 Now go to Work Assignment to see Available Work!');
-                
-                loadAvailableWork();
-              }}
-              className="w-full bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 transition-colors"
-            >
-              🏭 {isNepali ? "WIP र काम सिर्जना गर्नुहोस्" : "Create WIP & Work"}
-            </button>
-
-            {/* Create Bundle Cards with Checklists */}
-            <button
-              onClick={() => {
-                console.log('🎯 Creating bundle cards with work checklists...');
-                
-                // Create demo bundles with complete checklists
-                const bundlesWithChecklists = [
-                  {
-                    id: 'CARD-001',
-                    bundleId: 'CARD-001',
-                    bundleNumber: 'test lot-B001',
-                    articleNumber: 'T001',
-                    articleName: 'Round Neck T-shirt',
-                    color: 'Blue',
-                    size: 'M',
-                    pieces: 25,
-                    operation: 'Shoulder Join',
-                    machineType: 'overlock',
-                    status: 'pending',
-                    priority: 'medium',
-                    rate: 2.5,
-                    estimatedTime: 40,
-                    createdAt: new Date().toISOString(),
-                    checklist: [
-                      { id: 'cut_check', name: 'Cutting Quality Check', nameNp: 'काटन गुणस्तर जाँच', completed: false, estimatedTime: 5 },
-                      { id: 'alignment', name: 'Shoulder Alignment', nameNp: 'काँध मिलान', completed: false, estimatedTime: 8 },
-                      { id: 'seam_stitch', name: 'Seam Stitching', nameNp: 'सिलाई सिम', completed: false, estimatedTime: 12 },
-                      { id: 'overlock_finish', name: 'Overlock Finishing', nameNp: 'ओभरलक फिनिशिङ', completed: false, estimatedTime: 10 },
-                      { id: 'quality_check', name: 'Final Quality Check', nameNp: 'अन्तिम गुणस्तर जाँच', completed: false, estimatedTime: 5 }
-                    ]
-                  },
-                  {
-                    id: 'CARD-002',
-                    bundleId: 'CARD-002', 
-                    bundleNumber: 'test lot-B002',
-                    articleNumber: 'T001',
-                    articleName: 'Round Neck T-shirt',
-                    color: 'Red',
-                    size: 'L',
-                    pieces: 30,
-                    operation: 'Neck Join',
-                    machineType: 'overlock',
-                    status: 'pending',
-                    priority: 'high',
-                    rate: 3.0,
-                    estimatedTime: 45,
-                    createdAt: new Date().toISOString(),
-                    checklist: [
-                      { id: 'neck_prep', name: 'Neck Preparation', nameNp: 'नेक तयारी', completed: true, completedAt: new Date().toISOString(), estimatedTime: 8 },
-                      { id: 'binding_cut', name: 'Binding Cutting', nameNp: 'बाइन्डिङ काटना', completed: true, completedAt: new Date().toISOString(), estimatedTime: 6 },
-                      { id: 'neck_attach', name: 'Neck Attachment', nameNp: 'नेक जोडना', completed: false, estimatedTime: 15 },
-                      { id: 'stretch_check', name: 'Stretch Test', nameNp: 'स्ट्रेच जाँच', completed: false, estimatedTime: 5 },
-                      { id: 'finish_trim', name: 'Finish & Trim', nameNp: 'फिनिश र ट्रिम', completed: false, estimatedTime: 6 }
-                    ]
-                  },
-                  {
-                    id: 'CARD-003',
-                    bundleId: 'CARD-003',
-                    bundleNumber: 'test lot-B003',
-                    articleNumber: 'T001',
-                    articleName: 'Round Neck T-shirt',
-                    color: 'White',
-                    size: 'XL', 
-                    pieces: 28,
-                    operation: 'Bottom Fold',
-                    machineType: 'flatlock',
-                    status: 'in-progress',
-                    priority: 'medium',
-                    rate: 2.0,
-                    estimatedTime: 30,
-                    createdAt: new Date().toISOString(),
-                    checklist: [
-                      { id: 'measure_hem', name: 'Measure Hem Width', nameNp: 'हेम चौडाई नाप', completed: true, completedAt: new Date().toISOString(), estimatedTime: 4 },
-                      { id: 'fold_press', name: 'Fold & Press', nameNp: 'फोल्ड र प्रेस', completed: true, completedAt: new Date().toISOString(), estimatedTime: 8 },
-                      { id: 'flatlock_stitch', name: 'Flatlock Stitching', nameNp: 'फ्ल्यालक सिलाई', completed: false, estimatedTime: 12 },
-                      { id: 'hem_quality', name: 'Hem Quality Check', nameNp: 'हेम गुणस्तर जाँच', completed: false, estimatedTime: 6 }
-                    ]
-                  }
-                ];
-                
-                // Save to localStorage
-                localStorage.setItem('bundles', JSON.stringify(bundlesWithChecklists));
-                localStorage.setItem('workItems', JSON.stringify(bundlesWithChecklists));
-                localStorage.setItem('bundleCardsWithChecklists', JSON.stringify(bundlesWithChecklists));
-                
-                console.log('✅ Created 3 bundle cards with work checklists:');
-                console.log('📦 CARD-001: Shoulder Join (0% complete - Available in Work)');  
-                console.log('📦 CARD-002: Neck Join (40% complete - Available in Work)');
-                console.log('📦 CARD-003: Bottom Fold (50% complete - Available in Work)');
-                console.log('');
-                console.log('🎯 CHECKLIST LOGIC:');
-                console.log('- Bundles with uncompleted checklist items → Show in Available Work');
-                console.log('- Bundles with 100% completed checklist → Hidden from Available Work');
-                console.log('- Click checklist items to mark complete/incomplete');
-                console.log('- Progress bar shows completion percentage');
-                
-                loadAvailableWork();
-              }}
-              className="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition-colors"
-            >
-              📋 {isNepali ? "चेकलिस्ट कार्ड बनाउनुहोस्" : "Create Checklist Cards"}
-            </button>
-
-            {/* Operations Sequence Editor Button */}
-            <button
-              onClick={() => setShowOperationsEditor(true)}
-              className="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition-colors"
-            >
-              ⚙️ {isNepali ? "सञ्चालन क्रम सम्पादन" : "Edit Operations Sequence"}
-            </button>
-          </div>
-        </div>
-
-        {/* Available Work List */}
-        <div className="lg:col-span-2">
           <div className="space-y-4">
             {loading ? (
               <div className="text-center py-8">
@@ -752,9 +552,9 @@ const SelfAssignmentSystem = () => {
                 </p>
               </div>
             ) : (
-              availableWork.map((work) => (
+              availableWork.map((work, index) => (
                 <div
-                  key={work.id}
+                  key={`${work.id || work.bundleId || 'work'}_${index}`}
                   className={`bg-white rounded-lg border p-6 transition-all duration-200 cursor-pointer hover:shadow-md ${
                     selectedWork?.id === work.id
                       ? "ring-2 ring-blue-500 shadow-md"

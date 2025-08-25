@@ -37,7 +37,8 @@
       "Bash(firebase deploy:*)",
       "Bash(BROWSER=none PORT=3001 npm start)",
       "Bash(firebase use:*)",
-      "WebFetch(domain:localhost)"
+      "WebFetch(domain:localhost)",
+      "mcp__ide__getDiagnostics"
     ],
     "deny": [],
     "ask": []
