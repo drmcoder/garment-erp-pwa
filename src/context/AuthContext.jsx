@@ -151,16 +151,34 @@ export const AuthProvider = ({ children }) => {
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Find user in loaded data
-      const foundUser = allUsers.find(u => u.username === username);
+      // Find user in loaded data with better matching
+      const foundUser = allUsers.find(u => 
+        (u.username && u.username.toLowerCase() === username.toLowerCase()) ||
+        (u.name && u.name.toLowerCase() === username.toLowerCase()) ||
+        (u.nameEn && u.nameEn.toLowerCase() === username.toLowerCase()) ||
+        (u.nameNepali && u.nameNepali.toLowerCase() === username.toLowerCase())
+      );
       
       if (!foundUser) {
-        throw new Error(isNepali ? 'प्रयोगकर्ता फेला परेन' : 'User not found');
+        console.log(`❌ User not found: ${username}. Available users:`, allUsers.map(u => ({ 
+          username: u.username, 
+          name: u.name, 
+          nameEn: u.nameEn, 
+          nameNepali: u.nameNepali 
+        })));
+        throw new Error(isNepali ? 'प्रयोगकर्ता फेला परेन। कृपया सही प्रयोगकर्ता नाम प्रविष्ट गर्नुहोस्।' : 'User not found. Please enter the correct username.');
       }
       
-      // Simple password check (in real app, this would be handled by Firebase Auth)
-      if (password !== 'password123') {
-        throw new Error(isNepali ? 'गलत पासवर्ड' : 'Invalid password');
+      // Check if user is active
+      if (foundUser.active === false || foundUser.status === 'inactive') {
+        throw new Error(isNepali ? 'यो खाता निष्क्रिय छ। कृपया व्यवस्थापकसँग सम्पर्क गर्नुहोस्।' : 'This account is inactive. Please contact administrator.');
+      }
+      
+      // Enhanced password check with user-specific validation
+      const userPassword = foundUser.password || 'password123'; // Use user's password or default
+      if (password !== userPassword) {
+        console.log(`❌ Password mismatch for user ${username}. Expected: ${userPassword}, Got: ${password}`);
+        throw new Error(isNepali ? 'गलत पासवर्ड। कृपया सही पासवर्ड प्रविष्ट गर्नुहोस्।' : 'Incorrect password. Please enter the correct password.');
       }
       
       // Create mock JWT token

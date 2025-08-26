@@ -78,6 +78,14 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
     return Math.random().toString(36).slice(-8).toUpperCase();
   };
 
+  const generateUsername = (name, employeeId) => {
+    // Generate username from name and employee ID
+    const cleanName = name.toLowerCase()
+      .replace(/[^\w\s]/gi, '') // Remove special characters
+      .replace(/\s+/g, '.'); // Replace spaces with dots
+    return `${cleanName}.${employeeId}`.toLowerCase();
+  };
+
   const handleCreateSupervisor = () => {
     if (!newSupervisor.name || !newSupervisor.employeeId) {
       alert('Name and Employee ID are required');
@@ -86,11 +94,16 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
 
     const supervisorId = generateSupervisorId();
     const password = generatePassword();
+    const username = generateUsername(newSupervisor.name, newSupervisor.employeeId);
 
     const supervisor = {
       ...newSupervisor,
       id: supervisorId,
+      username: username,
       password: password,
+      nameEn: newSupervisor.name, // Store English name
+      nameNepali: newSupervisor.name, // Can be updated later with Nepali name
+      active: true,
       createdAt: new Date().toISOString(),
       lastLogin: null,
       performance: {
@@ -132,7 +145,7 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
     });
 
     setIsCreating(false);
-    alert(`Supervisor created successfully!\nID: ${supervisorId}\nPassword: ${password}`);
+    alert(`Supervisor created successfully!\nUsername: ${username}\nID: ${supervisorId}\nPassword: ${password}\n\nThe user can now login with this username and password.`);
   };
 
   const handleUpdateSupervisor = () => {

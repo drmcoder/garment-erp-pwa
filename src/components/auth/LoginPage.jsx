@@ -44,67 +44,97 @@ const LoginPage = () => {
   const loadUsers = async () => {
     try {
       console.log('🔄 Loading users for login dropdown from Firestore...');
-        const usersByRole = {
-          operator: [],
-          supervisor: [],
-          management: []
-        };
+      setIsLoadingUsers(true);
+      
+      const usersByRole = {
+        operator: [],
+        supervisor: [],
+        management: []
+      };
 
-        // Load from Firestore
+      // Load from Firestore with better error handling
+      try {
         const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
         operatorsSnapshot.forEach((doc) => {
           const userData = doc.data();
-          if (userData.username && userData.active !== false) { // Only include active users with username
+          if (userData.active !== false) { // Only include active users
+            const username = userData.username || userData.name || userData.nameEn || `op_${doc.id}`;
             usersByRole.operator.push({
-              username: userData.username,
-              password: 'password123', // Default password for demo
-              name: userData.nameNepali || userData.name,
+              id: doc.id,
+              username: username,
+              password: userData.password || 'password123', // Use user password or default
+              name: userData.nameNepali || userData.name || userData.nameEn,
               machine: userData.machine || userData.assignedMachine,
+              status: userData.status || 'active'
             });
           }
         });
+      } catch (error) {
+        console.warn('⚠️ Error loading operators:', error);
+      }
 
+      try {
         const supervisorsSnapshot = await getDocs(collection(db, COLLECTIONS.SUPERVISORS));
         supervisorsSnapshot.forEach((doc) => {
           const userData = doc.data();
-          if (userData.username && userData.active !== false) {
+          if (userData.active !== false) {
+            const username = userData.username || userData.name || userData.nameEn || `sup_${doc.id}`;
             usersByRole.supervisor.push({
-              username: userData.username,
-              password: 'password123', // Default password for demo
-              name: userData.nameNepali || userData.name,
+              id: doc.id,
+              username: username,
+              password: userData.password || 'password123', // Use user password or default
+              name: userData.nameNepali || userData.name || userData.nameEn,
+              status: userData.status || 'active'
             });
           }
         });
+      } catch (error) {
+        console.warn('⚠️ Error loading supervisors:', error);
+      }
 
+      try {
         const managementSnapshot = await getDocs(collection(db, COLLECTIONS.MANAGEMENT));
         managementSnapshot.forEach((doc) => {
           const userData = doc.data();
-          if (userData.username && userData.active !== false) {
+          if (userData.active !== false) {
+            const username = userData.username || userData.name || userData.nameEn || `mgr_${doc.id}`;
             usersByRole.management.push({
-              username: userData.username,
-              password: 'password123', // Default password for demo
-              name: userData.nameNepali || userData.name,
+              id: doc.id,
+              username: username,
+              password: userData.password || 'password123', // Use user password or default
+              name: userData.nameNepali || userData.name || userData.nameEn,
+              status: userData.status || 'active'
             });
           }
         });
-
-        console.log('✅ Loaded users for login:', {
-          operators: usersByRole.operator.length,
-          supervisors: usersByRole.supervisor.length,
-          management: usersByRole.management.length
-        });
-
-        setAvailableUsers(usersByRole);
       } catch (error) {
-        console.error('❌ Error loading users from Firestore:', error);
-        // No fallback - set empty users
-        setAvailableUsers({
-          operator: [],
-          supervisor: [],
-          management: []
-        });
+        console.warn('⚠️ Error loading management:', error);
       }
-    };
+
+      // Sort users by name for better UX
+      Object.keys(usersByRole).forEach(role => {
+        usersByRole[role].sort((a, b) => (a.name || a.username).localeCompare(b.name || b.username));
+      });
+
+      console.log('✅ Loaded users for login:', {
+        operators: usersByRole.operator.length,
+        supervisors: usersByRole.supervisor.length,
+        management: usersByRole.management.length
+      });
+
+      setAvailableUsers(usersByRole);
+    } catch (error) {
+      console.error('❌ Error loading users from Firestore:', error);
+      // Set empty users on error
+      setAvailableUsers({
+        operator: [],
+        supervisor: [],
+        management: []
+      });
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
 
   useEffect(() => {
     loadUsers();
@@ -114,8 +144,69 @@ const LoginPage = () => {
       console.log('🔄 Auto-refreshing login user list...');
       loadUsers();
     }, 30000);
+    
+    // Refresh when window comes back into focus
+    const handleFocus = () => {
+      console.log('🔄 Window focused - refreshing user list...');
+      loadUsers();
+    };
+    
+    // Refresh when role changes to ensure latest data
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('🔄 Page visible - refreshing user list...');
+        loadUsers();
+      }
+    };
 
-    return () => clearInterval(refreshInterval);
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearInterval(refreshInterval);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
+
+  // Also refresh when role changes
+  useEffect(() => {
+    if (availableUsers.operator.length === 0 && availableUsers.supervisor.length === 0 && availableUsers.management.length === 0) {
+      console.log('🔄 No users found for any role - refreshing...');
+      loadUsers();
+    }
+  }, [selectedRole]);
+
+  // Force refresh on storage events (when data is cleared)
+  useEffect(() => {
+    const handleStorageEvent = () => {
+      console.log('🔄 Storage event detected - refreshing user list...');
+      loadUsers();
+    };
+
+    const handleBeforeUnload = () => {
+      // Store timestamp when page is about to unload
+      localStorage.setItem('lastPageUnload', Date.now().toString());
+    };
+
+    const handlePageShow = () => {
+      // Check if page was refreshed/reloaded
+      const lastUnload = localStorage.getItem('lastPageUnload');
+      if (lastUnload && Date.now() - parseInt(lastUnload) < 5000) {
+        console.log('🔄 Page reloaded - refreshing user list...');
+        loadUsers();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageEvent);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pageshow', handlePageShow);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageEvent);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pageshow', handlePageShow);
+    };
   }, []);
 
   const handleInputChange = (field, value) => {

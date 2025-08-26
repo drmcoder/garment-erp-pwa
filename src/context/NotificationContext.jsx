@@ -47,6 +47,28 @@ export const NotificationProvider = ({ children }) => {
     setUnreadCount(prev => Math.max(0, prev - 1));
   };
 
+  const markAsUnread = (notificationId) => {
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.id === notificationId
+          ? { ...notification, read: false }
+          : notification
+      )
+    );
+    setUnreadCount(prev => prev + 1);
+  };
+
+  const toggleReadStatus = (notificationId) => {
+    const notification = notifications.find(n => n.id === notificationId);
+    if (notification) {
+      if (notification.read) {
+        markAsUnread(notificationId);
+      } else {
+        markAsRead(notificationId);
+      }
+    }
+  };
+
   const markAllAsRead = () => {
     setNotifications(prev =>
       prev.map(notification => ({ ...notification, read: true }))
@@ -130,6 +152,8 @@ export const NotificationProvider = ({ children }) => {
     sendWorkAssigned,
     sendWorkCompleted,
     markAsRead,
+    markAsUnread,
+    toggleReadStatus,
     markAllAsRead,
     removeNotification,
     clearAllNotifications,

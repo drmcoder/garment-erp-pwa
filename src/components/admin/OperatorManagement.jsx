@@ -90,6 +90,14 @@ const OperatorManagement = ({ onStatsUpdate }) => {
     return Math.random().toString(36).slice(-8).toUpperCase();
   };
 
+  const generateUsername = (name, employeeId) => {
+    // Generate username from name and employee ID
+    const cleanName = name.toLowerCase()
+      .replace(/[^\w\s]/gi, '') // Remove special characters
+      .replace(/\s+/g, '.'); // Replace spaces with dots
+    return `${cleanName}.${employeeId}`.toLowerCase();
+  };
+
   const handleCreateOperator = () => {
     if (!newOperator.name || !newOperator.employeeId) {
       alert('Name and Employee ID are required');
@@ -98,11 +106,16 @@ const OperatorManagement = ({ onStatsUpdate }) => {
 
     const operatorId = generateOperatorId();
     const password = generatePassword();
+    const username = generateUsername(newOperator.name, newOperator.employeeId);
 
     const operator = {
       ...newOperator,
       id: operatorId,
+      username: username,
       password: password,
+      nameEn: newOperator.name, // Store English name
+      nameNepali: newOperator.name, // Can be updated later with Nepali name
+      active: true,
       createdAt: new Date().toISOString(),
       lastLogin: null,
       productivity: {
@@ -137,7 +150,7 @@ const OperatorManagement = ({ onStatsUpdate }) => {
     });
 
     setIsCreating(false);
-    alert(`Operator created successfully!\nID: ${operatorId}\nPassword: ${password}`);
+    alert(`Operator created successfully!\nUsername: ${username}\nID: ${operatorId}\nPassword: ${password}\n\nThe user can now login with this username and password.`);
   };
 
   const handleUpdateOperator = () => {

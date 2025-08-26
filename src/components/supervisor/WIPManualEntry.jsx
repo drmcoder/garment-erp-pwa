@@ -1,6 +1,7 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import { useWipFeatures, useTemplateConfig } from '../../hooks/useWipFeatures';
 // import WIPInfographic from './WIPInfographic';
 import NepaliDatePicker from '../common/NepaliDatePicker';
 import { WIPService } from '../../services/firebase-services';
@@ -19,6 +20,17 @@ const getTodayNepaliDate = () => {
 // Intelligent size parsing that handles multiple separators
 const parseSmartSizeInput = (input) => {
   if (!input) return [];
+  
+  // Handle single values without separators (like just "M")
+  if (!input.includes(':') && !input.includes(';') && !input.includes(',') && !input.includes('|')) {
+    // Check if it contains spaces (multiple words)
+    const spaceSeparated = input.trim().split(/\s+/);
+    if (spaceSeparated.length > 1) {
+      return spaceSeparated.filter(s => s.length > 0);
+    }
+    // Single value
+    return input.trim() ? [input.trim()] : [];
+  }
   
   // Handle multiple separators: : ; , |
   const cleanedInput = input
@@ -54,7 +66,11 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
   const { currentLanguage } = useLanguage();
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   
-  const [currentStep, setCurrentStep] = useState(1); // 1: Basic Info, 2: Articles, 3: Rolls, 4: Preview
+  // Feature configuration hooks
+  const wipFeatures = useWipFeatures();
+  const templateConfig = useTemplateConfig();
+  
+  const [currentStep, setCurrentStep] = useState(1); // 1: Basic Info, 2: Procedure Template, 3: Articles, 4: Rolls, 5: Preview
   const [wipData, setWipData] = useState(() => {
     if (isEditing && initialData) {
       return {
@@ -65,6 +81,9 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
         fabricWidth: initialData.fabricWidth || '',
         fabricStore: initialData.fabricStore || '',
         rollCount: initialData.rollCount || initialData.rolls?.length || 1,
+        
+        // Procedure Template
+        procedureTemplate: initialData.procedureTemplate || '',
         
         // Articles and Styles
         parsedStyles: initialData.parsedStyles?.length > 0 ? initialData.parsedStyles : [
@@ -91,6 +110,9 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       fabricWidth: '',
       fabricStore: '',
       rollCount: 1, // Number of rolls to create
+      
+      // Procedure Template (Step 2)
+      procedureTemplate: '', // Selected template ID
       
       // Articles and Styles
       parsedStyles: [
@@ -175,16 +197,30 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
     const cleanedSizes = parsedSizes.join(':');
     const cleanedRatios = parsedRatios.join(':');
     
-    setWipData(prev => ({
-      ...prev,
-      articleSizes: {
-        ...prev.articleSizes,
-        [articleNumber]: {
-          sizes: cleanedSizes,
-          ratios: cleanedRatios
+    setWipData(prev => {
+      const updatedWipData = {
+        ...prev,
+        articleSizes: {
+          ...prev.articleSizes,
+          [articleNumber]: {
+            sizes: cleanedSizes,
+            ratios: cleanedRatios
+          }
         }
-      }
-    }));
+      };
+      
+      // Recalculate all roll pieces since article sizes/ratios changed
+      const updatedRolls = updatedWipData.rolls.map(roll => ({
+        ...roll,
+        pieces: calculateRollPieces(roll, updatedWipData.parsedStyles, updatedWipData.articleSizes)
+      }));
+      
+      return {
+        ...updatedWipData,
+        rolls: updatedRolls,
+        totalPieces: updatedRolls.reduce((sum, roll) => sum + (roll.pieces || 0), 0)
+      };
+    });
   }, []);
 
   // Initialize rolls array when moving to step 3
@@ -207,14 +243,27 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
     }
   };
 
-  // Update roll data
+  // Update roll data and recalculate pieces if needed
   const updateRoll = (rollIndex, field, value) => {
-    setWipData(prev => ({
-      ...prev,
-      rolls: prev.rolls.map((roll, index) => 
-        index === rollIndex ? { ...roll, [field]: value } : roll
-      )
-    }));
+    setWipData(prev => {
+      const updatedRolls = prev.rolls.map((roll, index) => {
+        if (index === rollIndex) {
+          const updatedRoll = { ...roll, [field]: value };
+          // Recalculate pieces if layer count changes
+          if (field === 'layerCount') {
+            updatedRoll.pieces = calculateRollPieces(updatedRoll, prev.parsedStyles, prev.articleSizes);
+          }
+          return updatedRoll;
+        }
+        return roll;
+      });
+
+      return {
+        ...prev,
+        rolls: updatedRolls,
+        totalPieces: updatedRolls.reduce((sum, roll) => sum + (roll.pieces || 0), 0)
+      };
+    });
   };
 
   // Add roll
@@ -269,16 +318,20 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
   };
 
   // Calculate pieces for a roll based on articles and sizes
-  const calculateRollPieces = (roll) => {
+  const calculateRollPieces = (roll, parsedStyles = null, articleSizes = null) => {
     let totalPieces = 0;
     
+    // Use provided data or fall back to wipData
+    const styles = parsedStyles || wipData.parsedStyles;
+    const sizes = articleSizes || wipData.articleSizes;
+    
     // If no parsed styles or layer count, return 0
-    if (!wipData.parsedStyles || wipData.parsedStyles.length === 0 || !roll.layerCount) {
+    if (!styles || styles.length === 0 || !roll.layerCount) {
       return 0;
     }
     
-    wipData.parsedStyles.forEach(style => {
-      const articleConfig = wipData.articleSizes[style.articleNumber];
+    styles.forEach(style => {
+      const articleConfig = sizes[style.articleNumber];
       if (articleConfig && articleConfig.ratios) {
         // Use smart parsing function instead of manual split
         const sizeRatios = parseSmartSizeInput(articleConfig.ratios);
@@ -329,9 +382,11 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       case 1:
         return wipData.lotNumber && wipData.fabricName && wipData.rollCount > 0;
       case 2:
+        return wipData.procedureTemplate; // New step: require procedure template selection
+      case 3:
         return wipData.parsedStyles.every(style => style.articleNumber && style.styleName) &&
                Object.keys(wipData.articleSizes).length > 0;
-      case 3:
+      case 4:
         return wipData.rolls.length > 0 && 
                wipData.rolls.every(roll => roll.colorName && roll.layerCount > 0);
       default:
@@ -443,15 +498,30 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
     }
   };
 
-  const renderStepIndicator = () => (
-    <div className="mt-4">
-      <div className="flex items-center justify-center space-x-2">
-        {[
-          { num: 1, name: currentLanguage === 'np' ? 'जानकारी' : 'Info', icon: '📝' },
-          { num: 2, name: currentLanguage === 'np' ? 'लेख' : 'Articles', icon: '👕' },
-          { num: 3, name: currentLanguage === 'np' ? 'रोल' : 'Rolls', icon: '🧵' },
-          { num: 4, name: currentLanguage === 'np' ? 'पूर्वावलोकन' : 'Preview', icon: '👁️' }
-        ].map((step, index) => (
+  const renderStepIndicator = () => {
+    // Generate steps dynamically based on configuration
+    const enabledSteps = wipFeatures.getSteps();
+    const stepConfigs = [
+      { key: 'basicInfo', name: currentLanguage === 'np' ? 'जानकारी' : 'Info', icon: '📝' },
+      { key: 'procedureTemplate', name: currentLanguage === 'np' ? 'प्रक्रिया' : 'Template', icon: '⚙️' },
+      { key: 'articlesConfig', name: currentLanguage === 'np' ? 'लेख' : 'Articles', icon: '👕' },
+      { key: 'rollsData', name: currentLanguage === 'np' ? 'रोल' : 'Rolls', icon: '🧵' },
+      { key: 'preview', name: currentLanguage === 'np' ? 'पूर्वावलोकन' : 'Preview', icon: '👁️' }
+    ];
+
+    const steps = stepConfigs
+      .filter(stepConfig => wipFeatures.isEnabled(`steps.${stepConfig.key}`))
+      .map((stepConfig, index) => ({
+        num: index + 1,
+        name: stepConfig.name,
+        icon: stepConfig.icon,
+        key: stepConfig.key
+      }));
+
+    return (
+      <div className="mt-4">
+        <div className="flex items-center justify-center space-x-2">
+          {steps.map((step, index) => (
           <div key={step.num} className="flex items-center">
             <button
               onClick={() => setCurrentStep(step.num)}
@@ -668,8 +738,90 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
             </div>
           )}
 
-          {/* Step 2: Articles and Sizes */}
-          {currentStep === 2 && (
+          {/* Step 2: Procedure Template Selection */}
+          {currentStep === 2 && wipFeatures.isEnabled('steps.procedureTemplate') && (
+            <div className="space-y-6">
+              <div className="flex items-center space-x-3 mb-6">
+                <span className="text-2xl">⚙️</span>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    {currentLanguage === 'np' ? 'प्रक्रिया टेम्प्लेट चयन' : 'Procedure Template Selection'}
+                  </h2>
+                  <p className="text-gray-600">
+                    {currentLanguage === 'np' 
+                      ? 'यो लटका लागि प्रक्रिया टेम्प्लेट छान्नुहोस्। यो सबै लेखहरूमा लागू हुनेछ।'
+                      : 'Select a procedure template for this lot. This will apply to all articles.'
+                    }
+                  </p>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-lg border border-gray-300 p-6">
+                <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {currentLanguage === 'np' ? 'प्रक्रिया टेम्प्लेट' : 'Procedure Template'}
+                      <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <select
+                      value={wipData.procedureTemplate}
+                      onChange={(e) => setWipData(prev => ({
+                        ...prev,
+                        procedureTemplate: e.target.value
+                      }))}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                      required
+                    >
+                      <option value="">
+                        {currentLanguage === 'np' ? 'प्रक्रिया टेम्प्लेट छान्नुहोस्' : 'Select Procedure Template'}
+                      </option>
+                      {Object.entries(templateConfig.templates).map(([key, template]) => (
+                        <option key={key} value={key}>
+                          {template.name[currentLanguage] || template.name.en}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {wipData.procedureTemplate && (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <h4 className="text-sm font-medium text-blue-800 mb-2">
+                        {currentLanguage === 'np' ? 'चयनित टेम्प्लेट जानकारी:' : 'Selected Template Info:'}
+                      </h4>
+                      <div className="text-sm text-blue-700">
+                        {templateConfig.templates[wipData.procedureTemplate] && (
+                          <p>
+                            {templateConfig.templates[wipData.procedureTemplate].description[currentLanguage] || 
+                             templateConfig.templates[wipData.procedureTemplate].description.en}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start space-x-3">
+                    <span className="text-xl">💡</span>
+                    <div className="text-sm text-yellow-800">
+                      <p className="font-medium mb-1">
+                        {currentLanguage === 'np' ? 'टिप:' : 'Tip:'}
+                      </p>
+                      <p>
+                        {currentLanguage === 'np'
+                          ? 'चयनित प्रक्रिया टेम्प्लेट यो लटका सबै लेखहरूमा लागू हुनेछ। तपाईं पछि व्यक्तिगत लेखहरूका लागि ठोस आपरेशनहरू अनुकूलित गर्न सक्नुहुन्छ।'
+                          : 'The selected procedure template will apply to all articles in this lot. You can customize specific operations for individual articles later.'
+                        }
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Articles and Sizes */}
+          {currentStep === 3 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-800">
@@ -753,15 +905,20 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                                 wipData.articleSizes[style.articleNumber]?.ratios || ''
                               )}
                               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                              placeholder="S:M:L:XL:2XL or S;M;L;XL;2XL"
+                              placeholder={currentLanguage === 'np' ? 'M वा S:M:L:XL वा S;M;L;XL वा S,M,L,XL वा S|M|L|XL' : 'M or S:M:L:XL or S;M;L;XL or S,M,L,XL or S|M|L|XL'}
                             />
                             <p className="text-xs text-gray-500 mt-1">
                               <span className="inline-flex items-center">
                                 <span className="w-2 h-2 bg-green-500 rounded-full mr-1"></span>
-                                {currentLanguage === 'np' 
-                                  ? 'कुनै पनि प्रयोग गर्नुहोस्: : ; , |' 
-                                  : 'Use any separator: : ; , |'
-                                }
+                                <span>
+                                  {currentLanguage === 'np' 
+                                    ? 'एकल साइज वा कुनै पनि विभाजक प्रयोग गर्नुहोस्: ' 
+                                    : 'Single size or use any separator: '
+                                  }
+                                  <code className="text-blue-600 font-mono bg-gray-100 px-1 rounded">
+                                    : ; , | (spaces)
+                                  </code>
+                                </span>
                               </span>
                             </p>
                           </div>
@@ -779,7 +936,7 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                                 e.target.value
                               )}
                               className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                              placeholder="1:2:3:2:1 or 1;2;3;2;1"
+                              placeholder={currentLanguage === 'np' ? '1 वा 1:2:3:2:1 वा 1;2;3;2;1 वा 1,2,3,2,1 वा 1|2|3|2|1' : '1 or 1:2:3:2:1 or 1;2;3;2;1 or 1,2,3,2,1 or 1|2|3|2|1'}
                             />
                             <p className="text-xs text-gray-500 mt-1">
                               <span className="inline-flex items-center">
@@ -802,8 +959,8 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
             </div>
           )}
 
-          {/* Step 3: Roll Data */}
-          {currentStep === 3 && (
+          {/* Step 4: Roll Data */}
+          {currentStep === 4 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-800">
@@ -973,8 +1130,8 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
             </div>
           )}
 
-          {/* Step 4: Enhanced Preview */}
-          {currentStep === 4 && (
+          {/* Step 5: Enhanced Preview */}
+          {currentStep === 5 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-800">
@@ -1006,6 +1163,18 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">{currentLanguage === 'np' ? 'कुल टुक्रा:' : 'Total Pieces:'}</span>
                       <span className="font-bold text-2xl text-green-600">{wipData.totalPieces}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600">{currentLanguage === 'np' ? 'प्रक्रिया टेम्प्लेट:' : 'Procedure Template:'}</span>
+                      <span className="font-medium text-purple-600">
+                        {wipData.procedureTemplate === 'shirt-basic' && (currentLanguage === 'np' ? 'शर्ट प्रक्रिया' : 'Shirt Procedure')}
+                        {wipData.procedureTemplate === 'trouser-standard' && (currentLanguage === 'np' ? 'ट्राउजर प्रक्रिया' : 'Trouser Procedure')}
+                        {wipData.procedureTemplate === 'dress-formal' && (currentLanguage === 'np' ? 'ड्रेस प्रक्रिया' : 'Dress Procedure')}
+                        {wipData.procedureTemplate === 'jacket-casual' && (currentLanguage === 'np' ? 'ज्याकेट प्रक्रिया' : 'Jacket Procedure')}
+                        {wipData.procedureTemplate === 'tshirt-basic' && (currentLanguage === 'np' ? 'टी-शर्ट प्रक्रिया' : 'T-Shirt Procedure')}
+                        {wipData.procedureTemplate === 'custom' && (currentLanguage === 'np' ? 'कस्टम प्रक्रिया' : 'Custom Procedure')}
+                        {!wipData.procedureTemplate && (currentLanguage === 'np' ? 'चयन गरिएको छैन' : 'Not Selected')}
+                      </span>
                     </div>
                     <div className="pt-2 border-t border-blue-200">
                       <div className="text-xs text-blue-600">
@@ -1115,15 +1284,16 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                   {wipData.rolls.map((roll, index) => (
                     <div key={index} className="text-gray-700 pl-4 mb-1">
                       Roll {roll.rollNumber}: {roll.layerCount} layers × (
-                      {wipData.parsedStyles.map(style => {
+                      {wipData.parsedStyles.map((style, styleIndex) => {
                         const articleConfig = wipData.articleSizes[style.articleNumber];
                         if (articleConfig && articleConfig.ratios) {
                           const ratios = parseSmartSizeInput(articleConfig.ratios);
+                          const ratioDisplay = ratios.length > 0 ? ratios.join('+') : '1';
                           const totalRatio = ratios.reduce((sum, r) => sum + (parseInt(r) || 0), 0);
-                          return totalRatio;
+                          return `${ratioDisplay}=${totalRatio}`;
                         } else {
                           // Fallback: show 1 if no ratios configured
-                          return 1;
+                          return '1';
                         }
                       }).join(' + ')}
                       ) = <span className="font-bold text-green-600">{roll.pieces} pieces</span>
@@ -1181,6 +1351,7 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       </div>
     </div>
   );
+};
 };
 
 export default WIPManualEntry;

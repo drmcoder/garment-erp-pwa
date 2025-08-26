@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
-import BundleWorkflowCards from '../common/BundleWorkflowCards';
 
 const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCancel }) => {
   const { currentLanguage } = useLanguage();
@@ -11,6 +10,7 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
   const [selectedWorkItems, setSelectedWorkItems] = useState([]);
   const [selectedOperator, setSelectedOperator] = useState(null);
   const [filterMachine, setFilterMachine] = useState('all');
+  const [filteredOperators, setFilteredOperators] = useState([]);
   const [filterStatus, setFilterStatus] = useState('ready');
   const [assignments, setAssignments] = useState([]);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'workflow'
@@ -23,7 +23,54 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
       console.log('🔍 Sample operator structure in Board:', operators[0]);
     }
     setAvailableOperators(operators || []);
+    setFilteredOperators(operators || []);
   }, [operators]);
+
+  // Dynamic operator filtering based on selected machine type
+  useEffect(() => {
+    if (filterMachine === 'all') {
+      setFilteredOperators(availableOperators);
+    } else {
+      const filtered = availableOperators.filter(op => op.machine === filterMachine);
+      setFilteredOperators(filtered);
+    }
+  }, [filterMachine, availableOperators]);
+
+  // Auto-dismiss console errors after 3 seconds
+  useEffect(() => {
+    const handleError = () => {
+      // Auto-dismiss console dialogs after 3 seconds
+      setTimeout(() => {
+        // This will clear any open console dialog
+        if (window.confirm || window.alert || window.prompt) {
+          // Force close any modal dialogs
+          try {
+            document.querySelectorAll('dialog[open]').forEach(dialog => {
+              dialog.close();
+            });
+            
+            // Also close any custom modal overlays
+            document.querySelectorAll('.modal-overlay, .dialog-overlay, [role="dialog"]').forEach(modal => {
+              if (modal.style.display !== 'none') {
+                modal.style.display = 'none';
+              }
+            });
+          } catch (e) {
+            console.log('No dialogs to close');
+          }
+        }
+      }, 3000);
+    };
+
+    // Listen for error events
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleError);
+    
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleError);
+    };
+  }, []);
 
   const filteredWorkItems = workItems.filter(item => {
     const machineMatch = filterMachine === 'all' || item.machineType === filterMachine;
@@ -403,7 +450,7 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
               </h3>
               
               <div className="space-y-3">
-                {availableOperators.length === 0 ? (
+                {filteredOperators.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <div className="text-4xl mb-4">👥</div>
                     <p className="text-lg font-medium mb-2">
@@ -416,7 +463,7 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
                       }
                     </p>
                   </div>
-                ) : availableOperators.map(operator => {
+                ) : filteredOperators.map(operator => {
                   const isCompatible = selectedWorkItems.length === 0 || 
                     selectedWorkItems.every(item => item.machineType === operator.machine);
                   

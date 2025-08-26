@@ -1,22 +1,15 @@
 import React, { useState, useEffect } from "react";
 import {
   Users,
-  Activity,
   Clock,
   TrendingUp,
-  AlertTriangle,
   Package,
-  PlayCircle,
   PauseCircle,
   Target,
-  BarChart3,
   Settings,
   RefreshCw,
   Plus,
-  Edit,
   Eye,
-  Filter,
-  Download,
   Bell,
   Zap,
   X,
@@ -30,14 +23,13 @@ import {
 } from "../../services/firebase-services";
 
 const SupervisorDashboard = () => {
-  const { user, getUserDisplayInfo } = useAuth();
+  const { getUserDisplayInfo } = useAuth();
   const {
     t,
     currentLanguage,
     formatTime,
     formatNumber,
     getSizeLabel,
-    sizeUtils,
   } = useLanguage();
 
   const [activeTab, setActiveTab] = useState("monitoring");
@@ -46,7 +38,6 @@ const SupervisorDashboard = () => {
   const [productionStats, setProductionStats] = useState({});
   const [efficiencyAlerts, setEfficiencyAlerts] = useState([]);
   const [selectedStation, setSelectedStation] = useState(null);
-  const [showWorkAssignment, setShowWorkAssignment] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -108,7 +99,7 @@ const SupervisorDashboard = () => {
                         operator.machineType,
               operator: operator.name,
               operatorEn: operator.nameEn || operator.name,
-              status: operator.isActive ? 'active' : 'idle',
+              status: operator.active ? 'active' : 'idle',
               efficiency: operator.efficiency || 0,
               currentWork: null,
               nextWork: null
@@ -146,7 +137,7 @@ const SupervisorDashboard = () => {
         
         // Calculate production statistics
         const totalOperators = operators.length;
-        const activeOperators = operators.filter(op => op.isActive).length;
+        const activeOperators = operators.filter(op => op.active).length;
         const totalBundles = bundles.length;
         const completedBundles = bundles.filter(b => b.status === 'completed').length;
         const inProgressBundles = bundles.filter(b => b.status === 'in-progress').length;
@@ -475,8 +466,9 @@ const SupervisorDashboard = () => {
       ))}
     </div>
   );
+};
 
-  const EfficiencyAlertsView = () => (
+const EfficiencyAlertsView = () => (
     <div className="space-y-4">
       {efficiencyAlerts.map((alert) => (
         <div
@@ -572,8 +564,7 @@ const SupervisorDashboard = () => {
                     </div>
                     <div className="text-sm text-yellow-700 space-y-1">
                       <div>
-                        {t("current")}: {formatNumber(alert.currentEfficiency)}%
-                        |{t("target")}: {formatNumber(alert.targetEfficiency)}%
+                        {t("current")}: {formatNumber(alert.currentEfficiency)}% | {t("target")}: {formatNumber(alert.targetEfficiency)}%
                       </div>
                       <div>
                         {t("suggestedAction")}: {t(alert.suggestedAction)}
