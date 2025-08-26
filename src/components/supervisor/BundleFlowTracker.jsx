@@ -266,8 +266,8 @@ const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
                 className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="all">{currentLanguage === 'np' ? 'सबै अपरेसन' : 'All Operations'}</option>
-                {operations.map(operation => (
-                  <option key={operation} value={operation}>{operation}</option>
+                {operations.map((operation, index) => (
+                  <option key={`${operation}-${index}`} value={operation}>{operation}</option>
                 ))}
               </select>
             </div>

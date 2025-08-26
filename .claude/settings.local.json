@@ -39,7 +39,11 @@
       "Bash(firebase use:*)",
       "WebFetch(domain:localhost)",
       "mcp__ide__getDiagnostics",
-      "Bash(unset HOST)"
+      "Bash(unset HOST)",
+      "Bash(PORT=3001 timeout 15 npm start)",
+      "Bash(PORT=3001 timeout 25 npm start)",
+      "Bash(sed:*)",
+      "Bash(PORT=3001 timeout 20 npm start)"
     ],
     "deny": [],
     "ask": []

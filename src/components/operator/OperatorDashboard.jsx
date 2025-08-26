@@ -44,6 +44,8 @@ const OperatorDashboard = () => {
   // State management
   const [currentWork, setCurrentWork] = useState(null);
   const [workQueue, setWorkQueue] = useState([]);
+  const [availableWork, setAvailableWork] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
   const [dailyStats, setDailyStats] = useState({
     piecesCompleted: 0,
     totalEarnings: 0,
@@ -158,6 +160,12 @@ const OperatorDashboard = () => {
           (b) => b.status === "pending" || b.status === "assigned"
         );
         setWorkQueue(queueBundles);
+
+        // Load available work for self-assignment
+        await loadAvailableWork();
+        
+        // Load pending assignment requests
+        await loadPendingRequests();
       } else {
         throw new Error(bundlesResult.error);
       }
@@ -187,6 +195,52 @@ const OperatorDashboard = () => {
       // No fallback data - show empty state
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load available work for self-assignment
+  const loadAvailableWork = async () => {
+    try {
+      console.log("🔍 Loading available work for self-assignment");
+      
+      const result = await BundleService.getAvailableWorkForOperator(
+        user?.machine, 
+        user?.skillLevel || 'medium'
+      );
+
+      if (result.success) {
+        // Filter work compatible with operator's machine and skill
+        const compatibleWork = result.bundles.filter(bundle => {
+          return bundle.status === 'ready_for_assignment' && 
+                 !bundle.assignedOperator &&
+                 bundle.machineType === user?.machine;
+        });
+        
+        setAvailableWork(compatibleWork);
+        console.log("✅ Available work loaded:", compatibleWork.length);
+      }
+    } catch (error) {
+      console.error("❌ Error loading available work:", error);
+    }
+  };
+
+  // Load pending assignment requests
+  const loadPendingRequests = async () => {
+    try {
+      console.log("⏳ Loading pending assignment requests");
+      
+      const result = await BundleService.getOperatorAssignmentRequests(user.id);
+
+      if (result.success) {
+        const pending = result.requests.filter(req => 
+          req.status === 'pending_supervisor_approval'
+        );
+        
+        setPendingRequests(pending);
+        console.log("✅ Pending requests loaded:", pending.length);
+      }
+    } catch (error) {
+      console.error("❌ Error loading pending requests:", error);
     }
   };
 
@@ -357,6 +411,55 @@ const OperatorDashboard = () => {
   const handleCompleteWorkDirect = (work) => {
     setCurrentWork(work);
     setShowWorkCompletion(true);
+  };
+
+  // Request self-assignment (requires supervisor approval)
+  const handleSelfAssignWork = async (work) => {
+    try {
+      setLoading(true);
+      console.log("📝 Requesting self-assignment:", work.id);
+
+      // Create assignment request instead of direct assignment
+      const result = await BundleService.createAssignmentRequest({
+        bundleId: work.id,
+        operatorId: user.id,
+        operatorName: user.name,
+        operatorMachine: user.machine,
+        requestType: 'self_assignment',
+        workDetails: {
+          article: work.article,
+          operation: work.currentOperation,
+          pieces: work.pieces,
+          rate: work.rate,
+          estimatedEarnings: (work.pieces * work.rate).toFixed(2)
+        },
+        status: 'pending_supervisor_approval',
+        requestedAt: new Date().toISOString()
+      });
+
+      if (result.success) {
+        // Simple success message
+        alert(currentLanguage === "np" 
+          ? "✅ काम माग्ने अनुरोध सुपरभाइजर सरलाई पठाइयो!\n\n⏳ सुपरभाइजर सरले स्वीकार गरेपछि तपाईंको काममा देखिनेछ।"
+          : "✅ Work request sent to supervisor sir!\n\n⏳ It will appear in your work after supervisor sir approves."
+        );
+
+        // Refresh data to show updated pending requests
+        await loadPendingRequests();
+        
+        // Don't remove from available work list yet - only after approval
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error("❌ Self-assignment request error:", error);
+      alert(currentLanguage === "np" 
+        ? "❌ समस्या भयो!\n\nअनुरोध पठाउन सकिएन। फेरि प्रयास गर्नुहोस्।"
+        : "❌ Problem!\n\nCould not send request. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle work completion
@@ -787,6 +890,205 @@ const OperatorDashboard = () => {
                         </button>
                       </div>
                     )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Simple Pending Requests */}
+      {pendingRequests && pendingRequests.length > 0 && (
+        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl shadow-lg border-2 border-yellow-200 m-4">
+          {/* Big, Clear Header */}
+          <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-6 rounded-t-xl">
+            <div className="text-center">
+              <div className="text-4xl mb-2">⏳</div>
+              <h2 className="text-2xl font-bold mb-1">
+                {currentLanguage === "np" ? "काम माग्दै छ" : "WORK REQUESTED"}
+              </h2>
+              <p className="text-yellow-100 text-lg">
+                {currentLanguage === "np" 
+                  ? "सुपरभाइजर सरलाई पर्खनुहोस्" 
+                  : "Wait for supervisor sir"}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {pendingRequests.map((request, index) => (
+              <div 
+                key={request.id}
+                className="bg-white rounded-2xl shadow-lg border-2 border-yellow-100 p-6 mb-4"
+              >
+                {/* Request Number */}
+                <div className="flex items-center justify-center mb-4">
+                  <div className="bg-yellow-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">
+                    {index + 1}
+                  </div>
+                </div>
+
+                {/* Simple Request Info */}
+                <div className="text-center mb-4">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                    {request.workDetails.article}#
+                  </h3>
+                  
+                  {/* Money Amount - Big and Clear */}
+                  <div className="bg-green-100 rounded-2xl p-6 border-2 border-green-200 mb-4">
+                    <div className="text-4xl mb-2">💰</div>
+                    <div className="text-3xl font-bold text-green-700">
+                      रु. {request.workDetails.estimatedEarnings}
+                    </div>
+                    <div className="text-lg text-green-600">
+                      {currentLanguage === "np" ? "कमाई हुनेछ" : "You will earn"}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status - Big and Clear */}
+                <div className="bg-yellow-100 rounded-2xl p-6 border-2 border-yellow-200 text-center">
+                  <div className="text-4xl mb-2">👤</div>
+                  <div className="text-xl font-bold text-yellow-800 mb-2">
+                    {currentLanguage === "np" ? "सुपरभाइजर सरलाई हेर्दै" : "SUPERVISOR SIR CHECKING"}
+                  </div>
+                  <div className="text-lg text-yellow-700">
+                    {currentLanguage === "np" 
+                      ? "केही समय पछि जवाफ आउनेछ" 
+                      : "Answer will come soon"}
+                  </div>
+                </div>
+
+                {/* Date Info */}
+                <div className="mt-4 text-center text-gray-600">
+                  <div className="text-lg">
+                    📅 {new Date(request.requestedAt).toLocaleDateString('ne-NP')}
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Instructions */}
+            <div className="bg-blue-50 rounded-2xl p-6 border-2 border-blue-200 text-center">
+              <div className="text-3xl mb-3">💡</div>
+              <p className="text-xl font-bold text-blue-800 mb-2">
+                {currentLanguage === "np" ? "के गर्ने?" : "What to do?"}
+              </p>
+              <p className="text-lg text-blue-700">
+                {currentLanguage === "np" 
+                  ? "केहि गर्नु पर्दैन। सुपरभाइजर सरले स्वीकार गरेपछि आफ्नो काममा देखिनेछ।" 
+                  : "Do nothing. When supervisor sir approves, it will show in your work."}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Simple Self-Assignment Section */}
+      {availableWork && availableWork.length > 0 && (
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl shadow-lg border-2 border-green-200 m-4">
+          {/* Big, Clear Header */}
+          <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white p-6 rounded-t-xl">
+            <div className="text-center">
+              <div className="text-4xl mb-2">🎯</div>
+              <h2 className="text-2xl font-bold mb-1">
+                {currentLanguage === "np" ? "नयाँ काम लिनुहोस्" : "GET NEW WORK"}
+              </h2>
+              <p className="text-green-100 text-lg">
+                {currentLanguage === "np" 
+                  ? "तपाईंको मेसिनको काम छ!" 
+                  : "Work available for your machine!"}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-6">
+            {availableWork.map((work, index) => (
+              <div 
+                key={work.id}
+                className="bg-white rounded-2xl shadow-lg border-2 border-gray-100 p-6 mb-4 hover:shadow-xl transition-all"
+              >
+                {/* Work Number Badge */}
+                <div className="flex items-center justify-center mb-4">
+                  <div className="bg-blue-500 text-white rounded-full w-12 h-12 flex items-center justify-center text-xl font-bold">
+                    {index + 1}
+                  </div>
+                </div>
+
+                {/* Simple Work Info */}
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                    {work.article}# 
+                  </h3>
+                  <p className="text-lg text-gray-600 mb-4">
+                    {currentLanguage === "np" ? t(work.currentOperation) : work.currentOperation}
+                  </p>
+                  
+                  {/* Big Visual Info Boxes */}
+                  <div className="grid grid-cols-2 gap-4 mb-6">
+                    {/* Pieces Count */}
+                    <div className="bg-blue-100 rounded-xl p-4 border-2 border-blue-200">
+                      <div className="text-3xl mb-1">👕</div>
+                      <div className="text-2xl font-bold text-blue-700">{work.pieces}</div>
+                      <div className="text-sm text-blue-600">
+                        {currentLanguage === "np" ? "टुक्रा" : "Pieces"}
+                      </div>
+                    </div>
+
+                    {/* Total Money */}
+                    <div className="bg-green-100 rounded-xl p-4 border-2 border-green-200">
+                      <div className="text-3xl mb-1">💰</div>
+                      <div className="text-2xl font-bold text-green-700">
+                        रु. {(work.pieces * work.rate).toFixed(0)}
+                      </div>
+                      <div className="text-sm text-green-600">
+                        {currentLanguage === "np" ? "कुल कमाई" : "Total Money"}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Color Info */}
+                  <div className="bg-yellow-100 rounded-xl p-3 mb-4 border-2 border-yellow-200">
+                    <div className="text-lg font-bold text-yellow-800">
+                      🎨 {currentLanguage === "np" ? "रंग:" : "Color:"} {work.color}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Giant Easy Button */}
+                <button
+                  onClick={() => handleSelfAssignWork(work)}
+                  disabled={loading}
+                  className="w-full bg-gradient-to-r from-green-500 to-green-600 text-white text-2xl font-bold py-6 px-8 rounded-2xl hover:from-green-600 hover:to-green-700 disabled:from-gray-400 disabled:to-gray-500 transition-all shadow-lg border-4 border-green-400 hover:border-green-500"
+                >
+                  {loading ? (
+                    <div className="flex items-center justify-center">
+                      <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin mr-4"></div>
+                      <span className="text-xl">
+                        {currentLanguage === "np" ? "पठाउँदै..." : "SENDING..."}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center">
+                      <span className="text-4xl mr-3">✋</span>
+                      <span>
+                        {currentLanguage === "np" ? "यो काम मलाई दिनुहोस्!" : "GIVE ME THIS WORK!"}
+                      </span>
+                      <span className="text-4xl ml-3">✋</span>
+                    </div>
+                  )}
+                </button>
+
+                {/* Simple Instructions */}
+                <div className="mt-4 bg-blue-50 rounded-xl p-4 border-2 border-blue-200">
+                  <div className="text-center text-blue-700">
+                    <div className="text-2xl mb-2">👆</div>
+                    <p className="text-lg font-semibold">
+                      {currentLanguage === "np" 
+                        ? "बटन दबाउनुहोस् → सुपरभाइजरले स्वीकार गर्नुहुन्छ → काम सुरु गर्नुहोस्!" 
+                        : "Press Button → Supervisor Approves → Start Work!"}
+                    </p>
                   </div>
                 </div>
               </div>

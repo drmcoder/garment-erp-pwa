@@ -209,9 +209,9 @@ const SimpleOperatorLogin = ({ onLoginSuccess }) => {
                       {currentLanguage === 'np' ? operator.name : operator.nameEn}
                     </div>
                     
-                    {/* ID Number - Large and Clear */}
+                    {/* Station Info - Large and Clear */}
                     <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-lg text-lg font-bold mb-2">
-                      #{operator.id}
+                      {operator.station || operator.machine || 'Station'}
                     </div>
                     
                     {/* Machine Type with Icon */}

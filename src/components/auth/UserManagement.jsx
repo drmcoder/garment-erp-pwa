@@ -28,6 +28,17 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
+import { db } from "../../services/firebase";
+import { 
+  collection, 
+  getDocs, 
+  doc, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc,
+  query,
+  orderBy 
+} from "firebase/firestore";
 
 const UserManagement = () => {
   const { user, userRole, hasPermission } = useAuth();
@@ -97,63 +108,76 @@ const UserManagement = () => {
 
   const loadUsers = async () => {
     setIsLoading(true);
-    // Simulate API call - replace with actual Firebase query
-    setTimeout(() => {
-      setUsers([
-        {
-          id: "op001",
-          name: "राम सिंह",
-          username: "ram.singh",
-          email: "ram.singh@garment-erp.com",
-          phone: "+977-9841234567",
-          role: "operator",
-          machine: "overlock",
-          skillLevel: "expert",
-          station: "overlock-1",
-          shift: "morning",
-          department: "production",
-          address: "काठमाडौं, नेपाल",
-          joinDate: "2023-01-15",
-          status: "active",
-          lastLogin: "2025-08-22T10:30:00",
-          performance: { efficiency: 95, quality: 98 },
-        },
-        {
-          id: "op002",
-          name: "सीता देवी",
-          username: "sita.devi",
-          email: "sita.devi@garment-erp.com",
-          phone: "+977-9841234568",
-          role: "operator",
-          machine: "flatlock",
-          skillLevel: "intermediate",
-          station: "flatlock-1",
-          shift: "morning",
-          department: "production",
-          address: "भक्तपुर, नेपाल",
-          joinDate: "2023-03-10",
-          status: "active",
-          lastLogin: "2025-08-22T09:45:00",
-          performance: { efficiency: 92, quality: 96 },
-        },
-        {
-          id: "sup001",
-          name: "श्याम पोखरेल",
-          username: "supervisor",
-          email: "supervisor@garment-erp.com",
-          phone: "+977-9841234569",
-          role: "supervisor",
-          department: "production",
-          shift: "morning",
-          address: "ललितपुर, नेपाल",
-          joinDate: "2022-06-01",
-          status: "active",
-          lastLogin: "2025-08-22T08:00:00",
-          performance: { teamEfficiency: 87, qualityScore: 94 },
-        },
+    try {
+      console.log("📊 Loading users from Firebase...");
+      
+      // Load users from all collections
+      const [operatorsSnapshot, supervisorsSnapshot, managementSnapshot] = await Promise.all([
+        getDocs(query(collection(db, 'OPERATORS'), orderBy('name'))),
+        getDocs(query(collection(db, 'SUPERVISORS'), orderBy('name'))),
+        getDocs(query(collection(db, 'MANAGEMENT'), orderBy('name')))
       ]);
+
+      const allUsers = [];
+
+      // Process operators
+      operatorsSnapshot.forEach((doc) => {
+        const operatorData = doc.data();
+        allUsers.push({
+          id: doc.id,
+          ...operatorData,
+          role: 'operator',
+          // Ensure productivity structure exists
+          productivity: operatorData.productivity || {
+            totalBundles: 0,
+            completedBundles: 0,
+            averageTime: 0,
+            qualityScore: 100
+          }
+        });
+      });
+
+      // Process supervisors
+      supervisorsSnapshot.forEach((doc) => {
+        const supervisorData = doc.data();
+        allUsers.push({
+          id: doc.id,
+          ...supervisorData,
+          role: 'supervisor',
+          productivity: supervisorData.productivity || {
+            totalBundles: 0,
+            completedBundles: 0,
+            averageTime: 0,
+            qualityScore: 100
+          }
+        });
+      });
+
+      // Process management
+      managementSnapshot.forEach((doc) => {
+        const managementData = doc.data();
+        allUsers.push({
+          id: doc.id,
+          ...managementData,
+          role: 'management',
+          productivity: managementData.productivity || {
+            totalBundles: 0,
+            completedBundles: 0,
+            averageTime: 0,
+            qualityScore: 100
+          }
+        });
+      });
+
+      console.log("✅ Loaded users from Firebase:", allUsers.length);
+      setUsers(allUsers);
+    } catch (error) {
+      console.error("❌ Error loading users from Firebase:", error);
+      // Fallback to empty array instead of mock data
+      setUsers([]);
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   // User CRUD Operations
@@ -201,45 +225,126 @@ const UserManagement = () => {
     try {
       setIsLoading(true);
 
+      // Determine which collection to use based on role
+      const getCollectionName = (role) => {
+        switch (role) {
+          case 'operator': return 'OPERATORS';
+          case 'supervisor': return 'SUPERVISORS';
+          case 'management': return 'MANAGEMENT';
+          case 'admin': return 'MANAGEMENT'; // Admin users go to management collection
+          default: return 'OPERATORS';
+        }
+      };
+
       if (selectedUser) {
         // Update existing user
-        setUsers((prev) =>
-          prev.map((u) =>
-            u.id === selectedUser.id
-              ? { ...u, ...userForm, updatedAt: new Date().toISOString() }
-              : u
-          )
-        );
+        const collectionName = getCollectionName(selectedUser.role);
+        const userRef = doc(db, collectionName, selectedUser.id);
+        
+        const updatedData = {
+          ...userForm,
+          updatedAt: new Date().toISOString()
+        };
+        
+        await updateDoc(userRef, updatedData);
+        console.log("✅ User updated in Firebase:", selectedUser.id);
       } else {
         // Create new user
-        const newUser = {
-          id: `user_${Date.now()}`,
+        const userId = `user_${Date.now()}`;
+        const collectionName = getCollectionName(userForm.role);
+        const userRef = doc(db, collectionName, userId);
+        
+        const newUserData = {
           ...userForm,
           createdAt: new Date().toISOString(),
           lastLogin: null,
-          performance: { efficiency: 0, quality: 0 },
+          productivity: {
+            totalBundles: 0,
+            completedBundles: 0,
+            averageTime: 0,
+            qualityScore: 100
+          }
         };
-        setUsers((prev) => [...prev, newUser]);
+        
+        await setDoc(userRef, newUserData);
+        console.log("✅ New user created in Firebase:", userId);
       }
 
+      // Reload users from Firebase
+      await loadUsers();
+      
       setShowUserModal(false);
       setSelectedUser(null);
+      
+      alert(currentLanguage === "np" 
+        ? "प्रयोगकर्ता सफलतापूर्वक सेभ भयो!" 
+        : "User saved successfully!"
+      );
     } catch (error) {
-      console.error("Error saving user:", error);
+      console.error("❌ Error saving user:", error);
+      alert(currentLanguage === "np" 
+        ? "प्रयोगकर्ता सेभ गर्न समस्या भयो!" 
+        : "Error saving user!"
+      );
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDeleteUser = async (userId) => {
+    const userToDelete = users.find(u => u.id === userId);
+    
+    if (!userToDelete) {
+      alert(currentLanguage === "np" 
+        ? "प्रयोगकर्ता फेला परेन!" 
+        : "User not found!"
+      );
+      return;
+    }
+
     if (
       window.confirm(
         currentLanguage === "np"
-          ? "के तपाईं यो प्रयोगकर्तालाई मेटाउन चाहनुहुन्छ?"
-          : "Are you sure you want to delete this user?"
+          ? `के तपाईं "${userToDelete.name}" लाई मेटाउन चाहनुहुन्छ?\n\nयो कार्य अपरिवर्तनीय छ!`
+          : `Are you sure you want to delete "${userToDelete.name}"?\n\nThis action cannot be undone!`
       )
     ) {
-      setUsers((prev) => prev.filter((u) => u.id !== userId));
+      try {
+        setIsLoading(true);
+        
+        // Determine which collection the user is in
+        const getCollectionName = (role) => {
+          switch (role) {
+            case 'operator': return 'OPERATORS';
+            case 'supervisor': return 'SUPERVISORS';
+            case 'management': return 'MANAGEMENT';
+            case 'admin': return 'MANAGEMENT';
+            default: return 'OPERATORS';
+          }
+        };
+
+        const collectionName = getCollectionName(userToDelete.role);
+        const userRef = doc(db, collectionName, userId);
+        
+        await deleteDoc(userRef);
+        console.log("✅ User deleted from Firebase:", userId);
+        
+        // Reload users from Firebase
+        await loadUsers();
+        
+        alert(currentLanguage === "np" 
+          ? "प्रयोगकर्ता सफलतापूर्वक मेटाइयो!" 
+          : "User deleted successfully!"
+        );
+      } catch (error) {
+        console.error("❌ Error deleting user:", error);
+        alert(currentLanguage === "np" 
+          ? "प्रयोगकर्ता मेटाउन समस्या भयो!" 
+          : "Error deleting user!"
+        );
+      } finally {
+        setIsLoading(false);
+      }
     }
   };
 

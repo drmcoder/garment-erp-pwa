@@ -440,7 +440,7 @@ const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCan
                             {currentLanguage === 'np' ? operator.name : operator.nameEn}
                           </div>
                           <div className="text-sm text-gray-600">
-                            ID: {operator.id} • {operator.machine}
+                            {currentLanguage === 'np' ? 'मेसिन:' : 'Machine:'} {operator.machine}
                           </div>
                           <div className="text-sm text-gray-600">
                             {currentLanguage === 'np' ? 'दक्षता:' : 'Efficiency:'} {operator.efficiency}%

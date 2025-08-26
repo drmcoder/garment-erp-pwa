@@ -1,3 +1,4 @@
+// This is a backup of the working TemplateBuilder
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
@@ -7,89 +8,8 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   const isNepali = currentLanguage === 'np';
 
-  // English to Nepali translation mapping for common sewing operations
-  const engToNepaliTranslations = {
-    // Common sewing operations
-    'cut': 'काट्ने',
-    'cutting': 'काट्ने',
-    'sew': 'सिलाई',
-    'sewing': 'सिलाई',
-    'stitch': 'टाँका',
-    'stitching': 'टाँका',
-    'attach': 'जोड्ने',
-    'attaching': 'जोड्ने',
-    'join': 'जोड्ने',
-    'joining': 'जोड्ने',
-    'hem': 'हेम',
-    'hemming': 'हेम',
-    'fold': 'तह लगाउने',
-    'folding': 'तह लगाउने',
-    'seam': 'सिम',
-    'seaming': 'सिम',
-    'overlock': 'ओभरलक',
-    'overlocking': 'ओभरलक',
-    'collar': 'कलर',
-    'sleeve': 'बाहुला',
-    'placket': 'प्लाकेट',
-    'pocket': 'खल्ती',
-    'button': 'बटन',
-    'buttonhole': 'बटनहोल',
-    'zipper': 'जिपर',
-    'elastic': 'रबर',
-    'waistband': 'कम्मर पट्टी',
-    'shoulder': 'काँध',
-    'side': 'छेउ',
-    'front': 'अगाडि',
-    'back': 'पछाडि',
-    'top': 'माथि',
-    'bottom': 'तल',
-    'finish': 'समाप्त',
-    'finishing': 'समाप्त गर्ने',
-    'press': 'प्रेस',
-    'pressing': 'प्रेस गर्ने',
-    'iron': 'इस्त्री',
-    'ironing': 'इस्त्री गर्ने',
-    'trim': 'काट्ने',
-    'trimming': 'काट्ने',
-    'clean': 'सफा',
-    'cleaning': 'सफा गर्ने',
-    'check': 'जाँच',
-    'checking': 'जाँच गर्ने',
-    'inspect': 'निरीक्षण',
-    'inspection': 'निरीक्षण'
-  };
-
-  // Auto-translate English text to Nepali
-  const autoTranslateToNepali = (englishText) => {
-    if (!englishText || typeof englishText !== 'string') return '';
-    
-    const lowercaseText = englishText.toLowerCase().trim();
-    
-    // Check for direct translations
-    if (engToNepaliTranslations[lowercaseText]) {
-      return engToNepaliTranslations[lowercaseText];
-    }
-    
-    // Check for partial matches and word substitutions
-    let translated = englishText;
-    Object.keys(engToNepaliTranslations).forEach(englishWord => {
-      const regex = new RegExp(`\\b${englishWord}\\b`, 'gi');
-      translated = translated.replace(regex, engToNepaliTranslations[englishWord]);
-    });
-    
-    return translated === englishText ? '' : translated;
-  };
-
   const [template, setTemplate] = useState(() => {
-    if (editingTemplate) {
-      return {
-        name: editingTemplate.name || '',
-        nameNp: editingTemplate.nameNp || '',
-        articleNumber: editingTemplate.articleNumbers?.[0] || '',
-        operations: editingTemplate.operations || []
-      };
-    }
-    return {
+    return editingTemplate || {
       name: '',
       nameNp: '',
       articleNumber: '',
@@ -104,28 +24,11 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
     estimatedTime: '',
     rate: '',
     skillLevel: 'medium',
-    icon: '🧵'
+    icon: '🧵',
+    workflowType: 'sequential',
+    parallelGroup: '',
+    dependencies: []
   });
-
-  const machineTypes = [
-    { id: 'cutting', nameEn: 'Cutting Machine', nameNp: 'काट्ने मेसिन', icon: '✂️' },
-    { id: 'overlock', nameEn: 'Overlock Machine', nameNp: 'ओभरलक मेसिन', icon: '🧵' },
-    { id: 'singleNeedle', nameEn: 'Single Needle', nameNp: 'एकल सुई', icon: '🪡' },
-    { id: 'flatlock', nameEn: 'Flatlock Machine', nameNp: 'फ्ल्याटलक मेसिन', icon: '📏' },
-    { id: 'buttonhole', nameEn: 'Buttonhole Machine', nameNp: 'बटनहोल मेसिन', icon: '⚫' },
-    { id: 'interlock', nameEn: 'Interlock Machine', nameNp: 'इन्टरलक मेसिन', icon: '🔗' },
-    { id: 'coverstitch', nameEn: 'Coverstitch Machine', nameNp: 'कभरस्टिच मेसिन', icon: '🪢' },
-    { id: 'zigzag', nameEn: 'Zigzag Machine', nameNp: 'जिगज्याग मेसिन', icon: '⚡' },
-    { id: 'manual', nameEn: 'Manual Work', nameNp: 'म्यानुअल काम', icon: '👐' }
-  ];
-
-  const skillLevels = [
-    { id: 'easy', nameEn: 'Easy', nameNp: 'सजिलो' },
-    { id: 'medium', nameEn: 'Medium', nameNp: 'मध्यम' },
-    { id: 'high', nameEn: 'High', nameNp: 'कठिन' }
-  ];
-
-  const operationIcons = ['🧵', '✂️', '🪡', '📏', '📐', '🪢', '⚫', '✨', '✅', '👐'];
 
   const addOperation = () => {
     if (!currentOperation.name || !currentOperation.estimatedTime || !currentOperation.rate) {
@@ -143,7 +46,7 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
       sequence: template.operations.length + 1,
       estimatedTimePerPiece: parseFloat(currentOperation.estimatedTime),
       rate: parseFloat(currentOperation.rate),
-      dependencies: template.operations.length > 0 ? [template.operations.length] : []
+      operation: currentOperation.name
     };
 
     setTemplate(prev => ({
@@ -159,111 +62,32 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
       estimatedTime: '',
       rate: '',
       skillLevel: 'medium',
-      icon: '🧵'
+      icon: '🧵',
+      workflowType: 'sequential',
+      parallelGroup: '',
+      dependencies: []
     });
   };
 
-  const removeOperation = (index) => {
-    setTemplate(prev => ({
-      ...prev,
-      operations: prev.operations.filter((_, i) => i !== index)
-    }));
-  };
-
   const createTemplate = () => {
-    if (!template.name || !template.articleNumber || template.operations.length === 0) {
-      addError({
-        message: isNepali ? 'टेम्प्लेट नाम, आर्टिकल नम्बर र कम्तीमा एक अपरेसन चाहिन्छ' : 'Template name, article number and at least one operation required',
-        component: 'TemplateBuilder',
-        action: editingTemplate ? 'Update Template' : 'Create Template'
-      }, ERROR_TYPES.VALIDATION, ERROR_SEVERITY.MEDIUM);
-      return;
+    if (editingTemplate && onTemplateUpdated) {
+      onTemplateUpdated(template);
+    } else if (onTemplateCreated) {
+      onTemplateCreated(template);
     }
-
-    if (editingTemplate) {
-      // Update existing template
-      const updatedTemplate = {
-        ...editingTemplate,
-        name: template.name,
-        nameNp: template.nameNp || template.name,
-        articleNumbers: [template.articleNumber],
-        operations: template.operations,
-        totalOperations: template.operations.length,
-        estimatedTotalTime: template.operations.reduce((sum, op) => sum + op.estimatedTimePerPiece, 0),
-        updatedAt: new Date()
-      };
-
-      if (onTemplateUpdated) {
-        onTemplateUpdated(updatedTemplate);
-      }
-
-      addError({
-        message: isNepali 
-          ? `${template.name} टेम्प्लेट अपडेट गरियो` 
-          : `Template "${template.name}" updated successfully`,
-        component: 'TemplateBuilder',
-        action: 'Update Template'
-      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
-    } else {
-      // Create new template
-      const finalTemplate = {
-        id: `custom-${template.articleNumber}-${Date.now()}`,
-        name: template.name,
-        nameNp: template.nameNp || template.name,
-        articleType: 'custom',
-        articleNumbers: [template.articleNumber],
-        operations: template.operations,
-        totalOperations: template.operations.length,
-        estimatedTotalTime: template.operations.reduce((sum, op) => sum + op.estimatedTimePerPiece, 0),
-        createdAt: new Date(),
-        customTemplate: true
-      };
-
-      if (onTemplateCreated) {
-        onTemplateCreated(finalTemplate);
-      }
-
-      addError({
-        message: isNepali 
-          ? `${template.name} टेम्प्लेट सिर्जना गरियो` 
-          : `Template "${template.name}" created successfully`,
-        component: 'TemplateBuilder',
-        action: 'Create Template'
-      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
-    }
-  };
-
-  const getMachineIcon = (machineType) => {
-    return machineTypes.find(m => m.id === machineType)?.icon || '🧵';
   };
 
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-sm border">
-        {/* Header */}
         <div className="p-6 border-b">
           <h1 className="text-2xl font-bold text-gray-900">
-            🛠️ {editingTemplate 
-              ? (isNepali ? 'टेम्प्लेट सम्पादन' : 'Edit Template')
-              : (isNepali ? 'टेम्प्लेट निर्माता' : 'Template Builder')
-            }
+            🛠️ {isNepali ? 'टेम्प्लेट निर्माता' : 'Template Builder'}
           </h1>
-          <p className="text-gray-600 mt-1">
-            {editingTemplate 
-              ? (isNepali 
-                ? 'गार्मेन्ट डिजाइनको सिलाई प्रक्रिया टेम्प्लेट सम्पादन गर्नुहोस्'
-                : 'Edit sewing process template for garment design'
-              )
-              : (isNepali 
-                ? 'नयाँ गार्मेन्ट डिजाइनको लागि सिलाई प्रक्रिया टेम्प्लेट बनाउनुहोस्'
-                : 'Create sewing process template for new garment design'
-              )
-            }
-          </p>
         </div>
 
         <div className="p-6 space-y-8">
-          {/* Template Basic Info */}
+          {/* Basic Info */}
           <div className="bg-blue-50 rounded-lg p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               📋 {isNepali ? 'मूल जानकारी' : 'Basic Information'}
@@ -272,42 +96,18 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isNepali ? 'टेम्प्लेट नाम (अंग्रेजी)' : 'Template Name (English)'} *
+                  {isNepali ? 'टेम्प्लेट नाम' : 'Template Name'} *
                 </label>
                 <input
                   type="text"
                   value={template.name}
-                  onChange={(e) => {
-                    const newName = e.target.value;
-                    setTemplate(prev => {
-                      const autoTranslated = autoTranslateToNepali(newName);
-                      return {
-                        ...prev,
-                        name: newName,
-                        nameNp: autoTranslated || prev.nameNp
-                      };
-                    });
-                  }}
+                  onChange={(e) => setTemplate(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Plazo 5810 Process"
+                  placeholder="Ladies Pant"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isNepali ? 'टेम्प्लेट नाम (नेपाली)' : 'Template Name (Nepali)'}
-                  <span className="text-xs text-blue-600 ml-2">✨ Auto-translated</span>
-                </label>
-                <input
-                  type="text"
-                  value={template.nameNp}
-                  onChange={(e) => setTemplate(prev => ({ ...prev, nameNp: e.target.value }))}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-blue-50"
-                  placeholder="प्लाजो ५८१० प्रक्रिया"
-                />
-              </div>
-
-              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   {isNepali ? 'आर्टिकल नम्बर' : 'Article Number'} *
                 </label>
@@ -318,89 +118,36 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                   placeholder="5810"
                 />
-                <p className="text-sm text-gray-500 mt-1">
-                  {isNepali 
-                    ? 'यो टेम्प्लेट कुन आर्टिकलको लागि हो'
-                    : 'Which article number this template is for'
-                  }
-                </p>
               </div>
             </div>
           </div>
 
-          {/* Add New Operation */}
+          {/* Add Operation */}
           <div className="bg-green-50 rounded-lg p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">
               ➕ {isNepali ? 'नयाँ अपरेसन थप्नुहोस्' : 'Add New Operation'}
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isNepali ? 'अपरेसन नाम (अंग्रेजी)' : 'Operation Name (English)'} *
+                  {isNepali ? 'अपरेसन नाम' : 'Operation Name'} *
                 </label>
                 <input
                   type="text"
                   value={currentOperation.name}
-                  onChange={(e) => {
-                    const newName = e.target.value;
-                    setCurrentOperation(prev => {
-                      const autoTranslated = autoTranslateToNepali(newName);
-                      return {
-                        ...prev,
-                        name: newName,
-                        nameNp: autoTranslated || prev.nameNp
-                      };
-                    });
-                  }}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Waistband Preparation"
+                  placeholder="Shoulder Join"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isNepali ? 'अपरेसन नाम (नेपाली)' : 'Operation Name (Nepali)'}
-                  <span className="text-xs text-blue-600 ml-2">✨ Auto-translated</span>
-                </label>
-                <input
-                  type="text"
-                  value={currentOperation.nameNp}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, nameNp: e.target.value }))}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-blue-50"
-                  placeholder="कम्मर बन्ड तयारी"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isNepali ? 'मेसिन प्रकार' : 'Machine Type'} *
-                </label>
-                <select
-                  value={currentOperation.machineType}
-                  onChange={(e) => setCurrentOperation(prev => ({ 
-                    ...prev, 
-                    machineType: e.target.value,
-                    icon: getMachineIcon(e.target.value)
-                  }))}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                >
-                  {machineTypes.map(machine => (
-                    <option key={machine.id} value={machine.id}>
-                      {machine.icon} {isNepali ? machine.nameNp : machine.nameEn}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isNepali ? 'समय (मिनेट प्रति टुक्रा)' : 'Time (min per piece)'} *
+                  {isNepali ? 'समय (मिनेट)' : 'Time (minutes)'} *
                 </label>
                 <input
                   type="number"
-                  step="0.1"
-                  min="0"
                   value={currentOperation.estimatedTime}
                   onChange={(e) => setCurrentOperation(prev => ({ ...prev, estimatedTime: e.target.value }))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -410,12 +157,10 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isNepali ? 'दर (रु प्रति टुक्रा)' : 'Rate (₹ per piece)'} *
+                  {isNepali ? 'दर (₹)' : 'Rate (₹)'} *
                 </label>
                 <input
                   type="number"
-                  step="0.1"
-                  min="0"
                   value={currentOperation.rate}
                   onChange={(e) => setCurrentOperation(prev => ({ ...prev, rate: e.target.value }))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
@@ -425,41 +170,16 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isNepali ? 'कौशल स्तर' : 'Skill Level'} *
+                  {isNepali ? 'कार्यप्रवाह प्रकार' : 'Workflow Type'} *
                 </label>
                 <select
-                  value={currentOperation.skillLevel}
-                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, skillLevel: e.target.value }))}
+                  value={currentOperation.workflowType}
+                  onChange={(e) => setCurrentOperation(prev => ({ ...prev, workflowType: e.target.value }))}
                   className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                 >
-                  {skillLevels.map(level => (
-                    <option key={level.id} value={level.id}>
-                      {isNepali ? level.nameNp : level.nameEn}
-                    </option>
-                  ))}
+                  <option value="sequential">{isNepali ? 'क्रमिक' : 'Sequential'} ➡️</option>
+                  <option value="parallel">{isNepali ? 'समानान्तर' : 'Parallel'} 🔄</option>
                 </select>
-              </div>
-
-              <div className="md:col-span-2 lg:col-span-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  {isNepali ? 'आइकन' : 'Icon'}
-                </label>
-                <div className="flex flex-wrap gap-2">
-                  {operationIcons.map(icon => (
-                    <button
-                      key={icon}
-                      type="button"
-                      onClick={() => setCurrentOperation(prev => ({ ...prev, icon }))}
-                      className={`p-2 text-lg border rounded ${
-                        currentOperation.icon === icon 
-                          ? 'border-blue-500 bg-blue-50' 
-                          : 'border-gray-300 hover:border-gray-400'
-                      }`}
-                    >
-                      {icon}
-                    </button>
-                  ))}
-                </div>
               </div>
             </div>
 
@@ -475,7 +195,7 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
           {template.operations.length > 0 && (
             <div className="bg-gray-50 rounded-lg p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                📋 {isNepali ? 'अपरेसनहरूको क्रम' : 'Operations Sequence'} ({template.operations.length})
+                📋 {isNepali ? 'अपरेसनहरू' : 'Operations'} ({template.operations.length})
               </h2>
               
               <div className="space-y-3">
@@ -490,49 +210,18 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
                       
                       <div>
                         <div className="font-medium text-gray-900">
-                          {isNepali ? operation.nameNp || operation.name : operation.name}
+                          {operation.name}
+                          <span className="ml-2">
+                            {operation.workflowType === 'parallel' ? '🔄' : '➡️'}
+                          </span>
                         </div>
                         <div className="text-sm text-gray-600">
-                          {machineTypes.find(m => m.id === operation.machineType)?.[isNepali ? 'nameNp' : 'nameEn']}
+                          {operation.estimatedTimePerPiece} min • ₹{operation.rate}
                         </div>
                       </div>
-                      
-                      <div className="text-sm text-gray-600">
-                        <div>{operation.estimatedTimePerPiece} {isNepali ? 'मिनेट' : 'min'}</div>
-                        <div>₹{operation.rate}</div>
-                      </div>
                     </div>
-                    
-                    <button
-                      onClick={() => removeOperation(index)}
-                      className="text-red-600 hover:text-red-800 p-2"
-                    >
-                      🗑️
-                    </button>
                   </div>
                 ))}
-              </div>
-
-              {/* Template Summary */}
-              <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-blue-600">{template.operations.length}</div>
-                    <div className="text-sm text-gray-600">{isNepali ? 'अपरेसनहरू' : 'Operations'}</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-green-600">
-                      {template.operations.reduce((sum, op) => sum + parseFloat(op.estimatedTimePerPiece || 0), 0).toFixed(1)}
-                    </div>
-                    <div className="text-sm text-gray-600">{isNepali ? 'कुल मिनेट' : 'Total Minutes'}</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-purple-600">
-                      ₹{template.operations.reduce((sum, op) => sum + parseFloat(op.rate || 0), 0).toFixed(2)}
-                    </div>
-                    <div className="text-sm text-gray-600">{isNepali ? 'कुल लागत' : 'Total Cost'}</div>
-                  </div>
-                </div>
               </div>
             </div>
           )}
@@ -552,8 +241,8 @@ const TemplateBuilder = ({ onTemplateCreated, onCancel, editingTemplate, onTempl
               className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               💾 {editingTemplate 
-                ? (isNepali ? 'टेम्प्लेट अपडेट गर्नुहोस्' : 'Update Template')
-                : (isNepali ? 'टेम्प्लेट बनाउनुहोस्' : 'Create Template')
+                ? (isNepali ? 'अपडेट गर्नुहोस्' : 'Update Template')
+                : (isNepali ? 'बनाउनुहोस्' : 'Create Template')
               }
             </button>
           </div>

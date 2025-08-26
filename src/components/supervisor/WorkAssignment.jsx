@@ -249,8 +249,8 @@ const WorkAssignment = () => {
     
     // Fallback to station if no machine assigned
     return {
-      name: operator.station || `Station-${operator.id?.slice(-2) || '01'}`,
-      nameNp: operator.stationNp || operator.station || `स्टेशन-${operator.id?.slice(-2) || '01'}`,
+      name: operator.station || `${operator.machine || 'Station'}-${operator.name?.split(' ')[0] || 'Op'}`,
+      nameNp: operator.stationNp || operator.station || `${operator.machine || 'स्टेशन'}-${operator.name?.split(' ')[0] || 'अप'}`,
       icon: '🏭'
     };
   };
@@ -295,7 +295,7 @@ const WorkAssignment = () => {
         skills: operator.skills || [],
         todayPieces: operator.todayStats?.piecesCompleted || operator.productivity?.completedBundles || 0,
         estimatedFinishTime: operator.estimatedFinishTime || null,
-        station: operator.station || `Station-${operator.id?.slice(-2) || '01'}`
+        station: operator.station || `${operator.machine || 'Station'}-${operator.name?.split(' ')[0] || 'Op'}`
       };
       });
 
