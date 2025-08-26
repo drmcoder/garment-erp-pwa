@@ -177,14 +177,37 @@ const SelfAssignmentSystem = () => {
     const machineMatches = {
       'overlock': ['overlock', 'ओभरलक', 'Overlock'],
       'flatlock': ['flatlock', 'फ्ल्यालक', 'Flatlock'], 
-      'singleNeedle': ['singleNeedle', 'single_needle', 'एकल सुई', 'Single Needle'],
+      'singleNeedle': ['singleNeedle', 'single_needle', 'एकल सुई', 'Single Needle', 'single-needle'],
       'buttonhole': ['buttonhole', 'बटनहोल', 'Buttonhole']
     };
 
-    const allowedMachines = machineMatches[userMachine] || [userMachine];
-    const isCompatible = allowedMachines.includes(bundle.machineType) || bundle.machineType === userMachine;
+    // Enhanced compatibility check
+    const isCompatible = () => {
+      if (!bundle.machineType || !userMachine) return false;
+      
+      // Direct match
+      if (bundle.machineType === userMachine) return true;
+      
+      // Check if user machine contains bundle machine type (e.g., "flatlock-Op" contains "flatlock")
+      const userMachineClean = userMachine.toLowerCase().replace(/[^a-z]/g, '');
+      const bundleMachineClean = bundle.machineType.toLowerCase().replace(/[^a-z]/g, '');
+      
+      if (userMachineClean.includes(bundleMachineClean) || bundleMachineClean.includes(userMachineClean)) {
+        return true;
+      }
+      
+      // Check against machine matches
+      for (const [machineType, aliases] of Object.entries(machineMatches)) {
+        if (aliases.some(alias => alias.toLowerCase() === userMachine.toLowerCase()) && 
+            aliases.some(alias => alias.toLowerCase() === bundle.machineType.toLowerCase())) {
+          return true;
+        }
+      }
+      
+      return false;
+    };
     
-    if (isCompatible) {
+    if (isCompatible()) {
       match += 40; // High score for machine compatibility
       reasons.push(isNepali ? "तपाईंको विशेषता" : "Perfect machine match");
     } else {
@@ -557,7 +580,7 @@ const SelfAssignmentSystem = () => {
                   </div>
 
                   {/* Work Details */}
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 text-sm">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
                     <div className="flex items-center space-x-2">
                       <span className="text-blue-600">⏱️</span>
                       <div>
@@ -566,6 +589,28 @@ const SelfAssignmentSystem = () => {
                         </div>
                         <div className="font-semibold">
                           {work.estimatedTime} {isNepali ? "मिनेट" : "min"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-green-600">📦</span>
+                      <div>
+                        <div className="text-gray-500">
+                          {isNepali ? "टुक्राहरू:" : "Pieces:"}
+                        </div>
+                        <div className="font-semibold">
+                          {work.pieces || work.quantity || 0} {isNepali ? "पीस" : "pcs"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-orange-600">⚙️</span>
+                      <div>
+                        <div className="text-gray-500">
+                          {isNepali ? "अपरेसन:" : "Operation:"}
+                        </div>
+                        <div className="font-semibold">
+                          {work.operation || work.operationName || (isNepali ? "सिलाई" : "Sewing")}
                         </div>
                       </div>
                     </div>

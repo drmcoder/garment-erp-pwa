@@ -31,6 +31,24 @@ const WorkAssignment = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   
+  // Load data when component mounts
+  useEffect(() => {
+    loadOperators();
+    loadAvailableBundles();
+    loadAssignmentHistory();
+    loadActiveWork();
+  }, []);
+
+  // Auto-refresh operators every 30 seconds to catch admin changes
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing operators...');
+      loadOperators();
+    }, 30000);
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
   // Dynamic configurations from ConfigService
   const [machines, setMachines] = useState([]);
   const [operations, setOperations] = useState([]);
@@ -284,11 +302,11 @@ const WorkAssignment = () => {
         name: isNepali ? operator.name : operator.nameEn || operator.name,
         speciality: isNepali ? operatorSkill.nameNp : operatorSkill.name,
         specialityNepali: operatorSkill.nameNp,
-        machineDisplay: machineDisplay.name,
-        machineDisplayNp: machineDisplay.nameNp,
-        machineIcon: machineDisplay.icon,
+        machineDisplay: machineDisplay.name || operator.machine || 'Not Assigned',
+        machineDisplayNp: machineDisplay.nameNp || operator.machine || 'तोकिएको छैन',
+        machineIcon: machineDisplay.icon || '🏭',
         status: operator.currentBundle ? 'working' : 'available',
-        efficiency: operator.efficiency || operator.productivity?.averageTime || 85,
+        efficiency: operator.efficiency || operator.productivity?.averageTime || 75,
         qualityScore: operator.qualityScore || operator.productivity?.qualityScore || 95,
         currentWorkload: operator.currentWorkload || 0,
         maxWorkload: operator.maxWorkload || 3,

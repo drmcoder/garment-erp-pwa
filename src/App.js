@@ -272,7 +272,7 @@ const LoginScreen = () => {
             <button
               type="submit"
               disabled={loginLoading || loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loginLoading ? (
                 <div className="flex items-center">
@@ -550,7 +550,7 @@ const OperatorDashboard = ({ onNavigate }) => {
             Welcome, {user.name}! 👋
           </h1>
           <p className="mt-2 text-gray-600">
-            {user.speciality} Operator | Station: {user.station}
+            {user.speciality} Operator | Station: {user.station} | Machine: {user.machine || 'Not Assigned'}
           </p>
         </div>
 
@@ -611,11 +611,11 @@ const OperatorDashboard = ({ onNavigate }) => {
         <div className={`grid grid-cols-1 ${process.env.NODE_ENV === 'development' ? 'md:grid-cols-2' : ''} gap-6`}>
           <button
             onClick={() => onNavigate("self-assignment")}
-            className="bg-indigo-600 text-white p-6 rounded-lg hover:bg-indigo-700 transition-colors text-left"
+            className="bg-primary-600 text-white p-6 rounded-lg hover:bg-primary-700 transition-colors text-left"
           >
             <div className="text-3xl mb-2">🎯</div>
             <div className="text-xl font-semibold">Choose Work</div>
-            <div className="text-indigo-200 mt-1">
+            <div className="text-primary-200 mt-1">
               Select work based on your skills
             </div>
           </button>
@@ -750,22 +750,22 @@ const AppContent = () => {
                   {/* First Row - Main Features */}
                   <button
                     onClick={() => setCurrentView("settings")}
-                    className="bg-blue-600 text-white p-6 rounded-lg hover:bg-blue-700 transition-colors text-left"
+                    className="bg-primary-600 text-white p-6 rounded-lg hover:bg-primary-700 transition-colors text-left"
                   >
                     <div className="text-3xl mb-2">⚙️</div>
                     <div className="text-xl font-semibold">System Settings</div>
-                    <div className="text-blue-200 mt-1">
+                    <div className="text-primary-200 mt-1">
                       Configure production line and targets
                     </div>
                   </button>
                   
                   <button
                     onClick={() => setCurrentView("analytics")}
-                    className="bg-purple-600 text-white p-6 rounded-lg hover:bg-purple-700 transition-colors text-left"
+                    className="bg-success-600 text-white p-6 rounded-lg hover:bg-success-700 transition-colors text-left"
                   >
                     <div className="text-3xl mb-2">🧠</div>
                     <div className="text-xl font-semibold">AI Analytics</div>
-                    <div className="text-purple-200 mt-1">
+                    <div className="text-success-200 mt-1">
                       Production insights and predictions
                     </div>
                   </button>
@@ -796,11 +796,11 @@ const AppContent = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <button
                     onClick={() => setCurrentView("machines")}
-                    className="bg-indigo-600 text-white p-6 rounded-lg hover:bg-indigo-700 transition-colors text-left"
+                    className="bg-primary-600 text-white p-6 rounded-lg hover:bg-primary-700 transition-colors text-left"
                   >
                     <div className="text-3xl mb-2">🔧</div>
                     <div className="text-xl font-semibold">Machine Management</div>
-                    <div className="text-indigo-200 mt-1">
+                    <div className="text-primary-200 mt-1">
                       Add, edit and configure machines
                     </div>
                   </button>

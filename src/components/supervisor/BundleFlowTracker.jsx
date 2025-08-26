@@ -328,8 +328,10 @@ const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
                 {filteredBundles.map((bundle) => (
                   <div
                     key={bundle.id}
-                    className={`bg-white rounded-lg border-2 p-4 cursor-pointer transition-all hover:shadow-lg ${
-                      selectedBundles.find(b => b.id === bundle.id) ? 'border-indigo-500 bg-indigo-50' : 'border-gray-200'
+                    className={`bg-white rounded-lg border-2 p-4 cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 hover:-translate-y-1 ${
+                      selectedBundles.find(b => b.id === bundle.id) 
+                        ? 'border-indigo-500 bg-indigo-50 shadow-lg scale-105 ring-2 ring-indigo-200 animate-pulse' 
+                        : 'border-gray-200'
                     }`}
                     onClick={() => {
                       if (mergeMode) {
@@ -400,24 +402,62 @@ const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
                     {/* Action Buttons */}
                     <div className="mt-4 pt-3 border-t border-gray-100 flex space-x-2">
                       {bundle.status === 'ready' && (
-                        <button className="flex-1 bg-blue-500 text-white text-xs py-1 px-2 rounded hover:bg-blue-600">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBundles(prev => prev.map(b =>
+                              b.id === bundle.id
+                                ? { ...b, status: 'in_progress', startTime: new Date().toISOString() }
+                                : b
+                            ));
+                          }}
+                          className="flex-1 bg-blue-500 text-white text-xs py-1 px-2 rounded hover:bg-blue-600 transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
+                        >
                           {currentLanguage === 'np' ? 'सुरु गर्नुहोस्' : 'Start'}
                         </button>
                       )}
                       
                       {bundle.status === 'in_progress' && (
-                        <button className="flex-1 bg-green-500 text-white text-xs py-1 px-2 rounded hover:bg-green-600">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBundles(prev => prev.map(b =>
+                              b.id === bundle.id
+                                ? { ...b, status: 'completed', completedTime: new Date().toISOString(), qcStatus: 'pending' }
+                                : b
+                            ));
+                          }}
+                          className="flex-1 bg-green-500 text-white text-xs py-1 px-2 rounded hover:bg-green-600 transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
+                        >
                           {currentLanguage === 'np' ? 'पूरा गर्नुहोस्' : 'Complete'}
                         </button>
                       )}
                       
                       {bundle.status === 'completed' && bundle.qcStatus === 'pending' && (
-                        <button className="flex-1 bg-yellow-500 text-white text-xs py-1 px-2 rounded hover:bg-yellow-600">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setBundles(prev => prev.map(b =>
+                              b.id === bundle.id
+                                ? { ...b, qcStatus: 'passed', qcTime: new Date().toISOString() }
+                                : b
+                            ));
+                          }}
+                          className="flex-1 bg-yellow-500 text-white text-xs py-1 px-2 rounded hover:bg-yellow-600 transition-all duration-200 hover:scale-105 active:scale-95 font-medium"
+                        >
                           {currentLanguage === 'np' ? 'QC गर्नुहोस्' : 'QC Check'}
                         </button>
                       )}
                       
-                      <button className="text-gray-500 hover:text-gray-700 text-xs py-1 px-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedBundle(bundle);
+                          // Create a detailed modal or side panel with bundle information
+                          alert(`Bundle Details:\n\nBundle: ${bundle.bundleNumber}\nArticle: ${bundle.article}\nColor: ${bundle.color}\nSize: ${bundle.size}\nQuantity: ${bundle.quantity}\nStatus: ${bundle.status}\nOperation: ${bundle.operation}\n${bundle.assignedOperator ? `Operator: ${bundle.assignedOperator}` : ''}`);
+                        }}
+                        className="text-gray-500 hover:text-gray-700 text-xs py-1 px-2 hover:bg-gray-100 rounded transition-colors"
+                      >
                         📊 {currentLanguage === 'np' ? 'विवरण' : 'Details'}
                       </button>
                     </div>
