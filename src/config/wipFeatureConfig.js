@@ -137,6 +137,17 @@ export const WIP_FEATURE_CONFIG = {
     localStorage: { enabled: true },
     notifications: { enabled: true },
     analytics: { enabled: false } // Disabled for trial
+  },
+  
+  // Assignment Methods - Trial Phase Testing
+  assignment: {
+    bundleCard: { enabled: true, difficulty: 'beginner' },
+    dragDrop: { enabled: true, difficulty: 'intermediate' },
+    userProfile: { enabled: true, difficulty: 'intermediate' },
+    wipBundle: { enabled: true, difficulty: 'advanced' },
+    kanban: { enabled: true, difficulty: 'advanced' },
+    quickAction: { enabled: true, difficulty: 'beginner' },
+    batch: { enabled: true, difficulty: 'expert' }
   }
 };
 

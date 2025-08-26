@@ -1,10 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
+import { useWipFeatures } from '../../hooks/useWipFeatures';
+import MultiMethodWorkAssignment from './MultiMethodWorkAssignment';
 
-const WorkAssignmentBoard = ({ workItems, operators, onAssignmentComplete, onCancel }) => {
+const WorkAssignmentBoard = ({ workItems, operators, bundles = [], onAssignmentComplete, onCancel }) => {
   const { currentLanguage } = useLanguage();
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
+  const wipFeatures = useWipFeatures();
+
+  // Use MultiMethodWorkAssignment if enabled (for trial phase)
+  if (wipFeatures.isEnabled('assignment.bundleCard') || wipFeatures.isEnabled('assignment.dragDrop')) {
+    return (
+      <MultiMethodWorkAssignment
+        workItems={workItems}
+        operators={operators}
+        bundles={bundles}
+        onAssignmentComplete={onAssignmentComplete}
+        onCancel={onCancel}
+      />
+    );
+  }
   
   const [availableOperators, setAvailableOperators] = useState([]);
   const [selectedWorkItems, setSelectedWorkItems] = useState([]);
