@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
+import { getMachineTypeIcon } from '../../../constants';
 
 const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const { currentLanguage } = useLanguage();
@@ -189,18 +190,7 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
     return operator.machine === item.machineType || operator.machine === 'multi-skill';
   };
 
-  const getMachineTypeIcon = (machineType) => {
-    const icons = {
-      'single-needle': '📍',
-      'overlock': '🔗',
-      'flatlock': '📎',
-      'buttonhole': '🕳️',
-      'cutting': '✂️',
-      'pressing': '🔥',
-      'finishing': '✨'
-    };
-    return icons[machineType] || '⚙️';
-  };
+  // Using centralized machine type icons
 
   const getPriorityColor = (priority) => {
     switch (priority) {

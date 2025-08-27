@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
+import { getMachineTypeIcon } from '../../../constants';
 
 const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const { currentLanguage } = useLanguage();
@@ -79,19 +80,7 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
     };
   };
 
-  const getMachineTypeIcon = (machineType) => {
-    const icons = {
-      'single-needle': '📍',
-      'overlock': '🔗',
-      'flatlock': '📎',
-      'buttonhole': '🕳️',
-      'cutting': '✂️',
-      'pressing': '🔥',
-      'finishing': '✨',
-      'multi-skill': '🎯'
-    };
-    return icons[machineType] || '⚙️';
-  };
+  // Using centralized machine type icons
 
   const getWorkloadColor = (percentage) => {
     if (percentage >= 90) return 'bg-red-100 text-red-800 border-red-200';

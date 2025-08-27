@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
+import { getMachineTypeIcon, getWorkStatus } from '../../constants';
 
 const BundleWorkflowCards = ({ 
   bundle, 
@@ -62,7 +63,9 @@ const BundleWorkflowCards = ({
       'cutting': 'bg-red-50 text-red-700 border-red-200',
       'overlock': 'bg-blue-50 text-blue-700 border-blue-200',
       'flatlock': 'bg-green-50 text-green-700 border-green-200',
-      'singleNeedle': 'bg-purple-50 text-purple-700 border-purple-200',
+      'single-needle': 'bg-purple-50 text-purple-700 border-purple-200',
+      'double-needle': 'bg-indigo-50 text-indigo-700 border-indigo-200',
+      'kansai': 'bg-teal-50 text-teal-700 border-teal-200',
       'buttonhole': 'bg-orange-50 text-orange-700 border-orange-200',
       'manual': 'bg-gray-50 text-gray-700 border-gray-200',
       'inspection': 'bg-indigo-50 text-indigo-700 border-indigo-200',

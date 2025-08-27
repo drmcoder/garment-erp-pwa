@@ -1,6 +1,33 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
+import { getMachineTypeIcon } from '../../../constants';
+
+// Nepali date utilities
+const getNepaliDateTime = () => {
+  const now = new Date();
+  const nepaliMonths = [
+    'बैशाख', 'जेठ', 'अषाढ', 'श्रावण', 'भाद्र', 'आश्विन',
+    'कार्तिक', 'मंसिर', 'पौष', 'माघ', 'फाल्गुन', 'चैत'
+  ];
+  
+  // Simple Nepali date conversion (approximate)
+  const nepaliYear = now.getFullYear() + 57;
+  const nepaliMonth = nepaliMonths[now.getMonth()];
+  const nepaliDay = now.getDate();
+  const nepaliTime = now.toLocaleTimeString('ne-NP', { 
+    hour: '2-digit', 
+    minute: '2-digit',
+    hour12: true 
+  });
+  
+  return {
+    date: `${nepaliYear} ${nepaliMonth} ${nepaliDay}`,
+    time: nepaliTime,
+    full: `${nepaliYear} ${nepaliMonth} ${nepaliDay}, ${nepaliTime}`,
+    iso: now.toISOString()
+  };
+};
 
 const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const { currentLanguage } = useLanguage();
@@ -9,6 +36,13 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const [draggedItem, setDraggedItem] = useState(null);
   const [dragOverOperator, setDragOverOperator] = useState(null);
   const [assignments, setAssignments] = useState({});
+  const [workItemSearch, setWorkItemSearch] = useState('');
+  const [operatorSearch, setOperatorSearch] = useState('');
+  const [operatorViewMode, setOperatorViewMode] = useState('grid'); // 'grid' | 'list' | 'compact'
+  const [workItemViewMode, setWorkItemViewMode] = useState('detailed'); // 'detailed' | 'compact' | 'mini'
+  const [localOperators, setLocalOperators] = useState(operators);
+  const [currentWorkPage, setCurrentWorkPage] = useState(1);
+  const [workItemsPerPage] = useState(50); // Pagination for large datasets
   const dragCounterRef = useRef(0);
 
   const handleDragStart = (e, item) => {
@@ -67,11 +101,15 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
     }
 
     const operator = operators.find(op => op.id === operatorId);
+    const dateTime = getNepaliDateTime();
     const newAssignment = {
       workItemId: draggedItem.id,
       operatorId: operatorId,
-      assignedAt: new Date(),
-      method: 'drag-drop'
+      assignedAt: dateTime.iso,
+      assignedAtNepali: currentLanguage === 'np' ? dateTime.full : new Date().toLocaleString('en-US'),
+      method: 'drag-drop',
+      estimatedTime: draggedItem.estimatedTime || 0,
+      pieces: draggedItem.pieces || 0
     };
 
     setAssignments(prev => ({
@@ -82,6 +120,15 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
         workItem: draggedItem
       }
     }));
+
+    // Update local operator workload immediately for UI feedback
+    setLocalOperators(prevOps => 
+      prevOps.map(op => 
+        op.id === operatorId 
+          ? { ...op, currentLoad: op.currentLoad + 1, todayCount: (op.todayCount || 0) + 1 }
+          : op
+      )
+    );
 
     // Visual feedback for successful assignment
     addError({
@@ -111,27 +158,55 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
     }
 
     try {
+      const dateTime = getNepaliDateTime();
       const assignmentsList = Object.values(assignments).map(a => ({
         workItemId: a.workItemId,
         operatorId: a.operatorId,
-        assignedAt: a.assignedAt,
-        method: a.method
+        assignedAt: a.assignedAt || dateTime.iso,
+        assignedAtNepali: a.assignedAtNepali || (currentLanguage === 'np' ? dateTime.full : new Date().toLocaleString('en-US')),
+        method: a.method,
+        estimatedTime: a.estimatedTime || 0,
+        pieces: a.pieces || 0
       }));
 
       await onAssignmentComplete(assignmentsList);
       setAssignments({});
       
-    } catch (error) {
+      // Success feedback
       addError({
-        message: 'Failed to confirm assignments',
+        message: currentLanguage === 'np'
+          ? `${assignmentsList.length} असाइनमेन्टहरू सफलतापूर्वक पूरा भयो`
+          : `${assignmentsList.length} assignments completed successfully`,
         component: 'DragDropAssignment',
-        action: 'Bulk Confirm',
+        action: 'Bulk Confirm Success'
+      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+      
+    } catch (error) {
+      console.error('Assignment error:', error);
+      addError({
+        message: currentLanguage === 'np'
+          ? 'असाइनमेन्ट पूरा गर्न सफल भएन'
+          : 'Failed to complete assignments',
+        component: 'DragDropAssignment',
+        action: 'Bulk Confirm Error',
         data: { error: error.message }
       }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
     }
   };
 
   const handleRemoveAssignment = (workItemId) => {
+    const assignment = assignments[workItemId];
+    if (assignment) {
+      // Revert local operator workload
+      setLocalOperators(prevOps => 
+        prevOps.map(op => 
+          op.id === assignment.operatorId 
+            ? { ...op, currentLoad: Math.max(0, op.currentLoad - 1), todayCount: Math.max(0, (op.todayCount || 0) - 1) }
+            : op
+        )
+      );
+    }
+    
     setAssignments(prev => {
       const newAssignments = { ...prev };
       delete newAssignments[workItemId];
@@ -139,18 +214,7 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
     });
   };
 
-  const getMachineTypeIcon = (machineType) => {
-    const icons = {
-      'single-needle': '📍',
-      'overlock': '🔗',
-      'flatlock': '📎',
-      'buttonhole': '🕳️',
-      'cutting': '✂️',
-      'pressing': '🔥',
-      'finishing': '✨'
-    };
-    return icons[machineType] || '⚙️';
-  };
+  // Using centralized machine type icons
 
   const getOperatorLoadColor = (currentLoad, maxLoad) => {
     const percentage = (currentLoad / maxLoad) * 100;
@@ -158,6 +222,63 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
     if (percentage >= 70) return 'text-yellow-600';
     return 'text-green-600';
   };
+
+  // Memoized search filter functions for performance
+  const filteredWorkItems = useMemo(() => {
+    const availableItems = workItems.filter(item => 
+      item.status === 'ready' && !assignments[item.id]
+    );
+    
+    if (!workItemSearch.trim()) return availableItems;
+    const search = workItemSearch.toLowerCase();
+    return availableItems.filter(item =>
+      item.bundleNumber?.toString().toLowerCase().includes(search) ||
+      item.articleName?.toLowerCase().includes(search) ||
+      item.size?.toLowerCase().includes(search) ||
+      item.color?.toLowerCase().includes(search) ||
+      item.lotNumber?.toString().toLowerCase().includes(search) ||
+      item.operation?.toLowerCase().includes(search) ||
+      item.procedureName?.toLowerCase().includes(search) ||
+      item.machineType?.toLowerCase().includes(search)
+    );
+  }, [workItems, assignments, workItemSearch]);
+
+  // Paginated work items for better performance with 10k+ items
+  const paginatedWorkItems = useMemo(() => {
+    const startIndex = (currentWorkPage - 1) * workItemsPerPage;
+    const endIndex = startIndex + workItemsPerPage;
+    return filteredWorkItems.slice(startIndex, endIndex);
+  }, [filteredWorkItems, currentWorkPage, workItemsPerPage]);
+
+  const totalWorkPages = Math.ceil(filteredWorkItems.length / workItemsPerPage);
+
+  const filteredOperators = useMemo(() => {
+    if (!operatorSearch.trim()) return localOperators;
+    const search = operatorSearch.toLowerCase();
+    return localOperators.filter(operator =>
+      operator.name.toLowerCase().includes(search) ||
+      operator.machine.toLowerCase().includes(search) ||
+      operator.id.toString().includes(search)
+    );
+  }, [localOperators, operatorSearch]);
+
+  // Sort operators by compatibility and workload for better UX
+  const sortedOperators = useMemo(() => {
+    if (!draggedItem) return filteredOperators;
+    
+    return [...filteredOperators].sort((a, b) => {
+      const aCompatible = isCompatibleOperator(draggedItem, a.id);
+      const bCompatible = isCompatibleOperator(draggedItem, b.id);
+      
+      if (aCompatible && !bCompatible) return -1;
+      if (!aCompatible && bCompatible) return 1;
+      
+      // If both compatible or both incompatible, sort by workload
+      const aLoad = (a.currentLoad / a.maxLoad) * 100;
+      const bLoad = (b.currentLoad / b.maxLoad) * 100;
+      return aLoad - bLoad;
+    });
+  }, [filteredOperators, draggedItem]);
 
   const availableItems = workItems.filter(item => 
     item.status === 'ready' && !assignments[item.id]
@@ -178,6 +299,21 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
                 : 'Drag work items to operators for assignment'
               }
             </p>
+            {(workItemSearch.trim() || operatorSearch.trim()) && (
+              <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
+                <span>🔍 {currentLanguage === 'np' ? 'खोज परिणामहरू:' : 'Search results:'}</span>
+                {workItemSearch.trim() && (
+                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                    {currentLanguage === 'np' ? 'काम:' : 'Items:'} {filteredWorkItems.length}/{availableItems.length}
+                  </span>
+                )}
+                {operatorSearch.trim() && (
+                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
+                    {currentLanguage === 'np' ? 'अपरेटर:' : 'Operators:'} {filteredOperators.length}/{operators.length}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
           
           {Object.keys(assignments).length > 0 && (
@@ -204,43 +340,253 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
             <span className="mr-2">📦</span>
             {currentLanguage === 'np' ? 'उपलब्ध काम आइटमहरू' : 'Available Work Items'}
             <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
-              {availableItems.length}
+              {filteredWorkItems.length}/{availableItems.length}
             </span>
+            {filteredWorkItems.length > workItemsPerPage && (
+              <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
+                {currentLanguage === 'np' ? 'पृष्ठ' : 'Page'} {currentWorkPage}/{totalWorkPages}
+              </span>
+            )}
           </h3>
           
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {availableItems.map((item) => (
-              <div
-                key={item.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, item)}
-                onDragEnd={handleDragEnd}
-                className="border border-gray-200 rounded-lg p-4 cursor-grab hover:border-blue-300 hover:shadow-sm transition-all duration-200 bg-gradient-to-r from-white to-blue-50"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-lg">{getMachineTypeIcon(item.machineType)}</span>
-                    <div>
-                      <div className="font-medium text-gray-800">
-                        Bundle #{item.bundleNumber}
+          {/* Work Items Search and Controls */}
+          <div className="space-y-3 mb-4">
+            <div className="relative">
+              <input
+                type="text"
+                value={workItemSearch}
+                onChange={(e) => setWorkItemSearch(e.target.value)}
+                placeholder={currentLanguage === 'np' 
+                  ? 'लेख, लट, रंग, अपरेसन, बन्डल नम्बर खोज्नुहोस्...'
+                  : 'Search by article, lot, color, operation, bundle...'
+                }
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-400">🔍</span>
+              </div>
+              {workItemSearch && (
+                <button
+                  onClick={() => setWorkItemSearch('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <span className="text-sm text-gray-600">
+                  {currentLanguage === 'np' ? 'दृश्य:' : 'View:'}
+                </span>
+                <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                  <button
+                    onClick={() => setWorkItemViewMode('detailed')}
+                    className={`px-3 py-1 text-xs ${workItemViewMode === 'detailed' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    📋 {currentLanguage === 'np' ? 'विस्तृत' : 'Detailed'}
+                  </button>
+                  <button
+                    onClick={() => setWorkItemViewMode('compact')}
+                    className={`px-3 py-1 text-xs ${workItemViewMode === 'compact' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    📄 {currentLanguage === 'np' ? 'संकुचित' : 'Compact'}
+                  </button>
+                  <button
+                    onClick={() => setWorkItemViewMode('mini')}
+                    className={`px-3 py-1 text-xs ${workItemViewMode === 'mini' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                  >
+                    📏 {currentLanguage === 'np' ? 'मिनी' : 'Mini'}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Pagination Controls */}
+              {totalWorkPages > 1 && (
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setCurrentWorkPage(Math.max(1, currentWorkPage - 1))}
+                    disabled={currentWorkPage === 1}
+                    className="px-2 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    ‹ {currentLanguage === 'np' ? 'अघिल्लो' : 'Prev'}
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    {currentWorkPage}/{totalWorkPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentWorkPage(Math.min(totalWorkPages, currentWorkPage + 1))}
+                    disabled={currentWorkPage === totalWorkPages}
+                    className="px-2 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                  >
+                    {currentLanguage === 'np' ? 'अर्को' : 'Next'} ›
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className="max-h-96 overflow-y-auto">
+            {filteredWorkItems.length === 0 && workItemSearch.trim() && (
+              <div className="text-center py-8 text-gray-500">
+                <span className="text-2xl">🔍</span>
+                <p className="mt-2">
+                  {currentLanguage === 'np' 
+                    ? 'कुनै काम आइटम भेटिएन'
+                    : 'No work items found'
+                  }
+                </p>
+                <p className="text-sm mt-1">
+                  {currentLanguage === 'np' 
+                    ? 'खोज शब्द बदल्नुहोस्'
+                    : 'Try different search terms'
+                  }
+                </p>
+              </div>
+            )}
+
+            {workItemViewMode === 'mini' ? (
+              /* Mini View - Ultra compact for 10k+ items */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1">
+                {paginatedWorkItems.map((item) => (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, item)}
+                    onDragEnd={handleDragEnd}
+                    className="border border-gray-200 rounded p-2 cursor-grab hover:border-blue-300 hover:shadow-sm transition-all duration-150 bg-white text-xs"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 min-w-0 flex-1">
+                        <span className="text-sm">{getMachineTypeIcon(item.machineType)}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium text-gray-800 truncate">#{item.bundleNumber}</div>
+                          <div className="text-xs text-gray-600 truncate">{item.articleName}</div>
+                        </div>
                       </div>
-                      <div className="text-sm text-gray-600">
-                        {item.articleName} - {item.size}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        🔢 {item.pieces} pieces | ⏱️ {item.estimatedTime}min
+                      <div className="text-right ml-2">
+                        <div className="text-xs font-medium text-blue-600">{item.pieces}p</div>
+                        <div className="text-xs text-gray-500">{item.estimatedTime}m</div>
                       </div>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-xs text-gray-400">
-                      {currentLanguage === 'np' ? 'ड्र्याग गर्नुहोस्' : 'Drag me'}
-                    </span>
-                    <span className="text-lg">👆</span>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
+            ) : workItemViewMode === 'compact' ? (
+              /* Compact View - Balanced for medium datasets */
+              <div className="space-y-2">
+                {paginatedWorkItems.map((item) => (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, item)}
+                    onDragEnd={handleDragEnd}
+                    className="border border-gray-200 rounded-lg p-3 cursor-grab hover:border-blue-300 hover:shadow-sm transition-all duration-200 bg-gradient-to-r from-white to-blue-50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg">{getMachineTypeIcon(item.machineType)}</span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center space-x-2">
+                            <div className="font-medium text-gray-800">#{item.bundleNumber}</div>
+                            <div className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                              {item.lotNumber ? `L${item.lotNumber}` : 'No Lot'}
+                            </div>
+                          </div>
+                          <div className="text-sm text-gray-600 truncate">
+                            {item.articleName} | {item.procedureName || item.operation || 'No Operation'}
+                          </div>
+                          <div className="flex items-center space-x-3 text-xs text-gray-500 mt-1">
+                            <span>📦 {item.pieces}pcs</span>
+                            <span>⏱️ {item.estimatedTime}min</span>
+                            <span>🎨 {item.color || 'No Color'}</span>
+                            <span>📏 {item.size}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right ml-2">
+                        <span className="text-xs text-gray-400">👆</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Detailed View - Full information */
+              <div className="space-y-3">
+                {paginatedWorkItems.map((item) => (
+                  <div
+                    key={item.id}
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, item)}
+                    onDragEnd={handleDragEnd}
+                    className="border border-gray-200 rounded-lg p-4 cursor-grab hover:border-blue-300 hover:shadow-sm transition-all duration-200 bg-gradient-to-r from-white to-blue-50"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-lg">{getMachineTypeIcon(item.machineType)}</span>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <div className="font-semibold text-gray-800">Bundle #{item.bundleNumber}</div>
+                            <div className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                              {item.lotNumber ? `Lot ${item.lotNumber}` : 'No Lot Number'}
+                            </div>
+                            <div className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded">
+                              {item.machineType}
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="font-medium text-gray-700">Article:</span>
+                              <span className="ml-1 text-gray-600">{item.articleName}</span>
+                            </div>
+                            <div>
+                              <span className="font-medium text-gray-700">Operation:</span>
+                              <span className="ml-1 text-gray-600">{item.procedureName || item.operation || 'Not specified'}</span>
+                            </div>
+                            <div>
+                              <span className="font-medium text-gray-700">Size:</span>
+                              <span className="ml-1 text-gray-600">{item.size}</span>
+                            </div>
+                            <div>
+                              <span className="font-medium text-gray-700">Color:</span>
+                              <span className="ml-1 text-gray-600">{item.color || 'Not specified'}</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                            <span className="bg-gray-100 px-2 py-1 rounded">📦 {item.pieces} pieces</span>
+                            <span className="bg-gray-100 px-2 py-1 rounded">⏱️ {item.estimatedTime} min</span>
+                            <span className="bg-gray-100 px-2 py-1 rounded">🏭 {item.machineType}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col items-center space-y-2">
+                        <span className="text-xs text-gray-400">
+                          {currentLanguage === 'np' ? 'ड्र्याग गर्नुहोस्' : 'Drag me'}
+                        </span>
+                        <span className="text-lg">👆</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {paginatedWorkItems.length === 0 && !workItemSearch.trim() && (
+              <div className="text-center py-8 text-gray-500">
+                <span className="text-2xl">📦</span>
+                <p className="mt-2">
+                  {currentLanguage === 'np' 
+                    ? 'कुनै काम आइटम उपलब्ध छैन'
+                    : 'No work items available'
+                  }
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -249,43 +595,194 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
           <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
             <span className="mr-2">👥</span>
             {currentLanguage === 'np' ? 'अपरेटरहरू' : 'Operators'}
+            <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
+              {sortedOperators.length}/{operators.length}
+            </span>
           </h3>
+
+          {/* Operators Search and View Controls */}
+          <div className="space-y-3 mb-4">
+            <div className="relative">
+              <input
+                type="text"
+                value={operatorSearch}
+                onChange={(e) => setOperatorSearch(e.target.value)}
+                placeholder={currentLanguage === 'np' 
+                  ? 'अपरेटर नाम, मेसिन वा ID खोज्नुहोस्...'
+                  : 'Search by name, machine, or ID...'
+                }
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+              />
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <span className="text-gray-400">🔍</span>
+              </div>
+              {operatorSearch && (
+                <button
+                  onClick={() => setOperatorSearch('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">
+                {currentLanguage === 'np' ? 'दृश्य:' : 'View:'}
+              </span>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                <button
+                  onClick={() => setOperatorViewMode('grid')}
+                  className={`px-3 py-1 text-xs ${operatorViewMode === 'grid' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  📋 {currentLanguage === 'np' ? 'ग्रिड' : 'Grid'}
+                </button>
+                <button
+                  onClick={() => setOperatorViewMode('compact')}
+                  className={`px-3 py-1 text-xs ${operatorViewMode === 'compact' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
+                >
+                  📄 {currentLanguage === 'np' ? 'संकुचित' : 'Compact'}
+                </button>
+              </div>
+            </div>
+          </div>
           
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {operators.map((operator) => (
-              <div
-                key={operator.id}
-                onDragOver={handleDragOver}
-                onDragEnter={(e) => handleDragEnter(e, operator.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, operator.id)}
-                className={`border-2 border-dashed rounded-lg p-4 transition-all duration-200 ${
-                  dragOverOperator === operator.id && draggedItem && isCompatibleOperator(draggedItem, operator.id)
-                    ? 'border-green-400 bg-green-50'
-                    : dragOverOperator === operator.id
-                    ? 'border-red-400 bg-red-50'
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-3">
-                    <span className="text-lg">{getMachineTypeIcon(operator.machine)}</span>
-                    <div>
-                      <div className="font-medium text-gray-800">{operator.name}</div>
-                      <div className="text-sm text-gray-600">{operator.machine}</div>
-                      <div className={`text-xs ${getOperatorLoadColor(operator.currentLoad, operator.maxLoad)}`}>
-                        📊 {operator.currentLoad}/{operator.maxLoad} | ⚡ {operator.efficiency}%
+          <div className="max-h-96 overflow-y-auto">
+            {sortedOperators.length === 0 && operatorSearch.trim() && (
+              <div className="text-center py-8 text-gray-500">
+                <span className="text-2xl">🔍</span>
+                <p className="mt-2">
+                  {currentLanguage === 'np' 
+                    ? 'कुनै अपरेटर भेटिएन'
+                    : 'No operators found'
+                  }
+                </p>
+                <p className="text-sm mt-1">
+                  {currentLanguage === 'np' 
+                    ? 'खोज शब्द बदल्नुहोस्'
+                    : 'Try different search terms'
+                  }
+                </p>
+              </div>
+            )}
+            
+            {operatorViewMode === 'compact' ? (
+              /* Compact View - For 100+ operators */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {sortedOperators.map((operator) => {
+                  const isCompatible = !draggedItem || isCompatibleOperator(draggedItem, operator.id);
+                  const workloadPercent = (operator.currentLoad / operator.maxLoad) * 100;
+                  
+                  return (
+                    <div
+                      key={operator.id}
+                      onDragOver={handleDragOver}
+                      onDragEnter={(e) => handleDragEnter(e, operator.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, operator.id)}
+                      className={`border rounded-md p-2 transition-all duration-150 text-xs ${
+                        dragOverOperator === operator.id && isCompatible
+                          ? 'border-green-400 bg-green-50'
+                          : dragOverOperator === operator.id
+                          ? 'border-red-400 bg-red-50'
+                          : isCompatible
+                          ? 'border-gray-300 hover:border-green-300 bg-white'
+                          : 'border-gray-200 bg-gray-50 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                          <span className="text-sm">{getMachineTypeIcon(operator.machine)}</span>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium text-gray-800 truncate">{operator.name}</div>
+                            <div className="text-xs text-gray-500 truncate">{operator.machine}</div>
+                          </div>
+                        </div>
+                        <div className="text-right ml-2">
+                          <div className={`text-xs font-medium ${getOperatorLoadColor(operator.currentLoad, operator.maxLoad)}`}>
+                            {operator.todayCount || 0}
+                          </div>
+                          <div className="w-8 h-1 bg-gray-200 rounded mt-1">
+                            <div 
+                              className={`h-full rounded ${
+                                workloadPercent >= 90 ? 'bg-red-500' : 
+                                workloadPercent >= 70 ? 'bg-yellow-500' : 'bg-green-500'
+                              }`}
+                              style={{ width: `${Math.min(100, workloadPercent)}%` }}
+                            />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-xs text-gray-400">
-                      {currentLanguage === 'np' ? 'यहाँ छोड्नुहोस्' : 'Drop here'}
-                    </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            ))}
+            ) : (
+              /* Grid View - Traditional detailed view */
+              <div className="space-y-3">
+                {sortedOperators.map((operator) => {
+                  const isCompatible = !draggedItem || isCompatibleOperator(draggedItem, operator.id);
+                  
+                  return (
+                    <div
+                      key={operator.id}
+                      onDragOver={handleDragOver}
+                      onDragEnter={(e) => handleDragEnter(e, operator.id)}
+                      onDragLeave={handleDragLeave}
+                      onDrop={(e) => handleDrop(e, operator.id)}
+                      className={`border-2 border-dashed rounded-lg p-4 transition-all duration-200 ${
+                        dragOverOperator === operator.id && isCompatible
+                          ? 'border-green-400 bg-green-50'
+                          : dragOverOperator === operator.id
+                          ? 'border-red-400 bg-red-50'
+                          : isCompatible
+                          ? 'border-gray-300 hover:border-gray-400'
+                          : 'border-gray-200 bg-gray-50 opacity-60'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-lg">{getMachineTypeIcon(operator.machine)}</span>
+                          <div>
+                            <div className="font-medium text-gray-800 flex items-center space-x-2">
+                              <span>{operator.name}</span>
+                              {!isCompatible && draggedItem && (
+                                <span className="text-xs text-red-500 bg-red-100 px-2 py-1 rounded">
+                                  {currentLanguage === 'np' ? 'मेल नखान्छ' : 'Incompatible'}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-gray-600">{operator.machine}</div>
+                            <div className="flex items-center space-x-3 mt-1">
+                              <div className={`text-xs ${getOperatorLoadColor(operator.currentLoad, operator.maxLoad)}`}>
+                                📊 {operator.currentLoad}/{operator.maxLoad}
+                              </div>
+                              <div className="text-xs text-gray-500">
+                                ⚡ {operator.efficiency}%
+                              </div>
+                              <div className="text-xs text-blue-600 font-medium">
+                                📅 {operator.todayCount || 0} {currentLanguage === 'np' ? 'आज' : 'today'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xs text-gray-400">
+                            {currentLanguage === 'np' ? 'यहाँ छोड्नुहोस्' : 'Drop here'}
+                          </div>
+                          {isCompatible && draggedItem && (
+                            <div className="text-xs text-green-600 mt-1">
+                              ✓ {currentLanguage === 'np' ? 'मेल खान्छ' : 'Compatible'}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -306,9 +803,16 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
               >
                 <div className="flex items-center space-x-3">
                   <span>{getMachineTypeIcon(assignment.workItem.machineType)}</span>
-                  <span className="font-medium">Bundle #{assignment.workItem.bundleNumber}</span>
-                  <span className="text-gray-500">→</span>
-                  <span className="text-blue-600 font-medium">{assignment.operator.name}</span>
+                  <div>
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium">Bundle #{assignment.workItem.bundleNumber}</span>
+                      <span className="text-gray-500">→</span>
+                      <span className="text-blue-600 font-medium">{assignment.operator.name}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      📅 {assignment.assignedAtNepali || new Date(assignment.assignedAt).toLocaleString(currentLanguage === 'np' ? 'ne-NP' : 'en-US')}
+                    </div>
+                  </div>
                 </div>
                 <button
                   onClick={() => handleRemoveAssignment(assignment.workItemId)}

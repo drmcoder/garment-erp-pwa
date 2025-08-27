@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
+import { getMachineTypeIcon } from '../../../constants';
 
 const BundleCardAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const { currentLanguage } = useLanguage();
@@ -102,18 +103,7 @@ const BundleCardAssignment = ({ workItems, operators, onAssignmentComplete }) =>
     }
   };
 
-  const getMachineTypeIcon = (machineType) => {
-    const icons = {
-      'single-needle': '📍',
-      'overlock': '🔗',
-      'flatlock': '📎',
-      'buttonhole': '🕳️',
-      'cutting': '✂️',
-      'pressing': '🔥',
-      'finishing': '✨'
-    };
-    return icons[machineType] || '⚙️';
-  };
+  // Using centralized machine type icons
 
   return (
     <div className="space-y-6">
