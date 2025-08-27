@@ -174,19 +174,19 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                         <div className="w-32 bg-gray-200 rounded-full h-2">
                           <div 
                             className={`h-2 rounded-full ${getProgressColor(
-                              data.processSteps && data.processSteps.length > 0 
+                              (data.processSteps && data.processSteps.length > 0) 
                                 ? data.processSteps.reduce((avg, step) => avg + calculateProgress(color, step), 0) / data.processSteps.length
                                 : 0
                             )}`}
                             style={{
-                              width: `${data.processSteps && data.processSteps.length > 0 
+                              width: `${(data.processSteps && data.processSteps.length > 0) 
                                 ? data.processSteps.reduce((avg, step) => avg + calculateProgress(color, step), 0) / data.processSteps.length
                                 : 0}%`
                             }}
                           ></div>
                         </div>
                         <span className="text-sm font-medium">
-                          {data.processSteps && data.processSteps.length > 0 
+                          {(data.processSteps && data.processSteps.length > 0) 
                             ? Math.round(data.processSteps.reduce((avg, step) => avg + calculateProgress(color, step), 0) / data.processSteps.length)
                             : 0}%
                         </span>
@@ -216,7 +216,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                         {currentLanguage === 'np' ? 'प्रक्रिया चरणहरू:' : 'Process Steps:'}
                       </h5>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {data.processSteps && Array.isArray(data.processSteps) ? data.processSteps.map((step, stepIndex) => {
+                        {(data.processSteps && Array.isArray(data.processSteps)) ? data.processSteps.map((step, stepIndex) => {
                           if (!color?.status || !color.status[step]) {
                             return null;
                           }
@@ -271,7 +271,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
               {/* Process Step Selector */}
               <div className="mb-6">
                 <div className="flex space-x-2 overflow-x-auto pb-2">
-                  {data.processSteps.map((step, index) => (
+                  {(data.processSteps || []).map((step, index) => (
                     <button
                       key={index}
                       onClick={() => setProcessStep(index)}
@@ -291,7 +291,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
               {/* Flow Statistics */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                 {(() => {
-                  const stepStats = getTotalsByStep(data.processSteps[processStep]);
+                  const stepStats = getTotalsByStep((data.processSteps || [])[processStep] || 'Unknown Step');
                   const total = stepStats.completed + stepStats.inProgress + stepStats.pending;
                   
                   return (
@@ -334,7 +334,8 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
               <div className="space-y-4">
                 {data?.colors && Array.isArray(data.colors) && data.colors.length > 0 ? (
                   data.colors.map((color, index) => {
-                    const status = color?.status?.[data?.processSteps?.[processStep]] || { completed: 0, inProgress: 0, pending: 0 };
+                    const currentStep = (data?.processSteps || [])[processStep] || 'Unknown Step';
+                    const status = color?.status?.[currentStep] || { completed: 0, inProgress: 0, pending: 0 };
                     const total = status.completed + status.inProgress + status.pending;
                     
                     return (
@@ -403,11 +404,11 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                   <div className="text-3xl font-bold">
                     {(() => {
                       const totalCompleted = (data?.colors || []).reduce((sum, color) => {
-                        return sum + data.processSteps.reduce((stepSum, step) => {
-                          return stepSum + color.status[step].completed;
+                        return sum + (data.processSteps || []).reduce((stepSum, step) => {
+                          return stepSum + (color.status?.[step]?.completed || 0);
                         }, 0);
                       }, 0);
-                      const totalPossible = data.totalPieces * data.processSteps.length;
+                      const totalPossible = (data.totalPieces || 0) * ((data.processSteps || []).length || 1);
                       return Math.round((totalCompleted / totalPossible) * 100);
                     })()}%
                   </div>
@@ -432,7 +433,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                 </h4>
                 
                 <div className="space-y-3">
-                  {data.processSteps.map((step, index) => {
+                  {(data.processSteps || []).map((step, index) => {
                     const stepTotal = getTotalsByStep(step);
                     const total = stepTotal.completed + stepTotal.inProgress + stepTotal.pending;
                     const completionRate = total > 0 ? (stepTotal.completed / total) * 100 : 0;
@@ -471,12 +472,12 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                       <span>{currentLanguage === 'np' ? 'औसत पूर्णता दर:' : 'Average completion rate:'}</span>
                       <span className="font-semibold">
                         {(() => {
-                          const rates = data.processSteps.map(step => {
+                          const rates = (data.processSteps || []).map(step => {
                             const stepTotal = getTotalsByStep(step);
                             const total = stepTotal.completed + stepTotal.inProgress + stepTotal.pending;
                             return total > 0 ? (stepTotal.completed / total) * 100 : 0;
                           });
-                          return Math.round(rates.reduce((sum, rate) => sum + rate, 0) / rates.length);
+                          return rates.length > 0 ? Math.round(rates.reduce((sum, rate) => sum + rate, 0) / rates.length) : 0;
                         })()}%
                       </span>
                     </div>
@@ -486,7 +487,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                         {(() => {
                           let fastestStep = '';
                           let highestRate = 0;
-                          data.processSteps.forEach(step => {
+(data.processSteps || []).forEach(step => {
                             const stepTotal = getTotalsByStep(step);
                             const total = stepTotal.completed + stepTotal.inProgress + stepTotal.pending;
                             const rate = total > 0 ? (stepTotal.completed / total) * 100 : 0;
@@ -505,7 +506,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                         {(() => {
                           let slowestStep = '';
                           let lowestRate = 100;
-                          data.processSteps.forEach(step => {
+(data.processSteps || []).forEach(step => {
                             const stepTotal = getTotalsByStep(step);
                             const total = stepTotal.completed + stepTotal.inProgress + stepTotal.pending;
                             const rate = total > 0 ? (stepTotal.completed / total) * 100 : 0;

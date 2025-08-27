@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { LanguageContext } from './LanguageContext';
 import { ActivityLogService } from '../services/firebase-services';
-import { db, collection, getDocs, COLLECTIONS } from '../config/firebase';
+import { db, collection, getDocs, doc, updateDoc, COLLECTIONS } from '../config/firebase';
 
 export const AuthContext = createContext();
 
@@ -91,9 +91,60 @@ export const AuthProvider = ({ children }) => {
 
   const mockUsers = allUsers;
 
+  // Check for saved session on app start
   useEffect(() => {
-    // No session persistence - users must login each time
-    setLoading(false);
+    const checkSavedSession = async () => {
+      try {
+        const savedSession = localStorage.getItem('tsaAuthSession');
+        if (savedSession) {
+          const sessionData = JSON.parse(savedSession);
+          const { userId, username, role, timestamp, rememberMe } = sessionData;
+          
+          // Check if session is still valid (24 hours for regular, 30 days if remember me)
+          const sessionAge = Date.now() - timestamp;
+          const maxAge = rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000; // 30 days or 24 hours
+          
+          if (sessionAge < maxAge) {
+            console.log('🔄 Restoring saved session for user:', username);
+            
+            // Load fresh user data from Firestore
+            const freshUsers = await loadUsersFromFirestore();
+            const foundUser = freshUsers.find(u => u.id === userId && u.username === username);
+            
+            if (foundUser) {
+              setUser(foundUser);
+              setIsAuthenticated(true);
+              console.log('✅ Session restored successfully');
+              
+              // Update last login timestamp
+              const collectionName = foundUser.role === 'operator' ? COLLECTIONS.OPERATORS :
+                                   foundUser.role === 'supervisor' ? COLLECTIONS.SUPERVISORS :
+                                   COLLECTIONS.MANAGEMENT;
+              
+              if (collectionName) {
+                await updateDoc(doc(db, collectionName, foundUser.id), {
+                  lastLogin: new Date(),
+                  lastActivity: new Date()
+                });
+              }
+            } else {
+              console.log('⚠️ User not found in Firestore, clearing saved session');
+              localStorage.removeItem('tsaAuthSession');
+            }
+          } else {
+            console.log('⚠️ Saved session expired, clearing');
+            localStorage.removeItem('tsaAuthSession');
+          }
+        }
+      } catch (error) {
+        console.error('❌ Error checking saved session:', error);
+        localStorage.removeItem('tsaAuthSession');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkSavedSession();
   }, []);
 
 
@@ -122,12 +173,32 @@ export const AuthProvider = ({ children }) => {
           setUser(foundUser);
           setIsAuthenticated(true);
           
-          // Log activity
+          // Log activity and update last login
+          const loginTime = new Date().toISOString();
           await ActivityLogService.logActivity(foundUser.id, 'login', {
             role: foundUser.role,
             station: foundUser.station || 'unknown',
-            timestamp: new Date().toISOString()
+            timestamp: loginTime
           });
+          
+          // Update last login in Firestore
+          try {
+            const collectionName = foundUser.role === 'operator' ? COLLECTIONS.OPERATORS :
+                                 foundUser.role === 'supervisor' ? COLLECTIONS.SUPERVISORS :
+                                 COLLECTIONS.MANAGEMENT;
+            
+            await updateDoc(doc(db, collectionName, foundUser.id), {
+              lastLogin: loginTime,
+              loginCount: (foundUser.loginCount || 0) + 1
+            });
+            
+            // Update local user data
+            foundUser.lastLogin = loginTime;
+            foundUser.loginCount = (foundUser.loginCount || 0) + 1;
+          } catch (error) {
+            console.error('Failed to update last login:', error);
+            // Don't fail login if last login update fails
+          }
           
           return { success: true, user: foundUser };
         }
@@ -166,17 +237,48 @@ export const AuthProvider = ({ children }) => {
         throw new Error(isNepali ? 'गलत पासवर्ड। कृपया सही पासवर्ड प्रविष्ट गर्नुहोस्।' : 'Incorrect password. Please enter the correct password.');
       }
       
-      // No storage persistence - session exists only in memory
+      // Save session to localStorage for persistence
+      if (rememberMe || true) { // Always save session for better UX
+        const sessionData = {
+          userId: foundUser.id,
+          username: foundUser.username,
+          role: foundUser.role,
+          timestamp: Date.now(),
+          rememberMe: rememberMe
+        };
+        localStorage.setItem('tsaAuthSession', JSON.stringify(sessionData));
+        console.log('💾 Session saved to localStorage');
+      }
       
       setUser(foundUser);
       setIsAuthenticated(true);
       
-      // Log activity
+      // Log activity and update last login
+      const loginTime = new Date().toISOString();
       await ActivityLogService.logActivity(foundUser.id, 'login', {
         role: foundUser.role,
         station: foundUser.station || 'unknown',
-        timestamp: new Date().toISOString()
+        timestamp: loginTime
       });
+      
+      // Update last login in Firestore
+      try {
+        const collectionName = foundUser.role === 'operator' ? COLLECTIONS.OPERATORS :
+                             foundUser.role === 'supervisor' ? COLLECTIONS.SUPERVISORS :
+                             COLLECTIONS.MANAGEMENT;
+        
+        await updateDoc(doc(db, collectionName, foundUser.id), {
+          lastLogin: loginTime,
+          loginCount: (foundUser.loginCount || 0) + 1
+        });
+        
+        // Update local user data
+        foundUser.lastLogin = loginTime;
+        foundUser.loginCount = (foundUser.loginCount || 0) + 1;
+      } catch (error) {
+        console.error('Failed to update last login:', error);
+        // Don't fail login if last login update fails
+      }
       
       return { success: true, user: foundUser };
     } catch (error) {
@@ -331,6 +433,19 @@ export const AuthProvider = ({ children }) => {
   const getUserDisplayName = () => {
     if (!user) return '';
     return user.name || user.username;
+  };
+
+  // Get user display info including last login
+  const getUserDisplayInfo = () => {
+    if (!user) return null;
+    return {
+      name: user.name || user.username,
+      username: user.username,
+      role: user.role,
+      station: user.station,
+      lastLogin: user.lastLogin,
+      loginCount: user.loginCount || 0
+    };
   };
 
   // Get user role display
@@ -488,6 +603,7 @@ export const AuthProvider = ({ children }) => {
     // User utilities
     hasPermission,
     getUserDisplayName,
+    getUserDisplayInfo,
     getUserRoleDisplay,
     getUserSpecialityDisplay,
     

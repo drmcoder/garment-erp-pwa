@@ -17,6 +17,8 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
   
   const [selectedMethod, setSelectedMethod] = useState('bundle-card');
   const [methodUsageStats, setMethodUsageStats] = useState({});
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [showMethodDropdown, setShowMethodDropdown] = useState(false);
 
   // Track method usage for trial analytics
   const trackMethodUsage = (method, assignmentCount) => {
@@ -169,85 +171,127 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
   };
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-br from-blue-50 to-purple-50 overflow-hidden flex flex-col z-50">
+    <div className="fixed inset-0 bg-gray-50 overflow-hidden flex flex-col z-50">
       
-      {/* Full Screen Header with Method Selector */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 md:p-6 flex-shrink-0 shadow-xl">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-4">
+      {/* Compact Header */}
+      <div className={`bg-white border-b shadow-sm flex-shrink-0 transition-all duration-300 ${
+        isMinimized ? 'py-2' : 'py-3'
+      }`}>
+        <div className="px-4 flex items-center justify-between">
+          {/* Left Side - Close & Title */}
+          <div className="flex items-center space-x-3">
             <button
               onClick={onCancel}
-              className="flex items-center space-x-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-all text-white border border-white border-opacity-30"
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 px-3 py-1 rounded-md hover:bg-gray-100 transition-colors"
               title={currentLanguage === 'np' ? 'बन्द गर्नुहोस्' : 'Close'}
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
               </svg>
-              <span className="text-sm font-medium">
-                {currentLanguage === 'np' ? 'बन्द गर्नुहोस्' : 'Close'}
-              </span>
-            </button>
-            
-            <div className="h-6 w-px bg-gray-300"></div>
-            
-            <div>
-              <h1 className="text-3xl font-bold text-white flex items-center space-x-3">
-                <span className="text-4xl">🎯</span>
-                <span>{currentLanguage === 'np' ? 'मल्टि-मेथड वर्क असाइनमेन्ट' : 'Multi-Method Work Assignment'}</span>
-              </h1>
-              <p className="text-blue-100 text-lg mt-1">
-                {currentLanguage === 'np' 
-                  ? 'सबैभन्दा राम्रो असाइनमेन्ट विधि छान्नुहोस्'
-                  : 'Choose the best assignment method for your workflow'
-                }
-              </p>
-            </div>
-          </div>
-
-          {/* Trial Phase Badge */}
-          <div className="flex items-center space-x-3">
-            <div className="bg-purple-100 text-purple-700 px-3 py-1 rounded-full text-sm font-medium">
-              🧪 {currentLanguage === 'np' ? 'ट्रायल फेज' : 'Trial Phase'}
-            </div>
-            
-            {Object.keys(methodUsageStats).length > 0 && (
-              <div className="bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm font-medium">
-                📊 {Object.values(methodUsageStats).reduce((sum, stat) => sum + stat.uses, 0)} {currentLanguage === 'np' ? 'प्रयोगहरू' : 'uses'}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Method Selection Tabs */}
-        <div className="flex flex-wrap gap-3">
-          {enabledMethods.map((method) => (
-            <button
-              key={method.id}
-              onClick={() => setSelectedMethod(method.id)}
-              className={`flex items-center space-x-3 px-6 py-4 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 ${
-                selectedMethod === method.id
-                  ? 'bg-white text-blue-700 border-white shadow-xl scale-105'
-                  : 'bg-white bg-opacity-20 text-white border-white border-opacity-30 hover:bg-opacity-30'
-              }`}
-            >
-              <span className="text-2xl">{method.icon}</span>
-              <div className="text-left">
-                <div className="text-sm font-bold">{method.name}</div>
-                <div className="text-xs opacity-75">{method.bestFor}</div>
-              </div>
-              {methodUsageStats[method.id] && (
-                <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
-                  {methodUsageStats[method.id].uses}
+              {!isMinimized && (
+                <span className="text-sm font-medium">
+                  {currentLanguage === 'np' ? 'बन्द' : 'Close'}
                 </span>
               )}
             </button>
-          ))}
-        </div>
+            
+            <div className="h-5 w-px bg-gray-300"></div>
+            
+            {!isMinimized && (
+              <div>
+                <h1 className="text-lg font-semibold text-gray-900 flex items-center space-x-2">
+                  <span>🎯</span>
+                  <span>{currentLanguage === 'np' ? 'वर्क असाइनमेन्ट' : 'Work Assignment'}</span>
+                </h1>
+              </div>
+            )}
+          </div>
 
+          {/* Center - Method Selector */}
+          <div className="flex-1 flex justify-center">
+            <div className="relative">
+              <button
+                onClick={() => setShowMethodDropdown(!showMethodDropdown)}
+                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                <span>{selectedMethodConfig?.icon}</span>
+                <span className="font-medium">{selectedMethodConfig?.name}</span>
+                <svg className={`w-4 h-4 transition-transform ${showMethodDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {/* Compact Method Dropdown */}
+              {showMethodDropdown && (
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 bg-white border border-gray-200 rounded-lg shadow-xl z-10 min-w-72">
+                  <div className="p-2">
+                    {enabledMethods.map((method) => (
+                      <button
+                        key={method.id}
+                        onClick={() => {
+                          setSelectedMethod(method.id);
+                          setShowMethodDropdown(false);
+                        }}
+                        className={`w-full flex items-center space-x-3 p-3 rounded-md transition-colors text-left ${
+                          selectedMethod === method.id
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                            : 'hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <span className="text-lg">{method.icon}</span>
+                        <div className="flex-1">
+                          <div className="text-sm font-medium">{method.name}</div>
+                          <div className="text-xs text-gray-500">{method.bestFor}</div>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <span className={`text-xs px-2 py-1 rounded-full font-medium ${getDifficultyColor(method.difficulty)}`}>
+                            {method.difficulty}
+                          </span>
+                          {methodUsageStats[method.id] && (
+                            <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded-full font-medium">
+                              {methodUsageStats[method.id].uses}
+                            </span>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Side - Controls */}
+          <div className="flex items-center space-x-2">
+            {/* Usage Stats */}
+            {Object.keys(methodUsageStats).length > 0 && !isMinimized && (
+              <div className="bg-gray-100 text-gray-700 px-3 py-1 rounded-full text-sm font-medium">
+                📊 {Object.values(methodUsageStats).reduce((sum, stat) => sum + stat.uses, 0)}
+              </div>
+            )}
+            
+            {/* Minimize Button */}
+            <button
+              onClick={() => setIsMinimized(!isMinimized)}
+              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
+              title={isMinimized ? (currentLanguage === 'np' ? 'विस्तार गर्नुहोस्' : 'Expand') : (currentLanguage === 'np' ? 'संक्षिप्त गर्नुहोस्' : 'Minimize')}
+            >
+              {isMinimized ? (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* Method Component Container */}
-      <div className="flex-1 overflow-y-auto bg-white">
+      {/* Method Component Container - Now Takes Most Screen Space */}
+      <div className="flex-1 overflow-hidden bg-white">
         <div className="h-full">
           {SelectedComponent ? (
             <SelectedComponent
@@ -265,8 +309,8 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
                 </h3>
                 <p className="text-gray-600">
                   {currentLanguage === 'np'
-                    ? 'यो असाइनमेन्ट मेथड ट्रायल फेजमा सक्रिय गरिएको छैन'
-                    : 'This assignment method is not enabled in trial phase'
+                    ? 'यो असाइनमेन्ट मेथड सक्रिय छैन'
+                    : 'This assignment method is not enabled'
                   }
                 </p>
               </div>
@@ -274,6 +318,14 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
           )}
         </div>
       </div>
+
+      {/* Click Outside Handler for Dropdown */}
+      {showMethodDropdown && (
+        <div 
+          className="fixed inset-0 z-0" 
+          onClick={() => setShowMethodDropdown(false)}
+        />
+      )}
 
     </div>
   );

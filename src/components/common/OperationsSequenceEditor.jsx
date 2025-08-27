@@ -17,6 +17,15 @@ const OperationsSequenceEditor = ({ onClose }) => {
   });
 
   const [editingOperation, setEditingOperation] = useState(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newOperation, setNewOperation] = useState({
+    name: '',
+    nameNp: '',
+    machineType: 'overlock',
+    time: 1.0,
+    rate: 2.0,
+    skillLevel: 'easy'
+  });
 
   const machineTypes = [
     'cutting',
@@ -45,18 +54,33 @@ const OperationsSequenceEditor = ({ onClose }) => {
   };
 
   const handleAddNewOperation = () => {
-    const newId = Math.max(...operations.map(op => op.id)) + 1;
-    const newOperation = {
+    setShowAddModal(true);
+  };
+
+  const handleSaveNewOperation = () => {
+    const newId = operations.length > 0 ? Math.max(...operations.map(op => op.id)) + 1 : 1;
+    const operationToAdd = {
       id: newId,
-      name: 'New Operation',
-      nameNp: 'नयाँ सञ्चालन',
+      name: newOperation.name || 'New Operation',
+      nameNp: newOperation.nameNp || 'नयाँ सञ्चालन',
+      machineType: newOperation.machineType,
+      time: newOperation.time,
+      rate: newOperation.rate,
+      skillLevel: newOperation.skillLevel,
+      sequence: operations.length + 1
+    };
+    setOperations([...operations, operationToAdd]);
+    
+    // Reset form
+    setNewOperation({
+      name: '',
+      nameNp: '',
       machineType: 'overlock',
       time: 1.0,
       rate: 2.0,
-      skillLevel: 'easy',
-      sequence: operations.length + 1
-    };
-    setOperations([...operations, newOperation]);
+      skillLevel: 'easy'
+    });
+    setShowAddModal(false);
   };
 
   const handleSaveSequence = () => {
@@ -122,10 +146,23 @@ const OperationsSequenceEditor = ({ onClose }) => {
                         {isNepali ? operation.nameNp : operation.name}
                       </h3>
                       <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <span>🏭 {operation.machineType || 'N/A'}</span>
+                        <span>🏭 {
+                          operation.machineType === 'cutting' ? (isNepali ? 'काट्ने' : 'Cutting') :
+                          operation.machineType === 'overlock' ? (isNepali ? 'ओभरलक' : 'Overlock') :
+                          operation.machineType === 'flatlock' ? (isNepali ? 'फ्ल्यालक' : 'Flatlock') :
+                          operation.machineType === 'singleNeedle' ? (isNepali ? 'एकल सुई' : 'Single Needle') :
+                          operation.machineType === 'buttonhole' ? (isNepali ? 'बटनहोल' : 'Buttonhole') :
+                          operation.machineType === 'iron' ? (isNepali ? 'इस्त्री' : 'Iron') :
+                          operation.machineType || 'N/A'
+                        }</span>
                         <span>⏱️ {operation.time || operation.estimatedTime || operation.estimatedTimePerPiece || 0} min</span>
                         <span>💰 Rs {operation.rate || 0}</span>
-                        <span>⭐ {operation.skillLevel || 'medium'}</span>
+                        <span>⭐ {
+                          operation.skillLevel === 'easy' ? (isNepali ? 'सजिलो' : 'Easy') :
+                          operation.skillLevel === 'medium' ? (isNepali ? 'मध्यम' : 'Medium') :
+                          operation.skillLevel === 'hard' ? (isNepali ? 'कठिन' : 'Hard') :
+                          operation.skillLevel || 'medium'
+                        }</span>
                       </div>
                     </div>
                   </div>
@@ -195,7 +232,14 @@ const OperationsSequenceEditor = ({ onClose }) => {
                   className="w-full border rounded-md px-3 py-2"
                 >
                   {machineTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
+                    <option key={type} value={type}>
+                      {type === 'cutting' ? (isNepali ? 'काट्ने' : 'Cutting') :
+                       type === 'overlock' ? (isNepali ? 'ओभरलक' : 'Overlock') :
+                       type === 'flatlock' ? (isNepali ? 'फ्ल्यालक' : 'Flatlock') :
+                       type === 'singleNeedle' ? (isNepali ? 'एकल सुई' : 'Single Needle') :
+                       type === 'buttonhole' ? (isNepali ? 'बटनहोल' : 'Buttonhole') :
+                       type === 'iron' ? (isNepali ? 'इस्त्री' : 'Iron') : type}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -236,7 +280,11 @@ const OperationsSequenceEditor = ({ onClose }) => {
                   className="w-full border rounded-md px-3 py-2"
                 >
                   {skillLevels.map(level => (
-                    <option key={level} value={level}>{level}</option>
+                    <option key={level} value={level}>
+                      {level === 'easy' ? (isNepali ? 'सजिलो' : 'Easy') :
+                       level === 'medium' ? (isNepali ? 'मध्यम' : 'Medium') :
+                       level === 'hard' ? (isNepali ? 'कठिन' : 'Hard') : level}
+                    </option>
                   ))}
                 </select>
               </div>
@@ -266,6 +314,131 @@ const OperationsSequenceEditor = ({ onClose }) => {
                 className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
               >
                 {isNepali ? 'बचत गर्नुहोस्' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add New Operation Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-60">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md m-4">
+            <div className="border-b px-6 py-4">
+              <h3 className="text-lg font-semibold">
+                {isNepali ? 'नयाँ सञ्चालन थप्नुहोस्' : 'Add New Operation'}
+              </h3>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isNepali ? 'नाम (अंग्रेजी)' : 'Name (English)'}
+                </label>
+                <input
+                  type="text"
+                  value={newOperation.name}
+                  onChange={(e) => setNewOperation({...newOperation, name: e.target.value})}
+                  className="w-full border rounded-md px-3 py-2"
+                  placeholder={isNepali ? 'सञ्चालनको नाम' : 'Operation name'}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isNepali ? 'नाम (नेपाली)' : 'Name (Nepali)'}
+                </label>
+                <input
+                  type="text"
+                  value={newOperation.nameNp}
+                  onChange={(e) => setNewOperation({...newOperation, nameNp: e.target.value})}
+                  className="w-full border rounded-md px-3 py-2"
+                  placeholder={isNepali ? 'सञ्चालनको नेपाली नाम' : 'Operation name in Nepali'}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isNepali ? 'मेसिन प्रकार' : 'Machine Type'} *
+                </label>
+                <select
+                  value={newOperation.machineType}
+                  onChange={(e) => setNewOperation({...newOperation, machineType: e.target.value})}
+                  className="w-full border rounded-md px-3 py-2"
+                >
+                  {machineTypes.map(type => (
+                    <option key={type} value={type}>
+                      {type === 'cutting' ? (isNepali ? 'काट्ने' : 'Cutting') :
+                       type === 'overlock' ? (isNepali ? 'ओभरलक' : 'Overlock') :
+                       type === 'flatlock' ? (isNepali ? 'फ्ल्यालक' : 'Flatlock') :
+                       type === 'singleNeedle' ? (isNepali ? 'एकल सुई' : 'Single Needle') :
+                       type === 'buttonhole' ? (isNepali ? 'बटनहोल' : 'Buttonhole') :
+                       type === 'iron' ? (isNepali ? 'इस्त्री' : 'Iron') : type}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isNepali ? 'समय (मिनेट)' : 'Time (minutes)'}
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={newOperation.time}
+                  onChange={(e) => setNewOperation({...newOperation, time: parseFloat(e.target.value)})}
+                  className="w-full border rounded-md px-3 py-2"
+                  min="0.1"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isNepali ? 'दर (रुपैयाँ)' : 'Rate (Rs)'}
+                </label>
+                <input
+                  type="number"
+                  step="0.1"
+                  value={newOperation.rate}
+                  onChange={(e) => setNewOperation({...newOperation, rate: parseFloat(e.target.value)})}
+                  className="w-full border rounded-md px-3 py-2"
+                  min="0"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {isNepali ? 'कौशल स्तर' : 'Skill Level'}
+                </label>
+                <select
+                  value={newOperation.skillLevel}
+                  onChange={(e) => setNewOperation({...newOperation, skillLevel: e.target.value})}
+                  className="w-full border rounded-md px-3 py-2"
+                >
+                  {skillLevels.map(level => (
+                    <option key={level} value={level}>
+                      {level === 'easy' ? (isNepali ? 'सजिलो' : 'Easy') :
+                       level === 'medium' ? (isNepali ? 'मध्यम' : 'Medium') :
+                       level === 'hard' ? (isNepali ? 'कठिन' : 'Hard') : level}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            
+            <div className="border-t px-6 py-4 flex justify-end space-x-2">
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600"
+              >
+                {isNepali ? 'रद्द गर्नुहोस्' : 'Cancel'}
+              </button>
+              <button
+                onClick={handleSaveNewOperation}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700"
+              >
+                {isNepali ? 'थप्नुहोस्' : 'Add Operation'}
               </button>
             </div>
           </div>

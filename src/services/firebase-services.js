@@ -52,11 +52,12 @@ export class ActivityLogService {
 
   static async getClientIP() {
     try {
-      const response = await fetch('https://api.ipify.org?format=json');
-      const data = await response.json();
-      return data.ip;
+      // Use local network information instead of external service to comply with CSP
+      const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+      const networkInfo = connection ? `${connection.effectiveType}-${connection.downlink}mbps` : 'unknown';
+      return `local-${networkInfo}`;
     } catch {
-      return 'unknown';
+      return 'local-unknown';
     }
   }
 
@@ -350,9 +351,18 @@ export class BundleService {
         console.log(`✅ Found ${wipWorkItems.workItems.length} work items from WIP`);
         
         // Filter by machine type if specified
-        let filteredWorkItems = wipWorkItems.workItems.filter(item => 
-          item.status === 'pending' || item.status === 'ready' || item.status === 'waiting'
-        );
+        let filteredWorkItems = wipWorkItems.workItems.filter(item => {
+          // Include unassigned work that's available for assignment
+          const isAvailable = (item.status === 'pending' || item.status === 'ready' || item.status === 'waiting') && !item.assignedOperator;
+          
+          // Also include assigned work (so operators can see their own work and track progress)
+          const isAssigned = item.status === 'assigned';
+          
+          // Include in-progress work (working status) so operators can see their current work
+          const isInProgress = item.status === 'in_progress' || item.status === 'in-progress';
+          
+          return isAvailable || isAssigned || isInProgress;
+        });
         
         if (machineType && machineType !== 'all') {
           filteredWorkItems = filteredWorkItems.filter(item => 
@@ -1367,6 +1377,58 @@ export class WIPService {
         };
       }
 
+      // MACHINE TYPE VALIDATION - Check if operator can handle this machine type
+      if (workItemData.machineType && workItemData.machineType !== 'manual') {
+        try {
+          // Get operator information to check machine compatibility
+          const operatorRef = doc(db, COLLECTIONS.OPERATORS, operatorId);
+          const operatorDoc = await getDoc(operatorRef);
+          
+          if (!operatorDoc.exists()) {
+            return {
+              success: false,
+              error: `Operator ${operatorId} not found in system`,
+              errorCode: 'OPERATOR_NOT_FOUND'
+            };
+          }
+
+          const operatorData = operatorDoc.data();
+          const operatorMachines = operatorData.assignedMachine 
+            ? [operatorData.assignedMachine] 
+            : (operatorData.machines || ['manual']);
+
+          console.log(`🔍 Work item machine type: ${workItemData.machineType}`);
+          console.log(`🔍 Operator ${operatorId} machines:`, operatorMachines);
+
+          // Check if operator's machines are compatible with work item machine type
+          const isCompatible = operatorMachines.includes(workItemData.machineType) || 
+                               operatorMachines.includes('multi-machine') ||
+                               (workItemData.machineType === 'single-needle' && operatorMachines.includes('single_needle')) ||
+                               (workItemData.machineType === 'overlock' && operatorMachines.includes('overlock')) ||
+                               (workItemData.machineType === 'flatlock' && operatorMachines.includes('flatlock'));
+
+          if (!isCompatible) {
+            const operatorName = operatorData.name || operatorId;
+            return {
+              success: false,
+              error: `❌ MACHINE TYPE MISMATCH: Cannot assign ${workItemData.machineType} work to operator ${operatorName} who is assigned to ${operatorMachines.join(', ')} machines`,
+              errorCode: 'MACHINE_TYPE_MISMATCH',
+              details: {
+                workItemMachine: workItemData.machineType,
+                operatorMachines: operatorMachines,
+                operationName: workItemData.operationName || workItemData.currentOperation
+              }
+            };
+          }
+
+          console.log(`✅ Machine type validation passed: ${workItemData.machineType} compatible with operator machines`);
+        } catch (validationError) {
+          console.error('❌ Error during machine type validation:', validationError);
+          // Continue with assignment if validation fails due to system error
+          console.warn('⚠️ Continuing with assignment despite validation error');
+        }
+      }
+
       // Update work item with assignment
       await updateDoc(workItemRef, {
         status: 'assigned',
@@ -1380,6 +1442,47 @@ export class WIPService {
       return { success: true };
     } catch (error) {
       console.error('❌ Error assigning work item:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Start work item (update status to in_progress/working)
+  static async startWorkItem(workItemId, operatorId) {
+    try {
+      console.log(`🚀 Starting work item ${workItemId} for operator ${operatorId}`);
+      
+      const workItemRef = doc(db, COLLECTIONS.WORK_ITEMS, workItemId);
+      
+      // Check if work item exists and is assigned to this operator
+      const workItemDoc = await getDoc(workItemRef);
+      if (!workItemDoc.exists()) {
+        return { 
+          success: false, 
+          error: `Work item ${workItemId} not found in Firestore`,
+          errorCode: 'WORK_ITEM_NOT_FOUND'
+        };
+      }
+
+      const workItemData = workItemDoc.data();
+      if (workItemData.assignedOperator !== operatorId) {
+        return {
+          success: false,
+          error: `Work item ${workItemId} is not assigned to operator ${operatorId}`,
+          errorCode: 'NOT_ASSIGNED_TO_OPERATOR'
+        };
+      }
+
+      // Update work item status to in_progress (working)
+      await updateDoc(workItemRef, {
+        status: 'in_progress',
+        startedAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      console.log(`✅ Work item ${workItemId} started - status updated to 'in_progress'`);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error starting work item:', error);
       return { success: false, error: error.message };
     }
   }

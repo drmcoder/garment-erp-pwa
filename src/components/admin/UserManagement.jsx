@@ -10,6 +10,7 @@ const UserManagement = ({ onBack }) => {
   const isNepali = currentLanguage === 'np';
   
   const [users, setUsers] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Load users from Firestore
   useEffect(() => {
@@ -83,6 +84,96 @@ const UserManagement = ({ onBack }) => {
 
     loadUsersFromFirestore();
   }, []);
+
+  // Refresh users function
+  const handleRefreshUsers = async () => {
+    setRefreshing(true);
+    try {
+      const allUsers = [];
+      
+      // Load operators
+      const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
+      operatorsSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        allUsers.push({
+          id: doc.id,
+          username: userData.username,
+          name: userData.name || userData.nameEn,
+          nameNp: userData.nameNepali || userData.name,
+          role: 'operator',
+          station: userData.station,
+          stationNp: userData.stationNp || userData.station,
+          machines: userData.assignedMachine ? [userData.assignedMachine] : userData.machines || [],
+          skillLevel: userData.skillLevel || 'medium',
+          active: userData.active !== false,
+          createdAt: userData.createdAt?.toDate() || new Date(),
+          lastLogin: userData.lastLogin,
+          loginCount: userData.loginCount || 0
+        });
+      });
+
+      // Load supervisors
+      const supervisorsSnapshot = await getDocs(collection(db, COLLECTIONS.SUPERVISORS));
+      supervisorsSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        allUsers.push({
+          id: doc.id,
+          username: userData.username,
+          name: userData.name || userData.nameEn,
+          nameNp: userData.nameNepali || userData.name,
+          role: 'supervisor',
+          station: userData.station || 'Supervisor Desk',
+          stationNp: userData.stationNp || 'सुपरवाइजर डेस्क',
+          machines: [],
+          skillLevel: 'high',
+          active: userData.active !== false,
+          createdAt: userData.createdAt?.toDate() || new Date(),
+          lastLogin: userData.lastLogin,
+          loginCount: userData.loginCount || 0
+        });
+      });
+
+      // Load management
+      const managementSnapshot = await getDocs(collection(db, COLLECTIONS.MANAGEMENT));
+      managementSnapshot.forEach((doc) => {
+        const userData = doc.data();
+        allUsers.push({
+          id: doc.id,
+          username: userData.username,
+          name: userData.name || userData.nameEn,
+          nameNp: userData.nameNepali || userData.name,
+          role: 'management',
+          station: userData.station || 'Management Office',
+          stationNp: userData.stationNp || 'व्यवस्थापन कार्यालय',
+          machines: [],
+          skillLevel: 'high',
+          active: userData.active !== false,
+          createdAt: userData.createdAt?.toDate() || new Date(),
+          lastLogin: userData.lastLogin,
+          loginCount: userData.loginCount || 0
+        });
+      });
+
+      setUsers(allUsers);
+      
+      addError({
+        message: isNepali ? 'प्रयोगकर्ता सूची पुनः लोड गरियो' : 'User list refreshed successfully',
+        component: 'UserManagement',
+        action: 'Refresh Users'
+      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+
+    } catch (error) {
+      console.error('Error refreshing users:', error);
+      addError({
+        message: isNepali ? 'प्रयोगकर्ता सूची पुनः लोड गर्न समस्या भयो' : 'Failed to refresh user list',
+        component: 'UserManagement',
+        action: 'Refresh Users',
+        data: { error: error.message }
+      }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.MEDIUM);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
@@ -196,8 +287,30 @@ const UserManagement = ({ onBack }) => {
     }
   };
 
-  const handleUpdateUser = () => {
+  const handleUpdateUser = async () => {
     try {
+      const collectionName = editingUser.role === 'operator' ? COLLECTIONS.OPERATORS :
+                           editingUser.role === 'supervisor' ? COLLECTIONS.SUPERVISORS :
+                           COLLECTIONS.MANAGEMENT;
+
+      const updateData = {
+        username: formData.username,
+        name: formData.name,
+        nameEn: formData.name,
+        nameNepali: formData.nameNp,
+        station: formData.station,
+        stationNp: formData.stationNp,
+        assignedMachine: formData.machines[0] || null,
+        machines: formData.machines,
+        skillLevel: formData.skillLevel,
+        password: formData.password,
+        updatedAt: new Date()
+      };
+
+      // Update in Firestore
+      await updateDoc(doc(db, collectionName, editingUser.id), updateData);
+
+      // Update local state
       setUsers(prev => prev.map(user => 
         user.id === editingUser.id ? { ...user, ...formData } : user
       ));
@@ -220,10 +333,44 @@ const UserManagement = ({ onBack }) => {
     }
   };
 
-  const handleToggleActive = (userId) => {
-    setUsers(prev => prev.map(user => 
-      user.id === userId ? { ...user, active: !user.active } : user
-    ));
+  const handleToggleActive = async (userId) => {
+    try {
+      const userToUpdate = users.find(user => user.id === userId);
+      if (!userToUpdate) return;
+
+      const collectionName = userToUpdate.role === 'operator' ? COLLECTIONS.OPERATORS :
+                           userToUpdate.role === 'supervisor' ? COLLECTIONS.SUPERVISORS :
+                           COLLECTIONS.MANAGEMENT;
+
+      const newActiveStatus = !userToUpdate.active;
+      
+      // Update in Firestore
+      await updateDoc(doc(db, collectionName, userId), {
+        active: newActiveStatus,
+        updatedAt: new Date()
+      });
+
+      // Update local state
+      setUsers(prev => prev.map(user => 
+        user.id === userId ? { ...user, active: newActiveStatus } : user
+      ));
+
+      addError({
+        message: isNepali 
+          ? `प्रयोगकर्ता ${newActiveStatus ? 'सक्रिय' : 'निष्क्रिय'} गरियो`
+          : `User ${newActiveStatus ? 'activated' : 'deactivated'} successfully`,
+        component: 'UserManagement',
+        action: 'Toggle User Status'
+      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+
+    } catch (error) {
+      addError({
+        message: 'Failed to update user status',
+        component: 'UserManagement',
+        action: 'Toggle User Status',
+        data: { error: error.message }
+      }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+    }
   };
 
   const resetForm = () => {
@@ -265,9 +412,27 @@ const UserManagement = ({ onBack }) => {
     }));
   };
 
-  const handleDeleteUser = (userId) => {
+  const handleDeleteUser = async (userId) => {
+    const userToDelete = users.find(user => user.id === userId);
+    if (!userToDelete) {
+      addError({
+        message: isNepali ? 'प्रयोगकर्ता फेला परेन' : 'User not found',
+        component: 'UserManagement',
+        action: 'Delete User'
+      }, ERROR_TYPES.USER, ERROR_SEVERITY.MEDIUM);
+      return;
+    }
+
     if (window.confirm(isNepali ? 'के तपाईं यस प्रयोगकर्तालाई मेटाउन चाहनुहुन्छ?' : 'Are you sure you want to delete this user?')) {
       try {
+        const collectionName = userToDelete.role === 'operator' ? COLLECTIONS.OPERATORS :
+                             userToDelete.role === 'supervisor' ? COLLECTIONS.SUPERVISORS :
+                             COLLECTIONS.MANAGEMENT;
+
+        // Delete from Firestore
+        await deleteDoc(doc(db, collectionName, userId));
+        
+        // Update local state
         setUsers(prev => prev.filter(user => user.id !== userId));
         
         addError({
@@ -329,12 +494,21 @@ const UserManagement = ({ onBack }) => {
               </p>
               </div>
             </div>
-            <button
-              onClick={() => setShowCreateForm(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              ➕ {isNepali ? 'नयाँ प्रयोगकर्ता' : 'New User'}
-            </button>
+            <div className="flex space-x-2">
+              <button
+                onClick={handleRefreshUsers}
+                disabled={refreshing}
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center"
+              >
+                🔄 {refreshing ? (isNepali ? 'लोड हुँदै...' : 'Loading...') : (isNepali ? 'पुनः लोड' : 'Refresh')}
+              </button>
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                ➕ {isNepali ? 'नयाँ प्रयोगकर्ता' : 'New User'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -368,6 +542,11 @@ const UserManagement = ({ onBack }) => {
                       <p className="text-sm text-gray-600">
                         @{user.username} • {isNepali ? user.stationNp : user.station}
                       </p>
+                      {user.lastLogin && (
+                        <p className="text-xs text-gray-500">
+                          {isNepali ? 'अन्तिम लगइन:' : 'Last login:'} {new Date(user.lastLogin).toLocaleDateString()}
+                        </p>
+                      )}
                       {user.machines.length > 0 && (
                         <div className="flex items-center space-x-1 mt-1">
                           <span className="text-xs text-gray-500">{isNepali ? 'मेसिन:' : 'Machines:'}</span>

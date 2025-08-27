@@ -5,8 +5,8 @@ import React, { useState, useEffect, useContext, useCallback } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
-import { BundleService } from "../../services/firebase-services";
-import { db, collection, getDocs, setDoc, doc, COLLECTIONS } from "../../config/firebase";
+import { BundleService, WIPService } from "../../services/firebase-services";
+import { db, collection, getDocs, setDoc, doc, updateDoc, COLLECTIONS } from "../../config/firebase";
 import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
 
 // Mock operation types for fallback
@@ -26,6 +26,7 @@ const SelfAssignmentSystem = () => {
   const [selectedWork, setSelectedWork] = useState(null);
   const [operationTypes, setOperationTypes] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [filter, setFilter] = useState({
     machineType: "all",
     priority: "all",
@@ -175,35 +176,58 @@ const SelfAssignmentSystem = () => {
     // Check machine compatibility - MOST IMPORTANT
     const userMachine = user?.machine || user?.speciality;
     const machineMatches = {
-      'overlock': ['overlock', 'ओभरलक', 'Overlock'],
-      'flatlock': ['flatlock', 'फ्ल्यालक', 'Flatlock'], 
-      'singleNeedle': ['singleNeedle', 'single_needle', 'एकल सुई', 'Single Needle', 'single-needle'],
-      'buttonhole': ['buttonhole', 'बटनहोल', 'Buttonhole']
+      'overlock': ['overlock', 'ओभरलक', 'Overlock', 'OVERLOCK'],
+      'flatlock': ['flatlock', 'फ्ल्यालक', 'Flatlock', 'FLATLOCK'], 
+      'singleNeedle': ['singleNeedle', 'single_needle', 'एकल सुई', 'Single Needle', 'single-needle', 'SINGLE_NEEDLE'],
+      'single-needle': ['singleNeedle', 'single_needle', 'एकल सुई', 'Single Needle', 'single-needle', 'SINGLE_NEEDLE'],
+      'buttonhole': ['buttonhole', 'बटनहोल', 'Buttonhole', 'BUTTONHOLE'],
+      'buttonAttach': ['buttonAttach', 'button_attach', 'बटन जोड्ने', 'Button Attach', 'BUTTON_ATTACH'],
+      'iron': ['iron', 'pressing', 'इस्त्री प्रेस', 'Iron Press', 'IRON'],
+      'cutting': ['cutting', 'काट्ने मेसिन', 'Cutting Machine', 'CUTTING'],
+      'embroidery': ['embroidery', 'कसिदाकारी मेसिन', 'Embroidery Machine', 'EMBROIDERY'],
+      'manual': ['manual', 'हस्तकला काम', 'Manual Work', 'MANUAL']
     };
 
     // Enhanced compatibility check
     const isCompatible = () => {
-      if (!bundle.machineType || !userMachine) return false;
+      if (!bundle.machineType || !userMachine) {
+        console.log('🔍 Compatibility check failed: missing data', { bundleMachineType: bundle.machineType, userMachine });
+        return false;
+      }
       
       // Direct match
-      if (bundle.machineType === userMachine) return true;
+      if (bundle.machineType === userMachine) {
+        console.log('✅ Direct machine match:', bundle.machineType, '===', userMachine);
+        return true;
+      }
       
       // Check if user machine contains bundle machine type (e.g., "flatlock-Op" contains "flatlock")
       const userMachineClean = userMachine.toLowerCase().replace(/[^a-z]/g, '');
       const bundleMachineClean = bundle.machineType.toLowerCase().replace(/[^a-z]/g, '');
       
       if (userMachineClean.includes(bundleMachineClean) || bundleMachineClean.includes(userMachineClean)) {
+        console.log('✅ Partial machine match:', userMachineClean, 'vs', bundleMachineClean);
         return true;
       }
       
-      // Check against machine matches
+      // Check against machine matches - improved logic
       for (const [machineType, aliases] of Object.entries(machineMatches)) {
-        if (aliases.some(alias => alias.toLowerCase() === userMachine.toLowerCase()) && 
-            aliases.some(alias => alias.toLowerCase() === bundle.machineType.toLowerCase())) {
+        const userMachineInAliases = aliases.some(alias => alias.toLowerCase() === userMachine.toLowerCase());
+        const bundleMachineInAliases = aliases.some(alias => alias.toLowerCase() === bundle.machineType.toLowerCase());
+        
+        if (userMachineInAliases && bundleMachineInAliases) {
+          console.log('✅ Machine alias match:', machineType, 'connects', userMachine, 'with', bundle.machineType);
           return true;
         }
       }
       
+      // Special case: if user is multi-skilled, they can handle any work
+      if (userMachine && (userMachine.toLowerCase().includes('multi') || userMachine.toLowerCase().includes('all'))) {
+        console.log('✅ Multi-skilled operator can handle any work');
+        return true;
+      }
+      
+      console.log('❌ No machine compatibility found:', { userMachine, bundleMachineType: bundle.machineType });
       return false;
     };
     
@@ -249,6 +273,53 @@ const SelfAssignmentSystem = () => {
     setSelectedWork(work);
   };
 
+  // Filter available work based on search term and filters
+  const getFilteredWork = () => {
+    let filtered = [...availableWork];
+
+    // Apply search filter
+    if (searchTerm.trim()) {
+      const search = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(work => {
+        // Search in multiple fields
+        const searchFields = [
+          work.articleNumber?.toString(),
+          work.articleName?.toLowerCase(),
+          work.englishName?.toLowerCase(),
+          work.color?.toLowerCase(),
+          work.size?.toLowerCase(),
+          work.operation?.toLowerCase(),
+          work.englishOperation?.toLowerCase(),
+          work.id?.toLowerCase()
+        ];
+
+        return searchFields.some(field => 
+          field && field.includes(search)
+        );
+      });
+    }
+
+    // Apply priority filter
+    if (filter.priority !== 'all') {
+      filtered = filtered.filter(work => 
+        work.priority === filter.priority || 
+        work.englishPriority === filter.priority
+      );
+    }
+
+    // Apply article type filter if needed
+    if (filter.articleType !== 'all') {
+      filtered = filtered.filter(work => 
+        work.articleType === filter.articleType ||
+        work.articleName?.toLowerCase().includes(filter.articleType.toLowerCase())
+      );
+    }
+
+    return filtered;
+  };
+
+  const filteredWork = getFilteredWork();
+
   const handleSelfAssign = async () => {
     if (!selectedWork) return;
 
@@ -279,12 +350,27 @@ const SelfAssignmentSystem = () => {
         }
       }
 
-      // Self-assign work using Firebase service
-      const assignResult = await BundleService.assignBundle(
-        selectedWork.id,
-        user.id,
-        user.id // Self-assignment, so assignedBy is the operator themselves
-      );
+      // Self-assign work using appropriate service based on work item type
+      let assignResult;
+      
+      // Check if this is a WIP work item (has wipEntryId) or traditional bundle
+      const isWIPWorkItem = selectedWork.wipEntryId || selectedWork.currentOperation;
+      
+      if (isWIPWorkItem) {
+        console.log(`🔄 Self-assigning WIP work item: ${selectedWork.currentOperation} on ${selectedWork.machineType}`);
+        assignResult = await WIPService.assignWorkItem(
+          selectedWork.id,
+          user.id,
+          user.id // Self-assignment, so assignedBy is the operator themselves
+        );
+      } else {
+        console.log(`🔄 Self-assigning traditional bundle: ${selectedWork.id}`);
+        assignResult = await BundleService.assignBundle(
+          selectedWork.id,
+          user.id,
+          user.id // Self-assignment, so assignedBy is the operator themselves
+        );
+      }
 
       if (!assignResult.success) {
         // Silently handle assignment failure without console errors
@@ -310,12 +396,42 @@ const SelfAssignmentSystem = () => {
 
       console.log(`✅ Successfully assigned bundle ${selectedWork.id} to ${user.id}`);
 
-      // Calculate estimated earnings
-      // Removed price calculation as per requirement
+      // Automatically start the work and update status to 'working'
+      try {
+        let startResult;
+        
+        if (isWIPWorkItem) {
+          // Start WIP work item - update status to 'in_progress' (working)
+          startResult = await WIPService.startWorkItem(selectedWork.id, user.id);
+        } else {
+          // Start traditional bundle work
+          startResult = await BundleService.startWork(selectedWork.id, user.id);
+        }
+
+        if (startResult && startResult.success) {
+          console.log(`✅ Work automatically started - status updated to 'working'`);
+        }
+      } catch (startError) {
+        console.warn('⚠️ Work assigned but failed to auto-start:', startError.message);
+      }
+
+      // Update operator status to 'working' in the operators collection
+      try {
+        await updateDoc(doc(db, COLLECTIONS.OPERATORS, user.id), {
+          status: 'working',
+          currentWork: selectedWork.id,
+          currentWorkType: isWIPWorkItem ? 'wip_item' : 'bundle',
+          workStartedAt: new Date().toISOString(),
+          lastUpdated: new Date().toISOString()
+        });
+        console.log(`✅ Operator status updated to 'working'`);
+      } catch (operatorUpdateError) {
+        console.warn('⚠️ Failed to update operator status:', operatorUpdateError.message);
+      }
 
       // Report to supervisor
       try {
-        await BundleService.logActivity(user.id, 'SELF_ASSIGN_WORK', {
+        await BundleService.logActivity(user.id, 'SELF_ASSIGN_AND_START_WORK', {
           bundleId: selectedWork.id,
           articleNumber: selectedWork.articleNumber,
           articleName: selectedWork.articleName,
@@ -325,20 +441,49 @@ const SelfAssignmentSystem = () => {
           machineType: selectedWork.machineType,
           operatorName: user.name,
           assignedAt: new Date().toISOString(),
+          startedAt: new Date().toISOString(),
+          status: 'working',
           supervisorReported: true
         });
 
-        console.log('✅ Self-assignment reported to supervisor');
+        console.log('✅ Self-assignment and work start reported to supervisor');
       } catch (reportError) {
         console.error('❌ Failed to report to supervisor:', reportError);
       }
 
       showNotification(
         isNepali
-          ? `काम स्वीकार गरियो! अनुमानित समय: ${selectedWork.estimatedTime} मिनेट`
-          : `Work accepted! Estimated time: ${selectedWork.estimatedTime} minutes`,
+          ? `🚀 काम सुरु भयो! अनुमानित समय: ${selectedWork.estimatedTime} मिनेट`
+          : `🚀 Work started! Estimated time: ${selectedWork.estimatedTime} minutes`,
         "success"
       );
+
+      // Update the work item status in the selectedWork object for UI display
+      const updatedWorkItem = {
+        ...selectedWork,
+        status: isWIPWorkItem ? 'in_progress' : 'in-progress',
+        assignedOperator: user.id,
+        assignedAt: new Date().toISOString(),
+        startedAt: new Date().toISOString()
+      };
+
+      // Send work assignment and start data to parent component or context
+      try {
+        // Trigger a custom event to notify other components that work has started
+        const workStartedEvent = new CustomEvent('workStarted', {
+          detail: {
+            workItem: updatedWorkItem,
+            operatorId: user.id,
+            operatorName: user.name,
+            status: 'working',
+            startedAt: new Date().toISOString()
+          }
+        });
+        window.dispatchEvent(workStartedEvent);
+        console.log('🔄 Work started event dispatched to update dashboard');
+      } catch (eventError) {
+        console.warn('⚠️ Failed to dispatch work started event:', eventError.message);
+      }
 
       // Reset selection and reload available work
       setSelectedWork(null);
@@ -388,10 +533,18 @@ const SelfAssignmentSystem = () => {
           </div>
           <div className="text-right">
             <div className="text-sm text-gray-500">
-              {isNepali ? "उपलब्ध काम" : "Available Work"}
+              {searchTerm 
+                ? (isNepali ? "खोजको परिणाम" : "Search Results")
+                : (isNepali ? "उपलब्ध काम" : "Available Work")
+              }
             </div>
             <div className="text-2xl font-bold text-blue-600">
-              {availableWork.length}
+              {searchTerm ? filteredWork.length : availableWork.length}
+              {searchTerm && (
+                <span className="text-sm text-gray-500 ml-1">
+                  / {availableWork.length}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -402,8 +555,55 @@ const SelfAssignmentSystem = () => {
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-sm border p-6 sticky top-4">
             <h3 className="text-lg font-semibold mb-4">
-              {isNepali ? "🔧 तपाईंको मेसिन" : "🔧 Your Machine"}
+              {isNepali ? "🔍 खोज र फिल्टर" : "🔍 Search & Filter"}
             </h3>
+
+            {/* Search Box */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2">
+                {isNepali ? "काम खोज्नुहोस्" : "Search Work"}
+              </label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder={isNepali 
+                    ? "आर्टिकल नम्बर, रङ, साइज खोज्नुहोस्..." 
+                    : "Search by article, color, size..."
+                  }
+                  className="w-full p-3 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                </div>
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+              {searchTerm && (
+                <div className="mt-2 text-sm text-blue-600">
+                  {isNepali 
+                    ? `"${searchTerm}" खोजिँदै - ${filteredWork.length} परिणामहरू`
+                    : `Searching "${searchTerm}" - ${filteredWork.length} results`
+                  }
+                </div>
+              )}
+            </div>
+
+            {/* Machine Section Header */}
+            <h4 className="text-md font-semibold mb-3 text-gray-700">
+              {isNepali ? "🔧 तपाईंको मेसिन" : "🔧 Your Machine"}
+            </h4>
 
             {/* Assigned Machine Display */}
             <div className="mb-4">
@@ -543,8 +743,26 @@ const SelfAssignmentSystem = () => {
                     : "Try changing filters or check back later"}
                 </p>
               </div>
+            ) : filteredWork.length === 0 ? (
+              <div className="text-center py-8 bg-white rounded-lg border">
+                <div className="text-6xl mb-4">🔍</div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  {isNepali ? "खोजको परिणाम फेला परेन" : "No search results found"}
+                </h3>
+                <p className="text-gray-500 mb-4">
+                  {isNepali
+                    ? `"${searchTerm}" सँग मिल्ने काम फेला परेन`
+                    : `No work found matching "${searchTerm}"`}
+                </p>
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+                >
+                  {isNepali ? "खोज सफा गर्नुहोस्" : "Clear Search"}
+                </button>
+              </div>
             ) : (
-              availableWork.map((work, index) => (
+              filteredWork.map((work, index) => (
                 <div
                   key={`${work.id || work.bundleId || 'work'}_${index}`}
                   className={`bg-white rounded-lg border p-6 transition-all duration-200 cursor-pointer hover:shadow-md ${

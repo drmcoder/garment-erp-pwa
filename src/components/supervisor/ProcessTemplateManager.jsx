@@ -3,6 +3,8 @@ import { useLanguage } from '../../context/LanguageContext';
 import { AuthContext } from '../../context/AuthContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 import TemplateBuilder from './TemplateBuilder';
+import SewingProcedureConfig from './SewingProcedureConfig';
+import { ConfigService } from '../../services/firebase-services';
 import { 
   universalDelete, 
   DELETE_PERMISSIONS, 
@@ -32,6 +34,8 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
   const [editingTemplate, setEditingTemplate] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showSewingProcedureConfig, setShowSewingProcedureConfig] = useState(false);
+  const [processTemplates, setProcessTemplates] = useState([]);
 
   // Predefined process templates
   const defaultTemplates = [
@@ -445,6 +449,21 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
     }
   ];
 
+  // Load ConfigService process templates
+  useEffect(() => {
+    const loadProcessTemplates = async () => {
+      try {
+        const garmentTypes = await ConfigService.getGarmentTypes();
+        console.log('📋 Loaded process templates from ConfigService:', garmentTypes);
+        setProcessTemplates(garmentTypes);
+      } catch (error) {
+        console.error('❌ Failed to load process templates:', error);
+      }
+    };
+
+    loadProcessTemplates();
+  }, []);
+
   useEffect(() => {
     // Load custom templates from Firestore and localStorage, combine with defaults
     const loadTemplates = async () => {
@@ -552,6 +571,79 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
   const handleTemplateSelect = (template) => {
     if (onTemplateSelect) {
       onTemplateSelect(template);
+    }
+  };
+
+  // Handler for sewing procedure configuration
+  const handleSewingProcedureSave = async (configData) => {
+    try {
+      console.log('💾 Saving sewing procedure configuration:', configData);
+      
+      // Convert ConfigService template to ProcessTemplateManager format
+      const newTemplate = {
+        id: `config-${configData.garmentType.id}-${Date.now()}`,
+        name: `${configData.garmentType.name} Configuration`,
+        nameNp: `${configData.garmentType.nameNp} कन्फिगरेसन`,
+        articleType: configData.garmentType.id,
+        articleNumbers: configData.article ? [configData.article] : null,
+        operations: configData.workflow.map((op, index) => ({
+          id: index + 1,
+          name: op.operation.replace(/_/g, ' '),
+          nameEn: op.operation.replace(/_/g, ' '),
+          nameNp: op.operation.replace(/_/g, ' '), // Could be enhanced with Nepali translations
+          machineType: op.machine,
+          estimatedTimePerPiece: op.estimatedTime || 5,
+          rate: 3.0, // Default rate
+          skillLevel: op.skillLevel || 'medium',
+          sequence: op.sequence || index + 1,
+          dependencies: op.dependencies || [],
+          icon: op.icon || '⚙️',
+          workflowType: op.workflowType || 'sequential',
+          parallelGroup: op.parallelGroup
+        })),
+        createdAt: new Date(),
+        createdBy: user?.id || 'system',
+        source: 'config-service',
+        customTemplate: true
+      };
+
+      // Save to Firestore
+      const docRef = await addDoc(collection(db, COLLECTIONS.ARTICLE_TEMPLATES), {
+        ...newTemplate,
+        createdAt: serverTimestamp()
+      });
+      
+      newTemplate.id = docRef.id;
+      
+      // Update local state
+      setTemplates(prev => [...prev, newTemplate]);
+      
+      // Close the configuration modal
+      setShowSewingProcedureConfig(false);
+      
+      // Show success message
+      addError({
+        message: currentLanguage === 'np' 
+          ? `✅ सिलाई प्रक्रिया कन्फिगरेसन सफलतापूर्वक सेभ गरियो`
+          : `✅ Sewing procedure configuration saved successfully`,
+        component: 'ProcessTemplateManager',
+        action: 'Save Sewing Configuration',
+        data: { templateId: newTemplate.id }
+      }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+
+      // Optionally auto-select the newly created template
+      handleTemplateSelect(newTemplate);
+      
+    } catch (error) {
+      console.error('❌ Failed to save sewing procedure:', error);
+      addError({
+        message: currentLanguage === 'np' 
+          ? 'सिलाई प्रक्रिया सेभ गर्न सकिएन'
+          : 'Failed to save sewing procedure',
+        component: 'ProcessTemplateManager',
+        action: 'Save Sewing Configuration Error',
+        data: { error: error.message }
+      }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.MEDIUM);
     }
   };
 
@@ -910,12 +1002,22 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
 
           {/* Action Buttons */}
           <div className="flex justify-between items-center">
-            <button
-              onClick={() => setShowCreateNew(true)}
-              className="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors"
-            >
-              ➕ {currentLanguage === 'np' ? 'नयाँ टेम्प्लेट' : 'New Template'}
-            </button>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowCreateNew(true)}
+                className="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition-colors"
+              >
+                ➕ {currentLanguage === 'np' ? 'नयाँ टेम्प्लेट' : 'New Template'}
+              </button>
+              
+              <button
+                onClick={() => setShowSewingProcedureConfig(true)}
+                className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+              >
+                <span>🧵</span>
+                <span>{currentLanguage === 'np' ? 'प्रक्रिया टेम्प्लेटबाट कन्फिगर गर्नुहोस्' : 'Configure from Process Templates'}</span>
+              </button>
+            </div>
             
             <div className="space-x-4">
               <button
@@ -954,6 +1056,15 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
               : 'Deleting this template will affect all bundles that use it.'
           }
         />
+        
+        {/* Sewing Procedure Configuration Modal */}
+        {showSewingProcedureConfig && (
+          <SewingProcedureConfig
+            onSave={handleSewingProcedureSave}
+            onCancel={() => setShowSewingProcedureConfig(false)}
+            selectedArticle={null} // Could be enhanced to pass article info
+          />
+        )}
       </div>
     </div>
   );

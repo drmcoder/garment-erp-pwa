@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 import { WIPService } from '../../services/firebase-services';
+import BundleWorkflowCards from '../common/BundleWorkflowCards';
+import ProcessFlowChart from '../common/ProcessFlowChart';
 
 const WIPProgressTracker = ({ onClose }) => {
   const { currentLanguage } = useLanguage();
@@ -11,6 +13,8 @@ const WIPProgressTracker = ({ onClose }) => {
   const [wipEntries, setWipEntries] = useState([]);
   const [selectedLot, setSelectedLot] = useState(null);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('overview'); // 'overview', 'timeline', 'journey', 'process_flow'
+  const [groupBy, setGroupBy] = useState('lot'); // 'lot', 'roll', 'article'
 
   const loadProgressData = useCallback(async () => {
     try {
@@ -179,6 +183,55 @@ const WIPProgressTracker = ({ onClose }) => {
     if (statusFilter === 'all') return true;
     return wip.progress?.status === statusFilter;
   });
+
+  // Group data based on selected groupBy option
+  const getGroupedData = () => {
+    if (groupBy === 'lot') {
+      return filteredWipEntries;
+    } else if (groupBy === 'roll') {
+      // Group by roll number within each lot
+      const grouped = [];
+      filteredWipEntries.forEach(wip => {
+        const rollGroups = {};
+        wip.parsedStyles?.forEach(style => {
+          const rollNumber = style.rollNumber || 'Roll-1';
+          if (!rollGroups[rollNumber]) {
+            rollGroups[rollNumber] = {
+              ...wip,
+              id: `${wip.id}-${rollNumber}`,
+              lotNumber: `${wip.lotNumber}-${rollNumber}`,
+              rollNumber,
+              parsedStyles: [],
+              totalPieces: 0
+            };
+          }
+          rollGroups[rollNumber].parsedStyles.push(style);
+          rollGroups[rollNumber].totalPieces += style.totalPieces || 0;
+        });
+        grouped.push(...Object.values(rollGroups));
+      });
+      return grouped;
+    } else if (groupBy === 'article') {
+      // Group by article within each lot
+      const grouped = [];
+      filteredWipEntries.forEach(wip => {
+        wip.parsedStyles?.forEach(style => {
+          grouped.push({
+            ...wip,
+            id: `${wip.id}-${style.articleNumber}`,
+            lotNumber: `${wip.lotNumber}-${style.articleNumber}`,
+            articleNumber: style.articleNumber,
+            parsedStyles: [style],
+            totalPieces: style.totalPieces || 0
+          });
+        });
+      });
+      return grouped;
+    }
+    return filteredWipEntries;
+  };
+
+  const groupedData = getGroupedData();
 
   const ProgressBar = ({ progress }) => (
     <div className="w-full bg-gray-200 rounded-full h-2.5">
@@ -433,14 +486,95 @@ const WIPProgressTracker = ({ onClose }) => {
                 {isNepali ? 'लट र बन्डलको प्रगति हेर्नुहोस्' : 'Track lot and bundle progress'}
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white hover:bg-green-600 p-2 rounded-xl transition-colors"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            
+            <div className="flex items-center space-x-4">
+              {/* View Mode Toggle */}
+              <div className="flex bg-white/20 rounded-lg p-1">
+                <button
+                  onClick={() => setViewMode('overview')}
+                  className={`px-2 py-1 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'overview'
+                      ? 'bg-white text-green-600 shadow-sm'
+                      : 'text-white hover:text-green-200'
+                  }`}
+                >
+                  📋 {isNepali ? 'सारांश' : 'Overview'}
+                </button>
+                <button
+                  onClick={() => setViewMode('timeline')}
+                  className={`px-2 py-1 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'timeline'
+                      ? 'bg-white text-green-600 shadow-sm'
+                      : 'text-white hover:text-green-200'
+                  }`}
+                >
+                  📅 {isNepali ? 'टाइमलाइन' : 'Timeline'}
+                </button>
+                <button
+                  onClick={() => setViewMode('journey')}
+                  className={`px-2 py-1 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'journey'
+                      ? 'bg-white text-green-600 shadow-sm'
+                      : 'text-white hover:text-green-200'
+                  }`}
+                >
+                  🔄 {isNepali ? 'यात्रा' : 'Journey'}
+                </button>
+                <button
+                  onClick={() => setViewMode('process_flow')}
+                  className={`px-2 py-1 rounded-md text-sm font-medium transition-colors ${
+                    viewMode === 'process_flow'
+                      ? 'bg-white text-green-600 shadow-sm'
+                      : 'text-white hover:text-green-200'
+                  }`}
+                >
+                  🔄 {isNepali ? 'प्रक्रिया फ्लो' : 'Process Flow'}
+                </button>
+              </div>
+
+              {/* Group By Toggle */}
+              <div className="flex bg-white/20 rounded-lg p-1">
+                <button
+                  onClick={() => setGroupBy('lot')}
+                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                    groupBy === 'lot'
+                      ? 'bg-white text-green-600 shadow-sm'
+                      : 'text-white hover:text-green-200'
+                  }`}
+                >
+                  {isNepali ? 'लटवार' : 'Lot-wise'}
+                </button>
+                <button
+                  onClick={() => setGroupBy('roll')}
+                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                    groupBy === 'roll'
+                      ? 'bg-white text-green-600 shadow-sm'
+                      : 'text-white hover:text-green-200'
+                  }`}
+                >
+                  {isNepali ? 'रोलवार' : 'Roll-wise'}
+                </button>
+                <button
+                  onClick={() => setGroupBy('article')}
+                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                    groupBy === 'article'
+                      ? 'bg-white text-green-600 shadow-sm'
+                      : 'text-white hover:text-green-200'
+                  }`}
+                >
+                  {isNepali ? 'लेखवार' : 'Article-wise'}
+                </button>
+              </div>
+              
+              <button
+                onClick={onClose}
+                className="text-white hover:bg-green-600 p-2 rounded-xl transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -473,33 +607,192 @@ const WIPProgressTracker = ({ onClose }) => {
                 </div>
               </div>
 
-              {/* WIP Entries Grid */}
-              {filteredWipEntries.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
-                  <div className="text-4xl mb-4">📋</div>
-                  <p className="text-lg font-medium mb-2">
-                    {isNepali ? 'कुनै WIP एन्ट्री फेला परेन' : 'No WIP entries found'}
-                  </p>
-                  <p className="text-sm mb-6">
-                    {isNepali 
-                      ? 'प्रगति ट्र्याक गर्नको लागि पहिले WIP डेटा थप्नुहोस्'
-                      : 'Add WIP data first to track progress'}
-                  </p>
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-400">
-                      {isNepali ? 'WIP डेटा थप्न:' : 'To add WIP data:'}
+              {/* Content based on view mode */}
+              {viewMode === 'overview' && (
+                /* WIP Entries Grid - Overview */
+                groupedData.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <div className="text-4xl mb-4">📋</div>
+                    <p className="text-lg font-medium mb-2">
+                      {isNepali ? 'कुनै WIP एन्ट्री फेला परेन' : 'No WIP entries found'}
                     </p>
-                    <div className="text-xs text-gray-400 space-y-1">
-                      <p>• {isNepali ? 'WIP डेटा इम्पोर्ट का प्रयोग गर्नुहोस्' : 'Use WIP Data Import'}</p>
-                      <p>• {isNepali ? 'वा WIP डेटा प्रबन्धन मा जानुहोस्' : 'Or go to WIP Data Manager'}</p>
+                    <p className="text-sm mb-6">
+                      {isNepali 
+                        ? 'प्रगति ट्र्याक गर्नको लागि पहिले WIP डेटा थप्नुहोस्'
+                        : 'Add WIP data first to track progress'}
+                    </p>
+                    <div className="space-y-2">
+                      <p className="text-xs text-gray-400">
+                        {isNepali ? 'WIP डेटा थप्न:' : 'To add WIP data:'}
+                      </p>
+                      <div className="text-xs text-gray-400 space-y-1">
+                        <p>• {isNepali ? 'WIP डेटा इम्पोर्ट का प्रयोग गर्नुहोस्' : 'Use WIP Data Import'}</p>
+                        <p>• {isNepali ? 'वा WIP डेटा प्रबन्धन मा जानुहोस्' : 'Or go to WIP Data Manager'}</p>
+                      </div>
                     </div>
                   </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {groupedData.map(wip => (
+                      <WIPOverviewCard key={wip.id} wip={wip} />
+                    ))}
+                  </div>
+                )
+              )}
+
+              {viewMode === 'timeline' && (
+                /* Timeline View */
+                <div className="space-y-6">
+                  {groupedData.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <div className="text-4xl mb-4">📅</div>
+                      <p className="text-lg font-medium mb-2">
+                        {isNepali ? 'कुनै WIP एन्ट्री फेला परेन' : 'No WIP entries found'}
+                      </p>
+                    </div>
+                  ) : (
+                    groupedData.map(wip => (
+                      <div key={wip.id} className="bg-white rounded-lg shadow-sm border p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">{wip.lotNumber}</h3>
+                            <p className="text-sm text-gray-600">{wip.fabricName} • {wip.progress?.progressPercentage || 0}% complete</p>
+                          </div>
+                          <button
+                            onClick={() => setSelectedLot(wip)}
+                            className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          >
+                            {isNepali ? 'विस्तार देख्नुहोस्' : 'View Details'}
+                          </button>
+                        </div>
+                        
+                        {/* Mini timeline */}
+                        <div className="flex items-center space-x-4 overflow-x-auto pb-2">
+                          {wip.workItems?.sort((a, b) => a.sequence - b.sequence).slice(0, 8).map((item, index) => (
+                            <div key={item.id} className="flex-shrink-0 flex items-center space-x-2">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                item.status === 'completed' ? 'bg-green-500 text-white' :
+                                item.status === 'in_progress' ? 'bg-blue-500 text-white' :
+                                'bg-gray-300 text-gray-600'
+                              }`}>
+                                {item.sequence}
+                              </div>
+                              {index < Math.min(wip.workItems.length - 1, 7) && (
+                                <div className={`w-4 h-0.5 ${
+                                  item.status === 'completed' ? 'bg-green-300' : 'bg-gray-200'
+                                }`}></div>
+                              )}
+                            </div>
+                          ))}
+                          {wip.workItems?.length > 8 && (
+                            <div className="text-xs text-gray-500">+{wip.workItems.length - 8} more</div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {filteredWipEntries.map(wip => (
-                    <WIPOverviewCard key={wip.id} wip={wip} />
-                  ))}
+              )}
+
+              {viewMode === 'journey' && (
+                /* Journey Flow View */
+                <div className="space-y-6">
+                  {groupedData.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <div className="text-4xl mb-4">🔄</div>
+                      <p className="text-lg font-medium mb-2">
+                        {isNepali ? 'कुनै WIP एन्ट्री फेला परेन' : 'No WIP entries found'}
+                      </p>
+                    </div>
+                  ) : (
+                    groupedData.map(wip => (
+                      <div key={wip.id} className="bg-gray-50 rounded-lg p-4">
+                        <BundleWorkflowCards
+                          bundle={{
+                            bundleId: wip.lotNumber,
+                            articleNumber: wip.parsedStyles?.[0]?.articleNumber || 'Multiple Articles',
+                            color: wip.parsedStyles?.[0]?.color || 'Mixed',
+                            size: wip.parsedStyles?.[0]?.size || 'Various',
+                            pieces: wip.totalPieces || wip.parsedStyles?.reduce((sum, style) => sum + (style.totalPieces || 0), 0) || 0
+                          }}
+                          workItems={wip.workItems || []}
+                          onOperationClick={(operation) => {
+                            setSelectedLot(wip);
+                          }}
+                          onStatusUpdate={(operationId, newStatus) => {
+                            // Update the work item status in the WIP entry
+                            const updatedEntries = wipEntries.map(entry => {
+                              if (entry.id === wip.id) {
+                                const updatedWorkItems = entry.workItems?.map(item => 
+                                  item.id === operationId ? { ...item, status: newStatus } : item
+                                ) || [];
+                                
+                                // Recalculate progress
+                                const progress = calculateWIPProgress(entry, updatedWorkItems);
+                                
+                                return {
+                                  ...entry,
+                                  workItems: updatedWorkItems,
+                                  progress
+                                };
+                              }
+                              return entry;
+                            });
+                            setWipEntries(updatedEntries);
+                          }}
+                          showProgress={true}
+                          compact={true}
+                        />
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {viewMode === 'process_flow' && (
+                /* Process Flow Chart View */
+                <div className="space-y-8">
+                  {groupedData.length === 0 ? (
+                    <div className="text-center py-12 text-gray-500">
+                      <div className="text-4xl mb-4">🔄</div>
+                      <p className="text-lg font-medium mb-2">
+                        {isNepali ? 'कुनै WIP एन्ट्री फेला परेन' : 'No WIP entries found'}
+                      </p>
+                    </div>
+                  ) : (
+                    groupedData.map(wip => (
+                      <ProcessFlowChart
+                        key={wip.id}
+                        wipEntry={wip}
+                        onStepClick={(step) => {
+                          setSelectedLot(wip);
+                        }}
+                        onStatusUpdate={(stepId, newStatus) => {
+                          // Update the work item status in the WIP entry
+                          const updatedEntries = wipEntries.map(entry => {
+                            if (entry.id === wip.id) {
+                              const updatedWorkItems = entry.workItems?.map(item => 
+                                item.id === stepId ? { ...item, status: newStatus } : item
+                              ) || [];
+                              
+                              // Recalculate progress
+                              const progress = calculateWIPProgress(entry, updatedWorkItems);
+                              
+                              return {
+                                ...entry,
+                                workItems: updatedWorkItems,
+                                progress
+                              };
+                            }
+                            return entry;
+                          });
+                          setWipEntries(updatedEntries);
+                        }}
+                        showDetails={true}
+                        compact={false}
+                      />
+                    ))
+                  )}
                 </div>
               )}
             </>

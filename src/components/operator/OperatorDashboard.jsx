@@ -84,6 +84,50 @@ const OperatorDashboard = () => {
     }
   }, [user]);
 
+  // Listen for work started events from self-assignment system
+  useEffect(() => {
+    const handleWorkStarted = (event) => {
+      const { workItem, operatorId, status } = event.detail;
+      
+      // Only update if this event is for the current operator
+      if (operatorId === user?.id) {
+        console.log('🔄 Dashboard: Received work started event', workItem);
+        
+        // Set this as the current work
+        setCurrentWork({
+          ...workItem,
+          status: status === 'working' ? (workItem.status === 'in_progress' ? 'in_progress' : 'in-progress') : workItem.status
+        });
+
+        // Update daily stats to reflect that work has started
+        setDailyStats(prev => ({
+          ...prev,
+          activeWorks: prev.activeWorks + 1
+        }));
+
+        // Show success notification in dashboard
+        addNotification({
+          type: 'success',
+          message: currentLanguage === 'np' 
+            ? `🚀 काम सुरु भयो: ${workItem.articleName || workItem.article}`
+            : `🚀 Work started: ${workItem.articleName || workItem.article}`,
+          duration: 3000
+        });
+
+        // Reload data to get the most current state
+        loadOperatorData();
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('workStarted', handleWorkStarted);
+    
+    // Cleanup event listener on unmount
+    return () => {
+      window.removeEventListener('workStarted', handleWorkStarted);
+    };
+  }, [user, currentLanguage, addNotification]);
+
   // Early return if user is not loaded yet
   if (loading || !user) {
     return (
