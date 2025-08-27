@@ -106,11 +106,8 @@ export const NotificationProvider = ({ children }) => {
     
     const newNotification = addNotification(notification);
     
-    // Auto-dismiss after 3 seconds for success/info, 5 seconds for warning/error
-    const dismissTime = (type === 'success' || type === 'info') ? 3000 : 5000;
-    setTimeout(() => {
-      removeNotification(newNotification.id);
-    }, dismissTime);
+    // Notifications will NOT auto-dismiss - user must manually dismiss them
+    // This allows users to keep important notifications visible
     
     return newNotification;
   };

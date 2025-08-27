@@ -77,11 +77,6 @@ const WIPBundleViewAssignment = ({ workItems, operators, bundles = [], onAssignm
     setSelectedOperator(operator);
   };
 
-  const getCompatibleOperators = (operation) => {
-    return operators.filter(op => 
-      op.machine === operation.machineType || op.machine === 'multi-skill'
-    );
-  };
 
   const handleAssignOperation = async (operation) => {
     if (!selectedOperator) {

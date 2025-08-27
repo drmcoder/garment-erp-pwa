@@ -96,21 +96,6 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
-  // Validate token (mock implementation)
-  const validateToken = async (token) => {
-    try {
-      // Simulate API call to validate token
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Check if token is expired (simple check)
-      const tokenData = JSON.parse(atob(token.split('.')[1] || '{}'));
-      const currentTime = Math.floor(Date.now() / 1000);
-      
-      return tokenData.exp > currentTime;
-    } catch (error) {
-      return false;
-    }
-  };
 
   // Login function
   const login = async (username, password, rememberMe = false) => {
@@ -180,9 +165,6 @@ export const AuthProvider = ({ children }) => {
         console.log(`❌ Password mismatch for user ${username}. Expected: ${userPassword}, Got: ${password}`);
         throw new Error(isNepali ? 'गलत पासवर्ड। कृपया सही पासवर्ड प्रविष्ट गर्नुहोस्।' : 'Incorrect password. Please enter the correct password.');
       }
-      
-      // Create mock JWT token
-      const token = createMockToken(foundUser);
       
       // No storage persistence - session exists only in memory
       
@@ -472,7 +454,7 @@ export const AuthProvider = ({ children }) => {
         window.removeEventListener(event, resetTimer, true);
       });
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, logout]);
 
   // Check if user is online
   const [isOnline, setIsOnline] = useState(navigator.onLine);

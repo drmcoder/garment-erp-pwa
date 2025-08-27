@@ -45,22 +45,22 @@ const parseSmartSizeInput = (input) => {
     .filter(s => s.length > 0);
 };
 
-// Debounce helper for performance optimization
-const useDebounce = (callback, delay) => {
-  const [debounceTimer, setDebounceTimer] = useState(null);
-  
-  return useCallback((...args) => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-    
-    const newTimer = setTimeout(() => {
-      callback(...args);
-    }, delay);
-    
-    setDebounceTimer(newTimer);
-  }, [callback, delay, debounceTimer]);
-};
+// Debounce helper for performance optimization (unused - commented out)
+// const useDebounce = (callback, delay) => {
+//   const [debounceTimer, setDebounceTimer] = useState(null);
+//   
+//   return useCallback((...args) => {
+//     if (debounceTimer) {
+//       clearTimeout(debounceTimer);
+//     }
+//     
+//     const newTimer = setTimeout(() => {
+//       callback(...args);
+//     }, delay);
+//     
+//     setDebounceTimer(newTimer);
+//   }, [callback, delay, debounceTimer]);
+// };
 
 const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = false }) => {
   const { currentLanguage } = useLanguage();
@@ -131,14 +131,15 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
     };
   });
 
-  const [currentRoll, setCurrentRoll] = useState({
-    rollNumber: 1,
-    colorName: '',
-    layerCount: 0,
-    markedWeight: 0,
-    actualWeight: 0,
-    pieces: 0
-  });
+  // Current roll state (unused - commented out)
+  // const [currentRoll, setCurrentRoll] = useState({
+  //   rollNumber: 1,
+  //   colorName: '',
+  //   layerCount: 0,
+  //   markedWeight: 0,
+  //   actualWeight: 0,
+  //   pieces: 0
+  // });
 
   // Add article
   const addArticle = () => {
@@ -175,10 +176,43 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
     }));
   };
 
-  // Optimized update functions with debouncing
-  const debouncedUpdateWipData = useDebounce((update) => {
-    setWipData(prev => ({ ...prev, ...update }));
-  }, 300);
+  // Optimized update functions with debouncing (unused)
+  // const debouncedUpdateWipData = useDebounce((update) => {
+  //   setWipData(prev => ({ ...prev, ...update }));
+  // }, 300);
+
+  // Calculate pieces for a roll based on articles and sizes
+  const calculateRollPieces = useCallback((roll, parsedStyles = null, articleSizes = null) => {
+    let totalPieces = 0;
+    
+    // Use provided data or fall back to wipData
+    const styles = parsedStyles || wipData.parsedStyles;
+    const sizes = articleSizes || wipData.articleSizes;
+    
+    // If no parsed styles or layer count, return 0
+    if (!styles || styles.length === 0 || !roll.layerCount) {
+      return 0;
+    }
+    
+    styles.forEach(style => {
+      const articleConfig = sizes[style.articleNumber];
+      if (articleConfig && articleConfig.ratios) {
+        // Use smart parsing function instead of manual split
+        const sizeRatios = parseSmartSizeInput(articleConfig.ratios);
+        
+        sizeRatios.forEach(ratioStr => {
+          const ratio = parseInt(ratioStr) || 0;
+          totalPieces += ratio * roll.layerCount;
+        });
+      } else {
+        // Fallback: if no ratios are configured, assume 1 piece per layer per style
+        console.warn(`No ratios configured for article ${style.articleNumber}, using fallback of 1 piece per layer`);
+        totalPieces += 1 * roll.layerCount;
+      }
+    });
+    
+    return totalPieces;
+  }, [wipData.parsedStyles, wipData.articleSizes]);
 
   // Update article sizes configuration with intelligent parsing
   const updateArticleSizes = useCallback((articleNumber, sizes, ratios) => {
@@ -221,7 +255,7 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
         totalPieces: updatedRolls.reduce((sum, roll) => sum + (roll.pieces || 0), 0)
       };
     });
-  }, []);
+  }, [calculateRollPieces]);
 
   // Initialize rolls array when moving to step 3
   const initializeRolls = () => {
@@ -266,102 +300,71 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
     });
   };
 
-  // Add roll
-  const addRoll = () => {
-    try {
-      if (!currentRoll.colorName || !currentRoll.layerCount) {
-        const errorMessage = currentLanguage === 'np' ? 'रङको नाम र लेयर संख्या आवश्यक छ' : 'Color name and layer count are required';
-        addError({
-          message: errorMessage,
-          component: 'WIPManualEntry',
-          action: 'Add Roll',
-          data: { currentRoll }
-        }, ERROR_TYPES.VALIDATION, ERROR_SEVERITY.MEDIUM);
-        return;
-      }
+  // Add roll (unused - commented out)
+  // const addRoll = () => {
+  //   try {
+  //     if (!currentRoll.colorName || !currentRoll.layerCount) {
+  //       const errorMessage = currentLanguage === 'np' ? 'रङको नाम र लेयर संख्या आवश्यक छ' : 'Color name and layer count are required';
+  //       addError({
+  //         message: errorMessage,
+  //         component: 'WIPManualEntry',
+  //         action: 'Add Roll',
+  //         data: { currentRoll }
+  //       }, ERROR_TYPES.VALIDATION, ERROR_SEVERITY.MEDIUM);
+  //       return;
+  //     }
+  //
+  //     const calculatedPieces = calculateRollPieces(currentRoll);
+  //     const newRoll = {
+  //       ...currentRoll,
+  //       id: Date.now(),
+  //       pieces: calculatedPieces
+  //     };
+  //
+  //     setWipData(prev => {
+  //       const newRolls = [...prev.rolls, newRoll];
+  //       return {
+  //         ...prev,
+  //         rolls: newRolls,
+  //         totalRolls: newRolls.length,
+  //         totalPieces: newRolls.reduce((sum, roll) => sum + roll.pieces, 0)
+  //       };
+  //     });
+  //
+  //     // Reset current roll form
+  //     setCurrentRoll({
+  //       rollNumber: wipData.rolls.length + 2,
+  //       colorName: '',
+  //       layerCount: 0,
+  //       markedWeight: 0,
+  //       actualWeight: 0,
+  //       pieces: 0
+  //     });
+  //     
+  //   } catch (error) {
+  //     addError({
+  //       message: 'Failed to add roll',
+  //       component: 'WIPManualEntry',
+  //       action: 'Add Roll',
+  //       data: { currentRoll, error: error.message }
+  //     }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+  //   }
+  // };
 
-      const calculatedPieces = calculateRollPieces(currentRoll);
-      const newRoll = {
-        ...currentRoll,
-        id: Date.now(),
-        pieces: calculatedPieces
-      };
+  // (Duplicate calculateRollPieces function removed - now defined above as useCallback)
 
-      setWipData(prev => {
-        const newRolls = [...prev.rolls, newRoll];
-        return {
-          ...prev,
-          rolls: newRolls,
-          totalRolls: newRolls.length,
-          totalPieces: newRolls.reduce((sum, roll) => sum + roll.pieces, 0)
-        };
-      });
-
-      // Reset current roll form
-      setCurrentRoll({
-        rollNumber: wipData.rolls.length + 2,
-        colorName: '',
-        layerCount: 0,
-        markedWeight: 0,
-        actualWeight: 0,
-        pieces: 0
-      });
-      
-    } catch (error) {
-      addError({
-        message: 'Failed to add roll',
-        component: 'WIPManualEntry',
-        action: 'Add Roll',
-        data: { currentRoll, error: error.message }
-      }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
-    }
-  };
-
-  // Calculate pieces for a roll based on articles and sizes
-  const calculateRollPieces = (roll, parsedStyles = null, articleSizes = null) => {
-    let totalPieces = 0;
-    
-    // Use provided data or fall back to wipData
-    const styles = parsedStyles || wipData.parsedStyles;
-    const sizes = articleSizes || wipData.articleSizes;
-    
-    // If no parsed styles or layer count, return 0
-    if (!styles || styles.length === 0 || !roll.layerCount) {
-      return 0;
-    }
-    
-    styles.forEach(style => {
-      const articleConfig = sizes[style.articleNumber];
-      if (articleConfig && articleConfig.ratios) {
-        // Use smart parsing function instead of manual split
-        const sizeRatios = parseSmartSizeInput(articleConfig.ratios);
-        
-        sizeRatios.forEach(ratioStr => {
-          const ratio = parseInt(ratioStr) || 0;
-          totalPieces += ratio * roll.layerCount;
-        });
-      } else {
-        // Fallback: if no ratios are configured, assume 1 piece per layer per style
-        console.warn(`No ratios configured for article ${style.articleNumber}, using fallback of 1 piece per layer`);
-        totalPieces += 1 * roll.layerCount;
-      }
-    });
-    
-    return totalPieces;
-  };
-
-  // Remove roll
-  const removeRoll = (rollId) => {
-    setWipData(prev => {
-      const newRolls = prev.rolls.filter(roll => roll.id !== rollId);
-      return {
-        ...prev,
-        rolls: newRolls,
-        totalRolls: newRolls.length,
-        totalPieces: newRolls.reduce((sum, roll) => sum + roll.pieces, 0)
-      };
-    });
-  };
+  // Remove roll (unused - commented out)
+  // const removeRoll = (rollId) => {
+  //   setWipData(prev => {
+  //     const newRolls = prev.rolls.filter(roll => roll.id !== rollId);
+  //     return {
+  //       ...prev,
+  //       rolls: newRolls,
+  //       totalRolls: newRolls.length,
+  //       totalPieces: newRolls.reduce((sum, roll) => sum + roll.pieces, 0)
+  //     };
+  //   });
+  // };
 
   // Navigation functions
   const nextStep = () => {
@@ -500,7 +503,6 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
 
   const renderStepIndicator = () => {
     // Generate steps dynamically based on configuration
-    const enabledSteps = wipFeatures.getSteps();
     const stepConfigs = [
       { key: 'basicInfo', name: currentLanguage === 'np' ? 'जानकारी' : 'Info', icon: '📝' },
       { key: 'procedureTemplate', name: currentLanguage === 'np' ? 'प्रक्रिया' : 'Template', icon: '⚙️' },
@@ -546,6 +548,7 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       </div>
     </div>
   );
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1351,7 +1354,6 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       </div>
     </div>
   );
-};
 };
 
 export default WIPManualEntry;

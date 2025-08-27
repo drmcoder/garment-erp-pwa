@@ -79,7 +79,7 @@ export const GlobalErrorProvider = ({ children }) => {
                 errorObject.severity === ERROR_SEVERITY.MEDIUM ? '⚠️' : '🚨';
     const label = isSuccess ? 'SUCCESS' : logLevel.toUpperCase();
     
-    console.group(`${icon} ${label} - ${timestamp}`);
+    console.group(`${icon} ${label} - ${timestamp} (Auto-closes in 1s)`);
     consoleMethod('Message:', errorObject.message);
     consoleMethod('Type:', errorObject.type);
     consoleMethod('Severity:', errorObject.severity);
@@ -121,23 +121,13 @@ export const GlobalErrorProvider = ({ children }) => {
 
   // Get auto-hide delay based on severity
   const getHideDelay = (severity, type) => {
-    // Success messages close even faster
-    if (type === ERROR_TYPES.USER && severity === ERROR_SEVERITY.LOW) {
-      return 2000; // 2 seconds for success messages
+    // All log messages auto-close after 1 second except critical errors
+    if (severity === ERROR_SEVERITY.CRITICAL) {
+      return 0; // Never auto-hide critical errors
     }
     
-    switch (severity) {
-      case ERROR_SEVERITY.CRITICAL:
-        return 0; // Never auto-hide critical errors
-      case ERROR_SEVERITY.HIGH:
-        return 4000;
-      case ERROR_SEVERITY.MEDIUM:
-        return 3000;
-      case ERROR_SEVERITY.LOW:
-        return 2000; // 2 seconds for info messages
-      default:
-        return 3000;
-    }
+    // All other messages (success, info, warning, error) close after 1 second
+    return 1000;
   };
 
   // Hide specific error

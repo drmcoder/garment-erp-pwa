@@ -161,10 +161,27 @@ const OperatorManagement = ({ onStatsUpdate }) => {
     setEditingOperator(null);
   };
 
-  const handleDeleteOperator = (operatorId) => {
+  const handleDeleteOperator = async (operatorId) => {
     if (confirm('Are you sure you want to delete this operator?')) {
-      const updatedOperators = operators.filter(op => op.id !== operatorId);
-      saveOperators(updatedOperators);
+      try {
+        // Delete from Firestore
+        const result = await OperatorService.deleteOperator(operatorId);
+        
+        if (result.success) {
+          // Also remove from local state
+          const updatedOperators = operators.filter(op => op.id !== operatorId);
+          setOperators(updatedOperators);
+          saveOperators(updatedOperators);
+          
+          console.log('✅ Operator deleted successfully from both Firestore and localStorage');
+        } else {
+          console.error('❌ Failed to delete operator from Firestore:', result.error);
+          alert('Failed to delete operator. Please try again.');
+        }
+      } catch (error) {
+        console.error('❌ Error deleting operator:', error);
+        alert('Error deleting operator. Please try again.');
+      }
     }
   };
 

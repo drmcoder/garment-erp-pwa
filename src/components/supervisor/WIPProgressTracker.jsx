@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 import { WIPService } from '../../services/firebase-services';
@@ -9,16 +9,10 @@ const WIPProgressTracker = ({ onClose }) => {
   const isNepali = currentLanguage === 'np';
   
   const [wipEntries, setWipEntries] = useState([]);
-  const [workItems, setWorkItems] = useState([]);
   const [selectedLot, setSelectedLot] = useState(null);
-  const [viewMode, setViewMode] = useState('overview'); // 'overview', 'detailed', 'timeline'
   const [statusFilter, setStatusFilter] = useState('all');
 
-  useEffect(() => {
-    loadProgressData();
-  }, []);
-
-  const loadProgressData = async () => {
+  const loadProgressData = useCallback(async () => {
     try {
       console.log('🔄 Loading WIP progress data from Firestore...');
       
@@ -63,7 +57,6 @@ const WIPProgressTracker = ({ onClose }) => {
       });
 
       setWipEntries(enhancedWipEntries);
-      setWorkItems(savedWorkItems);
       
       addError({
         message: `${isNepali ? 'लोड गरियो' : 'Loaded'} ${enhancedWipEntries.length} ${isNepali ? 'WIP एन्ट्री' : 'WIP entries'}`,
@@ -80,7 +73,11 @@ const WIPProgressTracker = ({ onClose }) => {
         data: { error: error.message }
       }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
     }
-  };
+  }, [addError, isNepali]);
+
+  useEffect(() => {
+    loadProgressData();
+  }, [loadProgressData]);
 
   const calculateWIPProgress = (wip, wipWorkItems) => {
     if (!wipWorkItems || !Array.isArray(wipWorkItems) || !wipWorkItems.length) {
@@ -178,7 +175,7 @@ const WIPProgressTracker = ({ onClose }) => {
     });
   };
 
-  const filteredWipEntries = wipEntries.filter(wip => {
+  const filteredWipEntries = (wipEntries || []).filter(wip => {
     if (statusFilter === 'all') return true;
     return wip.progress?.status === statusFilter;
   });

@@ -8,20 +8,8 @@ const WorkAssignmentBoard = ({ workItems, operators, bundles = [], onAssignmentC
   const { currentLanguage } = useLanguage();
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   const wipFeatures = useWipFeatures();
-
-  // Use MultiMethodWorkAssignment if enabled (for trial phase)
-  if (wipFeatures.isEnabled('assignment.bundleCard') || wipFeatures.isEnabled('assignment.dragDrop')) {
-    return (
-      <MultiMethodWorkAssignment
-        workItems={workItems}
-        operators={operators}
-        bundles={bundles}
-        onAssignmentComplete={onAssignmentComplete}
-        onCancel={onCancel}
-      />
-    );
-  }
   
+  // All hooks must be declared before any conditional returns
   const [availableOperators, setAvailableOperators] = useState([]);
   const [selectedWorkItems, setSelectedWorkItems] = useState([]);
   const [selectedOperator, setSelectedOperator] = useState(null);
@@ -87,6 +75,19 @@ const WorkAssignmentBoard = ({ workItems, operators, bundles = [], onAssignmentC
       window.removeEventListener('unhandledrejection', handleError);
     };
   }, []);
+
+  // Use MultiMethodWorkAssignment if enabled (for trial phase)
+  if (wipFeatures.isEnabled('assignment.bundleCard') || wipFeatures.isEnabled('assignment.dragDrop')) {
+    return (
+      <MultiMethodWorkAssignment
+        workItems={workItems}
+        operators={operators}
+        bundles={bundles}
+        onAssignmentComplete={onAssignmentComplete}
+        onCancel={onCancel}
+      />
+    );
+  }
 
   const filteredWorkItems = workItems.filter(item => {
     const machineMatch = filterMachine === 'all' || item.machineType === filterMachine;

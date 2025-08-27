@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 
 const WIPStatusBoard = ({ wipData, onClose }) => {
   const { currentLanguage } = useLanguage();
-  const [view, setView] = useState('matrix'); // 'matrix', 'flow', 'analytics'
-  const [selectedLot, setSelectedLot] = useState(null);
+  const [view, setView] = useState('matrix');
   const [processStep, setProcessStep] = useState(0);
 
   // If no WIP data provided, show empty state instead of mock data
@@ -78,7 +77,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
       return { completed: 0, inProgress: 0, pending: 0 };
     }
     
-    return data.colors.reduce((total, color) => {
+    return (data?.colors || []).reduce((total, color) => {
       if (!color?.status || !color.status[step]) {
         return total;
       }
@@ -157,7 +156,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
               </h3>
               
               <div className="space-y-6">
-                {data.colors && Array.isArray(data.colors) ? data.colors.map((color, colorIndex) => (
+                {data?.colors && Array.isArray(data.colors) ? data.colors.map((color, colorIndex) => (
                   <div key={colorIndex} className="bg-white border rounded-lg p-4">
                     {/* Color Header */}
                     <div className="flex items-center justify-between mb-4">
@@ -222,7 +221,6 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                             return null;
                           }
                           const status = color.status[step];
-                          const total = (status.completed || 0) + (status.inProgress || 0) + (status.pending || 0);
                           const progress = calculateProgress(color, step);
                           
                           return (
@@ -334,49 +332,55 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
 
               {/* Color-wise Flow */}
               <div className="space-y-4">
-                {data.colors.map((color, index) => {
-                  const status = color.status[data.processSteps[processStep]];
-                  const total = status.completed + status.inProgress + status.pending;
-                  
-                  return (
-                    <div key={index} className="bg-white border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-semibold text-gray-800">{color.name}</h4>
-                        <span className="text-sm text-gray-600">
-                          {total} {currentLanguage === 'np' ? 'टुक्रा' : 'pieces'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-4">
-                        <div className="flex-1">
-                          <div className="flex bg-gray-200 rounded-full h-4 overflow-hidden">
-                            <div 
-                              className="bg-green-500 transition-all duration-300"
-                              style={{ width: `${(status.completed / total) * 100}%` }}
-                              title={`Completed: ${status.completed}`}
-                            ></div>
-                            <div 
-                              className="bg-yellow-500 transition-all duration-300"
-                              style={{ width: `${(status.inProgress / total) * 100}%` }}
-                              title={`In Progress: ${status.inProgress}`}
-                            ></div>
-                            <div 
-                              className="bg-gray-400 transition-all duration-300"
-                              style={{ width: `${(status.pending / total) * 100}%` }}
-                              title={`Pending: ${status.pending}`}
-                            ></div>
-                          </div>
+                {data?.colors && Array.isArray(data.colors) && data.colors.length > 0 ? (
+                  data.colors.map((color, index) => {
+                    const status = color?.status?.[data?.processSteps?.[processStep]] || { completed: 0, inProgress: 0, pending: 0 };
+                    const total = status.completed + status.inProgress + status.pending;
+                    
+                    return (
+                      <div key={index} className="bg-white border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-semibold text-gray-800">{color?.name || 'Unknown Color'}</h4>
+                          <span className="text-sm text-gray-600">
+                            {total} {currentLanguage === 'np' ? 'टुक्रा' : 'pieces'}
+                          </span>
                         </div>
                         
-                        <div className="flex space-x-4 text-sm">
-                          <span className="text-green-600">✅ {status.completed}</span>
-                          <span className="text-yellow-600">⏳ {status.inProgress}</span>
-                          <span className="text-gray-500">⏸️ {status.pending}</span>
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-1">
+                            <div className="flex bg-gray-200 rounded-full h-4 overflow-hidden">
+                              <div 
+                                className="bg-green-500 transition-all duration-300"
+                                style={{ width: `${total > 0 ? (status.completed / total) * 100 : 0}%` }}
+                                title={`Completed: ${status.completed}`}
+                              ></div>
+                              <div 
+                                className="bg-yellow-500 transition-all duration-300"
+                                style={{ width: `${total > 0 ? (status.inProgress / total) * 100 : 0}%` }}
+                                title={`In Progress: ${status.inProgress}`}
+                              ></div>
+                              <div 
+                                className="bg-gray-400 transition-all duration-300"
+                                style={{ width: `${total > 0 ? (status.pending / total) * 100 : 0}%` }}
+                                title={`Pending: ${status.pending}`}
+                              ></div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex space-x-4 text-sm">
+                            <span className="text-green-600">✅ {status.completed}</span>
+                            <span className="text-yellow-600">⏳ {status.inProgress}</span>
+                            <span className="text-gray-500">⏸️ {status.pending}</span>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                ) : (
+                  <div className="text-center text-gray-500 py-8">
+                    <p>{currentLanguage === 'np' ? 'कोई डेटा उपलब्ध नहीं' : 'No data available'}</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -398,7 +402,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                 <div className="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
                   <div className="text-3xl font-bold">
                     {(() => {
-                      const totalCompleted = data.colors.reduce((sum, color) => {
+                      const totalCompleted = (data?.colors || []).reduce((sum, color) => {
                         return sum + data.processSteps.reduce((stepSum, step) => {
                           return stepSum + color.status[step].completed;
                         }, 0);
@@ -411,7 +415,7 @@ const WIPStatusBoard = ({ wipData, onClose }) => {
                 </div>
                 
                 <div className="bg-gradient-to-r from-yellow-500 to-yellow-600 text-white rounded-lg p-6">
-                  <div className="text-3xl font-bold">{data.colors.length}</div>
+                  <div className="text-3xl font-bold">{(data?.colors || []).length}</div>
                   <div className="text-yellow-100">{currentLanguage === 'np' ? 'रङहरू' : 'Colors'}</div>
                 </div>
                 

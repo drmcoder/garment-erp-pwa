@@ -87,7 +87,7 @@ export class ConnectionTestService {
       
       // Try to read from a simple collection
       const testRef = collection(db, 'connection_test');
-      const testDoc = await getDocs(testRef);
+      await getDocs(testRef);
       console.log('✅ Firestore connection successful');
       
       // Try a simple write operation
@@ -989,6 +989,41 @@ export class OperatorService {
       };
     } catch (error) {
       console.error("Get operator availability error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Delete operator (soft delete - set active to false)
+  static async deleteOperator(operatorId) {
+    try {
+      console.log('🗑️ Deleting operator:', operatorId);
+      
+      // Soft delete - set active to false instead of actual deletion
+      await updateDoc(doc(db, COLLECTIONS.OPERATORS, operatorId), {
+        active: false,
+        deletedAt: serverTimestamp(),
+        lastUpdated: serverTimestamp()
+      });
+
+      console.log('✅ Operator deleted successfully (soft delete)');
+      return { success: true };
+    } catch (error) {
+      console.error("❌ Delete operator error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Permanently delete operator (hard delete)
+  static async permanentlyDeleteOperator(operatorId) {
+    try {
+      console.log('🗑️ Permanently deleting operator:', operatorId);
+      
+      await deleteDoc(doc(db, COLLECTIONS.OPERATORS, operatorId));
+
+      console.log('✅ Operator permanently deleted');
+      return { success: true };
+    } catch (error) {
+      console.error("❌ Permanently delete operator error:", error);
       return { success: false, error: error.message };
     }
   }

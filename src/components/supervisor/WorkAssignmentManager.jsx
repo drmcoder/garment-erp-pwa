@@ -16,7 +16,15 @@ const WorkAssignmentManager = ({ onClose }) => {
   useEffect(() => {
     loadWorkItems();
     loadOperators();
-  }, []);
+  }, [addError]);
+
+  // Add refresh functionality to reload data
+  const handleRefreshData = () => {
+    console.log('🔄 Refreshing operator and work item data...');
+    setLoading(true);
+    loadWorkItems();
+    loadOperators();
+  };
 
   const loadWorkItems = async () => {
     try {
@@ -89,22 +97,7 @@ const WorkAssignmentManager = ({ onClose }) => {
 
   const handleAssignmentComplete = (assignments) => {
     try {
-      // No localStorage updates - just update state
-      const savedWorkItems = [];
-      
-      const updatedWorkItems = savedWorkItems.map(item => {
-        const assignment = assignments.find(a => a.workItemId === item.id);
-        if (assignment) {
-          return {
-            ...item,
-            assignedOperator: assignment.operator,
-            assignedAt: assignment.assignedAt,
-            status: 'assigned'
-          };
-        }
-        return item;
-      });
-      
+      // No localStorage updates - assignments are handled by backend
       // No localStorage saving
       
       // Reload work items to show updated state
@@ -181,14 +174,25 @@ const WorkAssignmentManager = ({ onClose }) => {
     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
         <div className="h-full relative">
-          <button
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
-          >
-            <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="absolute top-4 right-4 z-10 flex space-x-2">
+            <button
+              onClick={handleRefreshData}
+              className="bg-blue-500 text-white rounded-full p-2 shadow-lg hover:bg-blue-600 transition-colors"
+              title={isNepali ? 'डेटा रिफ्रेश गर्नुहोस्' : 'Refresh Data'}
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
+            <button
+              onClick={onClose}
+              className="bg-white rounded-full p-2 shadow-lg hover:bg-gray-100 transition-colors"
+            >
+              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
           
           <WorkAssignmentBoard
             workItems={workItems}
