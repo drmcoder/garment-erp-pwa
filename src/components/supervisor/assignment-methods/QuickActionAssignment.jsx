@@ -380,7 +380,19 @@ const QuickActionAssignment = ({ workItems, operators, onAssignmentComplete }) =
                           index === 0 ? 'bg-green-500' : 
                           index === 1 ? 'bg-blue-500' : 'bg-gray-400'
                         }`}></div>
-                        <span className="font-medium">{operator.name}</span>
+                        <div className="flex items-center space-x-2">
+                          <span>
+                            {operator.machine === 'single-needle' && '📍'}
+                            {operator.machine === 'overlock' && '🔗'}
+                            {operator.machine === 'flatlock' && '📎'}
+                            {operator.machine === 'buttonhole' && '🕳️'}
+                            {!['single-needle', 'overlock', 'flatlock', 'buttonhole'].includes(operator.machine) && '⚙️'}
+                          </span>
+                          <span className="font-medium">{operator.name}</span>
+                          <span className="text-xs bg-gray-100 text-gray-700 px-1 py-0.5 rounded">
+                            {operator.machine?.replace('-', ' ').toUpperCase() || 'MULTI'}
+                          </span>
+                        </div>
                         {index === 0 && (
                           <span className="text-xs text-green-600 font-medium">BEST</span>
                         )}

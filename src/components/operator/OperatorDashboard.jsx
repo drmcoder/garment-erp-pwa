@@ -628,9 +628,21 @@ const OperatorDashboard = () => {
             <h1 className="text-lg font-bold">
               {getTimeBasedGreeting()}, {userInfo?.name}
             </h1>
-            <p className="text-blue-100 text-sm">
-              {t("operator")} - {t(userInfo?.machine)} |{" "}
-              {formatTime(currentTime)}
+            <p className="text-blue-100 text-sm flex items-center space-x-2">
+              <span>{t("operator")}</span>
+              <span>-</span>
+              <span className="bg-blue-800 text-white px-2 py-1 rounded-full text-xs font-bold border border-blue-600 flex items-center space-x-1">
+                <span>
+                  {user?.machine === 'single-needle' && '📍'}
+                  {user?.machine === 'overlock' && '🔗'}
+                  {user?.machine === 'flatlock' && '📎'}
+                  {user?.machine === 'buttonhole' && '🕳️'}
+                  {!['single-needle', 'overlock', 'flatlock', 'buttonhole'].includes(user?.machine) && '⚙️'}
+                </span>
+                <span>{user?.machine?.replace('-', ' ').toUpperCase() || 'MULTI-SKILL'}</span>
+              </span>
+              <span>|</span>
+              <span>{formatTime(currentTime)}</span>
             </p>
           </div>
           <div className="text-right">

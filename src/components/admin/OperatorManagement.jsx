@@ -558,8 +558,30 @@ const OperatorManagement = ({ onStatsUpdate }) => {
                 <tr key={operator.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{operator.name}</div>
-                      <div className="text-sm text-gray-500">{operator.employeeId}</div>
+                      <div className="text-sm font-bold text-gray-900">{operator.name}</div>
+                      <div className="text-xs text-gray-500 mb-1">{operator.employeeId}</div>
+                      <div className="flex flex-wrap gap-1">
+                        {operator.assignedMachines.length > 0 ? (
+                          operator.assignedMachines.slice(0, 2).map(machineId => {
+                            const machine = machines.find(m => m.id === machineId);
+                            const machineType = machine?.type || 'Unknown';
+                            return (
+                              <span key={machineId} className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-300">
+                                {machineType === 'single-needle' && '📍'} 
+                                {machineType === 'overlock' && '🔗'} 
+                                {machineType === 'flatlock' && '📎'} 
+                                {machineType === 'buttonhole' && '🕳️'} 
+                                {!['single-needle', 'overlock', 'flatlock', 'buttonhole'].includes(machineType) && '⚙️'} 
+                                {machineType.replace('-', ' ').toUpperCase()}
+                              </span>
+                            );
+                          })
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-300">
+                            ⚠️ NO MACHINE
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -571,19 +593,36 @@ const OperatorManagement = ({ onStatsUpdate }) => {
                     <div className="text-sm text-gray-900">
                       {operator.assignedMachines.length > 0 ? (
                         <div className="space-y-1">
-                          {operator.assignedMachines.slice(0, 2).map(machineId => (
-                            <div key={machineId} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                              {getMachineName(machineId)}
-                            </div>
-                          ))}
-                          {operator.assignedMachines.length > 2 && (
-                            <div className="text-xs text-gray-500">
-                              +{operator.assignedMachines.length - 2} more
+                          {operator.assignedMachines.slice(0, 3).map(machineId => {
+                            const machine = machines.find(m => m.id === machineId);
+                            const machineType = machine?.type || 'Unknown';
+                            const isMainMachine = machineType.toLowerCase().includes('single') || 
+                                                machineType.toLowerCase().includes('overlock') || 
+                                                machineType.toLowerCase().includes('flatlock') ||
+                                                machineType.toLowerCase().includes('buttonhole');
+                            return (
+                              <div key={machineId} className={`text-xs px-3 py-1 rounded-full font-medium border ${
+                                isMainMachine 
+                                  ? 'bg-green-100 text-green-800 border-green-300' 
+                                  : 'bg-blue-100 text-blue-800 border-blue-300'
+                              }`}>
+                                {machineType === 'single-needle' && '📍'} 
+                                {machineType === 'overlock' && '🔗'} 
+                                {machineType === 'flatlock' && '📎'} 
+                                {machineType === 'buttonhole' && '🕳️'} 
+                                {!['single-needle', 'overlock', 'flatlock', 'buttonhole'].includes(machineType) && '⚙️'} 
+                                {getMachineName(machineId)}
+                              </div>
+                            );
+                          })}
+                          {operator.assignedMachines.length > 3 && (
+                            <div className="text-xs text-gray-500 font-medium">
+                              +{operator.assignedMachines.length - 3} more machines
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-400">No machines assigned</span>
+                        <span className="text-red-400 font-medium">⚠️ No machines assigned</span>
                       )}
                     </div>
                   </td>

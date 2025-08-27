@@ -287,8 +287,25 @@ const SelfAssignmentSystem = () => {
       );
 
       if (!assignResult.success) {
-        console.error(`❌ Assignment failed for bundle ${selectedWork.id}:`, assignResult.error);
-        throw new Error(assignResult.error || 'Bundle assignment failed - bundle may no longer be available');
+        // Silently handle assignment failure without console errors
+        
+        // Show brief user-friendly error that disappears in 1 second
+        const errorToast = document.createElement('div');
+        errorToast.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-[100] transition-all transform';
+        errorToast.textContent = isNepali 
+          ? '❌ काम उपलब्ध छैन' 
+          : '❌ Work no longer available';
+        document.body.appendChild(errorToast);
+        
+        // Auto-remove after 1 second
+        setTimeout(() => {
+          errorToast.style.transform = 'translateX(100%)';
+          setTimeout(() => document.body.removeChild(errorToast), 300);
+        }, 1000);
+        
+        // Silently refresh the available work list without throwing
+        await loadAvailableWork();
+        return;
       }
 
       console.log(`✅ Successfully assigned bundle ${selectedWork.id} to ${user.id}`);
@@ -327,7 +344,7 @@ const SelfAssignmentSystem = () => {
       setSelectedWork(null);
       loadAvailableWork();
     } catch (error) {
-      console.error('Self-assignment error:', error);
+      // Silently handle assignment errors to avoid console spam
       
       // Show appropriate error message
       let errorMessage = error.message;

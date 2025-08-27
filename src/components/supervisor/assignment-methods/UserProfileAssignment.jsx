@@ -184,9 +184,11 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
                         )}
                       </div>
                       
-                      <div className="flex items-center space-x-2 text-sm text-gray-600 mt-1">
-                        <span>{getMachineTypeIcon(operator.machine)}</span>
-                        <span>{operator.machine}</span>
+                      <div className="flex items-center space-x-2 text-sm mt-1">
+                        <span className="text-lg">{getMachineTypeIcon(operator.machine)}</span>
+                        <span className="font-bold text-blue-700 bg-blue-100 px-2 py-1 rounded-full text-xs border border-blue-300">
+                          {operator.machine?.replace('-', ' ').toUpperCase() || 'MULTI-SKILL'}
+                        </span>
                       </div>
                       
                       <div className="flex items-center space-x-4 mt-2">
@@ -240,11 +242,14 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-                      <div className="text-center">
-                        <div className="text-2xl font-bold text-blue-600">
+                      <div className="text-center bg-gradient-to-br from-blue-100 to-purple-100 p-4 rounded-xl border-2 border-blue-300">
+                        <div className="text-4xl font-bold mb-2">
                           {getMachineTypeIcon(selectedOperator.machine)}
                         </div>
-                        <div className="text-xs text-gray-600 mt-1">{selectedOperator.machine}</div>
+                        <div className="text-sm font-bold text-blue-900 mb-1">ASSIGNED MACHINE</div>
+                        <div className="text-lg font-bold text-blue-700 bg-white px-3 py-1 rounded-full border">
+                          {selectedOperator.machine?.replace('-', ' ').toUpperCase() || 'MULTI-SKILL'}
+                        </div>
                       </div>
                       
                       <div className="text-center">

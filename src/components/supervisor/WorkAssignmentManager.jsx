@@ -40,11 +40,14 @@ const WorkAssignmentManager = ({ onClose }) => {
         setWorkItems(availableWorkItems);
         console.log('✅ Loaded work items from WIP:', availableWorkItems.length);
         
-        addError({
-          message: `${isNepali ? 'लोड गरियो' : 'Loaded'} ${availableWorkItems.length} ${isNepali ? 'काम आइटम' : 'work items'}`,
-          component: 'WorkAssignmentManager',
-          action: 'Load Work Items'
-        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+        // Only show notification if there are no work items (error case)
+        if (availableWorkItems.length === 0) {
+          addError({
+            message: `${isNepali ? 'कुनै काम आइटम फेला परेनन्' : 'No work items available'}`,
+            component: 'WorkAssignmentManager',
+            action: 'Load Work Items'
+          }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+        }
       } else {
         console.warn('⚠️ No work items found from WIP');
         setWorkItems([]);

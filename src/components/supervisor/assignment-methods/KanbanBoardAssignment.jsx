@@ -12,14 +12,20 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
   const dragCounterRef = useRef({});
 
   const columns = {
-    operators: operators.map(op => ({
-      id: op.id,
-      title: op.name,
-      subtitle: `${op.machine} | ${op.efficiency}%`,
-      items: workItems.filter(item => item.assignedTo === op.id),
-      operator: op,
-      color: getOperatorLoadColor(op.currentLoad, op.maxLoad)
-    })),
+    operators: operators.map(op => {
+      const machineIcon = op.machine === 'single-needle' ? '📍' : 
+                         op.machine === 'overlock' ? '🔗' : 
+                         op.machine === 'flatlock' ? '📎' : 
+                         op.machine === 'buttonhole' ? '🕳️' : '⚙️';
+      return {
+        id: op.id,
+        title: `${machineIcon} ${op.name}`,
+        subtitle: `${op.machine?.replace('-', ' ').toUpperCase()} | ${op.efficiency}% efficient`,
+        items: workItems.filter(item => item.assignedTo === op.id),
+        operator: op,
+        color: getOperatorLoadColor(op.currentLoad, op.maxLoad)
+      };
+    }),
     status: [
       {
         id: 'ready',

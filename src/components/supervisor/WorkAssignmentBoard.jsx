@@ -40,40 +40,35 @@ const WorkAssignmentBoard = ({ workItems, operators, bundles = [], onAssignmentC
     }
   }, [filterMachine, availableOperators]);
 
-  // Auto-dismiss console errors after 3 seconds
+  // Suppress excessive console logging and dialogs
   useEffect(() => {
-    const handleError = () => {
-      // Auto-dismiss console dialogs after 3 seconds
-      setTimeout(() => {
-        // This will clear any open console dialog
-        if (window.confirm || window.alert || window.prompt) {
-          // Force close any modal dialogs
-          try {
-            document.querySelectorAll('dialog[open]').forEach(dialog => {
-              dialog.close();
-            });
-            
-            // Also close any custom modal overlays
-            document.querySelectorAll('.modal-overlay, .dialog-overlay, [role="dialog"]').forEach(modal => {
-              if (modal.style.display !== 'none') {
-                modal.style.display = 'none';
-              }
-            });
-          } catch (e) {
-            console.log('No dialogs to close');
-          }
+    // Reduce console noise in production
+    if (process.env.NODE_ENV === 'production') {
+      const originalLog = console.log;
+      const originalError = console.error;
+      const originalWarn = console.warn;
+      
+      console.log = (...args) => {
+        // Only log important messages, not repetitive ones
+        const message = args.join(' ');
+        if (!message.includes('Success') && !message.includes('Loaded')) {
+          originalLog.apply(console, args);
         }
-      }, 3000);
-    };
-
-    // Listen for error events
-    window.addEventListener('error', handleError);
-    window.addEventListener('unhandledrejection', handleError);
-    
-    return () => {
-      window.removeEventListener('error', handleError);
-      window.removeEventListener('unhandledrejection', handleError);
-    };
+      };
+      
+      console.error = (...args) => {
+        // Still log errors but without popups
+        originalError.apply(console, args);
+      };
+      
+      console.warn = (...args) => {
+        // Suppress repetitive warnings
+        const message = args.join(' ');
+        if (!message.includes('dialog') && !message.includes('Success')) {
+          originalWarn.apply(console, args);
+        }
+      };
+    }
   }, []);
 
   // Use MultiMethodWorkAssignment if enabled (for trial phase)

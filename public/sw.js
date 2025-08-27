@@ -343,3 +343,14 @@ self.addEventListener("offline", () => {
 });
 
 console.log("Service Worker loaded successfully");
+
+  
+// Security: Validate cached resources
+const validateCachedResource = (response) => {
+  return response && response.status === 200 && response.type === 'basic';
+};
+
+// Security: Only cache same-origin resources
+const isSafeToCache = (url) => {
+  return url.startsWith(self.location.origin);
+};

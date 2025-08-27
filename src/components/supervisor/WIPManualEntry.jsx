@@ -17,32 +17,183 @@ const getTodayNepaliDate = () => {
   return `${nepaliYear}/${nepaliMonth.toString().padStart(2, '0')}/${nepaliDay.toString().padStart(2, '0')}`;
 };
 
-// Intelligent size parsing that handles multiple separators
+// Enhanced size parsing that handles all separator types flexibly
 const parseSmartSizeInput = (input) => {
   if (!input) return [];
   
-  // Handle single values without separators (like just "M")
-  if (!input.includes(':') && !input.includes(';') && !input.includes(',') && !input.includes('|')) {
-    // Check if it contains spaces (multiple words)
-    const spaceSeparated = input.trim().split(/\s+/);
-    if (spaceSeparated.length > 1) {
-      return spaceSeparated.filter(s => s.length > 0);
-    }
-    // Single value
-    return input.trim() ? [input.trim()] : [];
+  const trimmed = input.trim();
+  if (!trimmed) return [];
+  
+  // Handle single values without any separators
+  if (!trimmed.includes(':') && !trimmed.includes(';') && 
+      !trimmed.includes(',') && !trimmed.includes('|') &&
+      !trimmed.includes(' ')) {
+    return [trimmed];
   }
   
-  // Handle multiple separators: : ; , |
-  const cleanedInput = input
-    .replace(/[;,|]/g, ':') // Convert all separators to colons
-    .replace(/\s+/g, ' ') // Normalize spaces
-    .replace(/:\s*:/g, ':') // Remove double colons
-    .trim();
+  // Create a flexible separator regex that matches any combination
+  // of : ; , | or multiple spaces
+  const separatorRegex = /[;,:|\s]+/;
   
-  return cleanedInput
-    .split(':')
+  return trimmed
+    .split(separatorRegex)
     .map(s => s.trim())
     .filter(s => s.length > 0);
+};
+
+// 🏗️ MODULAR PROCEDURE TEMPLATE SYSTEM
+// Base operation modules that can be reused across different garments
+const OPERATION_MODULES = {
+  // Basic Construction Modules
+  'shoulder-join-basic': { name: 'Shoulder Join (Basic)', machine: 'overlock', time: 2, rate: 2.0 },
+  'shoulder-join-reinforced': { name: 'Shoulder Join (Reinforced)', machine: 'overlock', time: 3, rate: 2.5 },
+  'side-seam-basic': { name: 'Side Seam (Basic)', machine: 'overlock', time: 3, rate: 2.5 },
+  'side-seam-flat': { name: 'Side Seam (Flat Seam)', machine: 'flatlock', time: 4, rate: 3.0 },
+  
+  // Sleeve Modules
+  'sleeve-attach-basic': { name: 'Sleeve Attach (Basic)', machine: 'overlock', time: 4, rate: 3.0 },
+  'sleeve-attach-set-in': { name: 'Set-in Sleeve', machine: 'single-needle', time: 6, rate: 4.0 },
+  'sleeve-raglan': { name: 'Raglan Sleeve', machine: 'overlock', time: 5, rate: 3.5 },
+  
+  // Neckline Modules
+  'neck-bind-basic': { name: 'Neck Bind (Basic)', machine: 'flatlock', time: 6, rate: 4.0 },
+  'collar-attach-polo': { name: 'Polo Collar Attach', machine: 'single-needle', time: 8, rate: 5.0 },
+  'collar-attach-shirt': { name: 'Shirt Collar Attach', machine: 'single-needle', time: 12, rate: 7.0 },
+  'hood-attach': { name: 'Hood Attach', machine: 'single-needle', time: 10, rate: 6.0 },
+  
+  // Finishing Modules
+  'bottom-hem-basic': { name: 'Bottom Hem (Basic)', machine: 'single-needle', time: 4, rate: 3.0 },
+  'bottom-hem-reinforced': { name: 'Bottom Hem (Reinforced)', machine: 'single-needle', time: 5, rate: 3.5 },
+  'cuff-attach': { name: 'Cuff Attach', machine: 'flatlock', time: 6, rate: 4.0 },
+  
+  // Special Features
+  'pocket-attach-basic': { name: 'Pocket Attach (Basic)', machine: 'single-needle', time: 6, rate: 4.0 },
+  'pocket-attach-welt': { name: 'Welt Pocket', machine: 'single-needle', time: 12, rate: 8.0 },
+  'zipper-install': { name: 'Zipper Install', machine: 'single-needle', time: 12, rate: 8.0 },
+  'buttonhole-make': { name: 'Buttonhole Making', machine: 'buttonhole', time: 8, rate: 6.0 },
+  
+  // Bottom Wear Modules
+  'inseam': { name: 'Inseam', machine: 'overlock', time: 4, rate: 3.0 },
+  'outseam': { name: 'Outseam', machine: 'overlock', time: 4, rate: 3.0 },
+  'crotch-seam': { name: 'Crotch Seam', machine: 'overlock', time: 5, rate: 3.5 },
+  'waistband-attach': { name: 'Waistband Attach', machine: 'single-needle', time: 8, rate: 5.0 },
+  'elastic-insert': { name: 'Elastic Insert', machine: 'single-needle', time: 6, rate: 4.0 }
+};
+
+// 📋 MODULAR PROCEDURE TEMPLATES - Built from reusable modules
+const PROCEDURE_TEMPLATES = {
+  // T-Shirt Family
+  'basic-tshirt': {
+    name: 'Basic T-Shirt',
+    category: 'tops',
+    icon: '👕',
+    description: 'Simple crew neck t-shirt with basic construction',
+    operations: ['shoulder-join-basic', 'side-seam-basic', 'sleeve-attach-basic', 'neck-bind-basic', 'bottom-hem-basic']
+  },
+  'polo-tshirt': {
+    name: 'Polo T-Shirt',
+    category: 'tops',
+    icon: '👕',
+    description: 'Polo shirt with collar and reinforced construction',
+    operations: ['shoulder-join-reinforced', 'side-seam-basic', 'collar-attach-polo', 'sleeve-attach-basic', 'bottom-hem-reinforced']
+  },
+  'premium-tshirt': {
+    name: 'Premium T-Shirt',
+    category: 'tops',
+    icon: '👕',
+    description: 'High-quality t-shirt with flat seams and pocket',
+    operations: ['shoulder-join-reinforced', 'side-seam-flat', 'sleeve-attach-set-in', 'neck-bind-basic', 'pocket-attach-basic', 'bottom-hem-reinforced']
+  },
+  
+  // Outerwear Family
+  'hoodie-basic': {
+    name: 'Basic Hoodie',
+    category: 'outerwear',
+    icon: '🧥',
+    description: 'Pullover hoodie with front pocket',
+    operations: ['shoulder-join-reinforced', 'side-seam-basic', 'sleeve-raglan', 'hood-attach', 'pocket-attach-basic', 'cuff-attach', 'bottom-hem-reinforced']
+  },
+  'hoodie-zip': {
+    name: 'Zip Hoodie',
+    category: 'outerwear',
+    icon: '🧥',
+    description: 'Full-zip hoodie jacket with pockets',
+    operations: ['shoulder-join-reinforced', 'side-seam-basic', 'sleeve-raglan', 'hood-attach', 'zipper-install', 'pocket-attach-welt', 'cuff-attach', 'bottom-hem-reinforced']
+  },
+  'jacket-basic': {
+    name: 'Basic Jacket',
+    category: 'outerwear',
+    icon: '🧥',
+    description: 'Simple zip-up jacket',
+    operations: ['shoulder-join-reinforced', 'side-seam-basic', 'sleeve-attach-set-in', 'zipper-install', 'pocket-attach-basic', 'bottom-hem-basic']
+  },
+  
+  // Bottom Wear Family
+  'shorts-basic': {
+    name: 'Basic Shorts',
+    category: 'bottoms',
+    icon: '🩳',
+    description: 'Simple elastic waist shorts',
+    operations: ['inseam', 'outseam', 'crotch-seam', 'elastic-insert', 'bottom-hem-basic']
+  },
+  'shorts-premium': {
+    name: 'Premium Shorts',
+    category: 'bottoms',
+    icon: '🩳',
+    description: 'Tailored shorts with waistband and pockets',
+    operations: ['inseam', 'outseam', 'crotch-seam', 'waistband-attach', 'pocket-attach-basic', 'bottom-hem-basic']
+  },
+  'pants-casual': {
+    name: 'Casual Pants',
+    category: 'bottoms',
+    icon: '👖',
+    description: 'Regular fit casual pants',
+    operations: ['inseam', 'outseam', 'crotch-seam', 'waistband-attach', 'pocket-attach-basic', 'bottom-hem-basic']
+  },
+  
+  // Shirt Family  
+  'shirt-casual': {
+    name: 'Casual Shirt',
+    category: 'shirts',
+    icon: '👔',
+    description: 'Button-up casual shirt',
+    operations: ['shoulder-join-basic', 'side-seam-basic', 'sleeve-attach-set-in', 'collar-attach-shirt', 'buttonhole-make', 'bottom-hem-basic']
+  }
+};
+
+// Get procedure preview text - Updated for modular system including custom templates
+const getProcedurePreview = (templateId, customTemplates = {}) => {
+  const template = PROCEDURE_TEMPLATES[templateId] || customTemplates[templateId];
+  if (!template) return 'Custom configuration';
+  
+  return template.operations.map((opId, index) => {
+    const operation = OPERATION_MODULES[opId];
+    if (!operation) return `${index + 1}. Unknown Operation`;
+    
+    const machineIcon = operation.machine === 'single-needle' ? '📍' : 
+                       operation.machine === 'overlock' ? '🔗' : 
+                       operation.machine === 'flatlock' ? '📎' : 
+                       operation.machine === 'buttonhole' ? '🕳️' : '⚙️';
+    
+    return `${index + 1}. ${operation.name} ${machineIcon} ${operation.time}min`;
+  }).join(' → ');
+};
+
+// Get template statistics including custom templates
+const getTemplateStats = (templateId, customTemplates = {}) => {
+  const template = PROCEDURE_TEMPLATES[templateId] || customTemplates[templateId];
+  if (!template) return { operations: 0, totalTime: 0, machines: [] };
+  
+  const operations = template.operations.map(opId => OPERATION_MODULES[opId]).filter(Boolean);
+  const totalTime = operations.reduce((sum, op) => sum + op.time, 0);
+  const machines = [...new Set(operations.map(op => op.machine))];
+  
+  return {
+    operations: operations.length,
+    totalTime,
+    machines,
+    estimatedCost: operations.reduce((sum, op) => sum + op.rate, 0)
+  };
 };
 
 // Debounce helper for performance optimization (unused - commented out)
@@ -70,7 +221,15 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
   const wipFeatures = useWipFeatures();
   const templateConfig = useTemplateConfig();
   
-  const [currentStep, setCurrentStep] = useState(1); // 1: Basic Info, 2: Procedure Template, 3: Articles, 4: Rolls, 5: Preview
+  const [currentStep, setCurrentStep] = useState(1); // 1: Basic Info, 2: Articles, 3: Rolls, 4: Preview (Template step removed)
+  const [showTemplateBuilder, setShowTemplateBuilder] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState(null);
+  const [templateBuilder, setTemplateBuilder] = useState({
+    name: '',
+    description: '',
+    category: 'custom',
+    operations: []
+  });
   const [wipData, setWipData] = useState(() => {
     if (isEditing && initialData) {
       return {
@@ -92,9 +251,16 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
         
         // Article Sizes Configuration
         articleSizes: initialData.articleSizes || {},
+        articleProcedures: initialData.articleProcedures || {},
         
         // Rolls Data
         rolls: initialData.rolls || [],
+        
+        // Color-Article Mapping
+        colorArticleMapping: initialData.colorArticleMapping || {},
+        
+        // Custom Templates
+        customTemplates: initialData.customTemplates || {},
         
         // Calculated fields
         totalRolls: initialData.totalRolls || initialData.rolls?.length || 0,
@@ -121,9 +287,16 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       
       // Article Sizes Configuration
       articleSizes: {},
+      articleProcedures: {},
       
       // Rolls Data
       rolls: [],
+      
+      // Color-Article Mapping (new feature)
+      colorArticleMapping: {},
+      
+      // Custom Templates (user-created)
+      customTemplates: {},
       
       // Calculated fields
       totalRolls: 0,
@@ -165,6 +338,163 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       };
     });
   };
+
+  // Update article procedure configuration
+  const updateArticleProcedure = useCallback((articleNumber, field, value) => {
+    setWipData(prev => ({
+      ...prev,
+      articleProcedures: {
+        ...prev.articleProcedures,
+        [articleNumber]: {
+          ...prev.articleProcedures[articleNumber],
+          [field]: value
+        }
+      }
+    }));
+  }, []);
+
+  // Copy procedure from another article  
+  const copyProcedureFromArticle = useCallback((fromArticleNumber, toArticleNumber) => {
+    const fromProcedure = wipData.articleProcedures[fromArticleNumber];
+    if (fromProcedure) {
+      setWipData(prev => ({
+        ...prev,
+        articleProcedures: {
+          ...prev.articleProcedures,
+          [toArticleNumber]: { ...fromProcedure }
+        }
+      }));
+    }
+  }, [wipData.articleProcedures]);
+
+  // Update color-article mapping
+  const updateColorArticleMapping = useCallback((colorName, articleNumber, percentage) => {
+    setWipData(prev => ({
+      ...prev,
+      colorArticleMapping: {
+        ...prev.colorArticleMapping,
+        [colorName]: {
+          ...prev.colorArticleMapping[colorName],
+          [articleNumber]: percentage
+        }
+      }
+    }));
+  }, []);
+
+  // Auto-distribute articles across colors equally
+  const autoDistributeArticles = useCallback(() => {
+    const colors = wipData.rolls.map(roll => roll.colorName).filter(Boolean);
+    const articles = wipData.parsedStyles.map(style => style.articleNumber).filter(Boolean);
+    
+    if (colors.length === 0 || articles.length === 0) return;
+    
+    const equalPercentage = Math.floor(100 / articles.length);
+    const newMapping = {};
+    
+    colors.forEach(color => {
+      newMapping[color] = {};
+      articles.forEach((article, index) => {
+        // Give remaining percentage to last article
+        const percentage = index === articles.length - 1 
+          ? 100 - (equalPercentage * (articles.length - 1))
+          : equalPercentage;
+        newMapping[color][article] = percentage;
+      });
+    });
+    
+    setWipData(prev => ({
+      ...prev,
+      colorArticleMapping: newMapping
+    }));
+  }, [wipData.rolls, wipData.parsedStyles]);
+
+  // Template Builder Functions
+  const openTemplateBuilder = useCallback((templateId = null) => {
+    if (templateId) {
+      // Edit existing template
+      const template = PROCEDURE_TEMPLATES[templateId] || wipData.customTemplates[templateId];
+      if (template) {
+        setTemplateBuilder({
+          name: template.name,
+          description: template.description || '',
+          category: template.category || 'custom',
+          operations: [...(template.operations || [])]
+        });
+        setEditingTemplate(templateId);
+      }
+    } else {
+      // Create new template
+      setTemplateBuilder({
+        name: '',
+        description: '',
+        category: 'custom',
+        operations: []
+      });
+      setEditingTemplate(null);
+    }
+    setShowTemplateBuilder(true);
+  }, [wipData.customTemplates]);
+
+  const addOperationToTemplate = useCallback((operationId) => {
+    if (OPERATION_MODULES[operationId]) {
+      setTemplateBuilder(prev => ({
+        ...prev,
+        operations: [...prev.operations, operationId]
+      }));
+    }
+  }, []);
+
+  const removeOperationFromTemplate = useCallback((index) => {
+    setTemplateBuilder(prev => ({
+      ...prev,
+      operations: prev.operations.filter((_, i) => i !== index)
+    }));
+  }, []);
+
+  const moveOperation = useCallback((fromIndex, toIndex) => {
+    setTemplateBuilder(prev => {
+      const newOperations = [...prev.operations];
+      const [moved] = newOperations.splice(fromIndex, 1);
+      newOperations.splice(toIndex, 0, moved);
+      return { ...prev, operations: newOperations };
+    });
+  }, []);
+
+  const saveCustomTemplate = useCallback(() => {
+    if (!templateBuilder.name.trim()) {
+      alert(currentLanguage === 'np' ? 'टेम्प्लेट नाम आवश्यक छ' : 'Template name is required');
+      return;
+    }
+    
+    if (templateBuilder.operations.length === 0) {
+      alert(currentLanguage === 'np' ? 'कम्तिमा एक अपरेशन आवश्यक छ' : 'At least one operation is required');
+      return;
+    }
+
+    const templateId = editingTemplate || `custom_${Date.now()}`;
+    const newTemplate = {
+      name: templateBuilder.name,
+      description: templateBuilder.description,
+      category: templateBuilder.category,
+      icon: templateBuilder.category === 'tops' ? '👕' : 
+             templateBuilder.category === 'bottoms' ? '🩳' : 
+             templateBuilder.category === 'outerwear' ? '🧥' : '⚙️',
+      operations: templateBuilder.operations,
+      isCustom: true,
+      createdAt: new Date().toISOString()
+    };
+
+    setWipData(prev => ({
+      ...prev,
+      customTemplates: {
+        ...prev.customTemplates,
+        [templateId]: newTemplate
+      }
+    }));
+
+    setShowTemplateBuilder(false);
+    setEditingTemplate(null);
+  }, [templateBuilder, editingTemplate, currentLanguage]);
 
   // Update article
   const updateArticle = (index, field, value) => {
@@ -385,11 +715,15 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
       case 1:
         return wipData.lotNumber && wipData.fabricName && wipData.rollCount > 0;
       case 2:
-        return wipData.procedureTemplate; // New step: require procedure template selection
+        // Validate articles, sizes, and procedures
+        const articlesValid = wipData.parsedStyles.every(style => style.articleNumber && style.styleName);
+        const sizesValid = Object.keys(wipData.articleSizes).length > 0;
+        const proceduresValid = wipData.parsedStyles.every(style => 
+          wipData.articleProcedures[style.articleNumber]?.template && 
+          wipData.articleProcedures[style.articleNumber]?.primaryMachine
+        );
+        return articlesValid && sizesValid && proceduresValid;
       case 3:
-        return wipData.parsedStyles.every(style => style.articleNumber && style.styleName) &&
-               Object.keys(wipData.articleSizes).length > 0;
-      case 4:
         return wipData.rolls.length > 0 && 
                wipData.rolls.every(roll => roll.colorName && roll.layerCount > 0);
       default:
@@ -505,7 +839,6 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
     // Generate steps dynamically based on configuration
     const stepConfigs = [
       { key: 'basicInfo', name: currentLanguage === 'np' ? 'जानकारी' : 'Info', icon: '📝' },
-      { key: 'procedureTemplate', name: currentLanguage === 'np' ? 'प्रक्रिया' : 'Template', icon: '⚙️' },
       { key: 'articlesConfig', name: currentLanguage === 'np' ? 'लेख' : 'Articles', icon: '👕' },
       { key: 'rollsData', name: currentLanguage === 'np' ? 'रोल' : 'Rolls', icon: '🧵' },
       { key: 'preview', name: currentLanguage === 'np' ? 'पूर्वावलोकन' : 'Preview', icon: '👁️' }
@@ -741,8 +1074,8 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
             </div>
           )}
 
-          {/* Step 2: Procedure Template Selection */}
-          {currentStep === 2 && wipFeatures.isEnabled('steps.procedureTemplate') && (
+          {/* Step 2: Procedure Template Selection - REMOVED */}
+          {false && (
             <div className="space-y-6">
               <div className="flex items-center space-x-3 mb-6">
                 <span className="text-2xl">⚙️</span>
@@ -823,8 +1156,8 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
             </div>
           )}
 
-          {/* Step 3: Articles and Sizes */}
-          {currentStep === 3 && (
+          {/* Step 2: Articles and Sizes */}
+          {currentStep === 2 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-800">
@@ -954,6 +1287,208 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                             </p>
                           </div>
                         </div>
+
+                        {/* NEW: Sewing Procedure Configuration */}
+                        <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <h4 className="font-medium text-blue-800 flex items-center">
+                              <span className="text-lg mr-2">⚙️</span>
+                              {currentLanguage === 'np' ? 'सिलाई प्रक्रिया कन्फिगरेसन' : 'Sewing Procedure Configuration'}
+                            </h4>
+                            
+                            {/* Show template reuse info */}
+                            {wipData.articleProcedures?.[style.articleNumber]?.template && (
+                              <div className="text-xs text-blue-600">
+                                {(() => {
+                                  const sameTemplate = wipData.parsedStyles.filter(s => 
+                                    s.articleNumber !== style.articleNumber && 
+                                    wipData.articleProcedures?.[s.articleNumber]?.template === wipData.articleProcedures[style.articleNumber].template
+                                  );
+                                  return sameTemplate.length > 0 ? (
+                                    <div className="flex items-center space-x-1 bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                                      <span>🔄</span>
+                                      <span>Shared with {sameTemplate.length} other article{sameTemplate.length > 1 ? 's' : ''}</span>
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center space-x-1 bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full">
+                                      <span>⚠️</span>
+                                      <span>Unique template</span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                          
+                          {/* Quick copy from other articles */}
+                          {index > 0 && (
+                            <div className="mb-4 p-3 bg-white rounded-lg border border-blue-200">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium text-blue-700">
+                                  🚀 {currentLanguage === 'np' ? 'अन्य लेखबाट कपी गर्नुहोस्:' : 'Quick copy from other articles:'}
+                                </span>
+                                <div className="flex space-x-2">
+                                  {wipData.parsedStyles.slice(0, index).map((prevStyle, prevIndex) => (
+                                    wipData.articleProcedures?.[prevStyle.articleNumber]?.template && (
+                                      <button
+                                        key={prevIndex}
+                                        type="button"
+                                        onClick={() => copyProcedureFromArticle(prevStyle.articleNumber, style.articleNumber)}
+                                        className="text-xs bg-green-100 hover:bg-green-200 text-green-800 px-2 py-1 rounded border border-green-300 transition-colors"
+                                        title={`Copy from ${prevStyle.styleName || prevStyle.articleNumber}`}
+                                      >
+                                        📋 {prevStyle.articleNumber}
+                                      </button>
+                                    )
+                                  ))}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-sm font-medium text-blue-700 mb-2">
+                                {currentLanguage === 'np' ? 'प्रक्रिया टेम्प्लेट' : 'Procedure Template'} *
+                              </label>
+                              <div className="space-y-2">
+                                <div className="flex items-center space-x-2">
+                                  <select
+                                    value={wipData.articleProcedures?.[style.articleNumber]?.template || ''}
+                                    onChange={(e) => updateArticleProcedure(style.articleNumber, 'template', e.target.value)}
+                                    className="flex-1 p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                    required
+                                  >
+                                    <option value="">
+                                      {currentLanguage === 'np' ? 'टेम्प्लेट छान्नुहोस्' : 'Select Template'}
+                                    </option>
+                                    
+                                    {/* Built-in Templates */}
+                                    <optgroup label="📚 Built-in Templates">
+                                      <option value="basic-tshirt">👕 Basic T-Shirt (5 ops)</option>
+                                      <option value="polo-tshirt">👕 Polo T-Shirt (5 ops)</option>
+                                      <option value="premium-tshirt">👕 Premium T-Shirt (6 ops)</option>
+                                      <option value="hoodie-basic">🧥 Basic Hoodie (7 ops)</option>
+                                      <option value="hoodie-zip">🧥 Zip Hoodie (8 ops)</option>
+                                      <option value="shorts-basic">🩳 Basic Shorts (5 ops)</option>
+                                      <option value="pants-casual">👖 Casual Pants (6 ops)</option>
+                                      <option value="shirt-casual">👔 Casual Shirt (6 ops)</option>
+                                    </optgroup>
+                                    
+                                    {/* Custom Templates */}
+                                    {Object.keys(wipData.customTemplates).length > 0 && (
+                                      <optgroup label="🛠️ Your Custom Templates">
+                                        {Object.entries(wipData.customTemplates).map(([id, template]) => (
+                                          <option key={id} value={id}>
+                                            {template.icon} {template.name} ({template.operations.length} ops)
+                                          </option>
+                                        ))}
+                                      </optgroup>
+                                    )}
+                                  </select>
+                                  
+                                  <button
+                                    type="button"
+                                    onClick={() => openTemplateBuilder()}
+                                    className="px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-lg border-2 border-green-400 transition-all flex items-center space-x-2 font-medium"
+                                    title={currentLanguage === 'np' ? 'नयाँ टेम्प्लेट बनाउनुहोस्' : 'Create New Template'}
+                                  >
+                                    <span>⚡</span>
+                                    <span className="hidden sm:inline">{currentLanguage === 'np' ? 'नयाँ' : 'New'}</span>
+                                  </button>
+                                </div>
+                                
+                                {/* Edit button for existing custom templates */}
+                                {wipData.articleProcedures?.[style.articleNumber]?.template && 
+                                 wipData.customTemplates[wipData.articleProcedures[style.articleNumber].template] && (
+                                  <button
+                                    type="button"
+                                    onClick={() => openTemplateBuilder(wipData.articleProcedures[style.articleNumber].template)}
+                                    className="w-full px-3 py-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded border border-yellow-300 transition-colors flex items-center justify-center space-x-2 text-sm"
+                                  >
+                                    <span>✏️</span>
+                                    <span>{currentLanguage === 'np' ? 'यो टेम्प्लेट सम्पादन गर्नुहोस्' : 'Edit This Template'}</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div>
+                              <label className="block text-sm font-medium text-blue-700 mb-2">
+                                {currentLanguage === 'np' ? 'मुख्य मेसिन प्रकार' : 'Primary Machine Type'} *
+                              </label>
+                              <select
+                                value={wipData.articleProcedures?.[style.articleNumber]?.primaryMachine || ''}
+                                onChange={(e) => updateArticleProcedure(style.articleNumber, 'primaryMachine', e.target.value)}
+                                className="w-full p-3 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white"
+                                required
+                              >
+                                <option value="">
+                                  {currentLanguage === 'np' ? 'मेसिन छान्नुहोस्' : 'Select Machine'}
+                                </option>
+                                <option value="single-needle">📍 Single Needle</option>
+                                <option value="overlock">🔗 Overlock</option>
+                                <option value="flatlock">📎 Flatlock</option>
+                                <option value="buttonhole">🕳️ Buttonhole</option>
+                                <option value="multi-skill">🎯 Multi-Skill</option>
+                              </select>
+                            </div>
+                          </div>
+
+                          {/* Enhanced procedure details if template selected */}
+                          {wipData.articleProcedures?.[style.articleNumber]?.template && (
+                            <div className="mt-4 p-4 bg-white rounded-lg border border-blue-200">
+                              <div className="flex items-center justify-between mb-3">
+                                <h5 className="text-sm font-bold text-blue-800 flex items-center">
+                                  <span className="mr-2">📋</span>
+                                  {currentLanguage === 'np' ? 'प्रक्रिया विवरण:' : 'Procedure Details:'}
+                                </h5>
+                                {(() => {
+                                  const stats = getTemplateStats(wipData.articleProcedures[style.articleNumber].template, wipData.customTemplates);
+                                  return (
+                                    <div className="flex items-center space-x-3 text-xs">
+                                      <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full font-medium">
+                                        {stats.operations} operations
+                                      </span>
+                                      <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full font-medium">
+                                        ⏱️ {stats.totalTime}min
+                                      </span>
+                                      <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full font-medium">
+                                        💰 ${stats.estimatedCost.toFixed(2)}
+                                      </span>
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                              
+                              {/* Operation sequence */}
+                              <div className="text-xs text-blue-700 mb-3 font-mono bg-blue-50 p-2 rounded border-l-4 border-blue-300">
+                                {getProcedurePreview(wipData.articleProcedures[style.articleNumber].template, wipData.customTemplates)}
+                              </div>
+                              
+                              {/* Machine requirements */}
+                              {(() => {
+                                const stats = getTemplateStats(wipData.articleProcedures[style.articleNumber].template, wipData.customTemplates);
+                                return (
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-xs font-medium text-gray-600">
+                                      {currentLanguage === 'np' ? 'आवश्यक मेसिनहरू:' : 'Required machines:'}
+                                    </span>
+                                    {stats.machines.map(machine => (
+                                      <span key={machine} className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border">
+                                        {machine === 'single-needle' && '📍'} 
+                                        {machine === 'overlock' && '🔗'} 
+                                        {machine === 'flatlock' && '📎'} 
+                                        {machine === 'buttonhole' && '🕳️'} 
+                                        {machine.replace('-', ' ').toUpperCase()}
+                                      </span>
+                                    ))}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -962,8 +1497,8 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
             </div>
           )}
 
-          {/* Step 4: Roll Data */}
-          {currentStep === 4 && (
+          {/* Step 3: Roll Data */}
+          {currentStep === 3 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-800">
@@ -1098,6 +1633,94 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                         </div>
                       </div>
                     )}
+
+                    {/* NEW: Color-Article Distribution */}
+                    {roll.colorName && wipData.parsedStyles.length > 1 && (
+                      <div className="mt-4 p-4 bg-gradient-to-r from-orange-50 to-yellow-50 border border-orange-200 rounded-lg">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="font-medium text-orange-800 flex items-center">
+                            <span className="text-lg mr-2">🎨</span>
+                            {currentLanguage === 'np' ? 'रंग-लेख वितरण' : 'Color-Article Distribution'}
+                          </h4>
+                          <button
+                            type="button"
+                            onClick={autoDistributeArticles}
+                            className="text-xs bg-orange-100 hover:bg-orange-200 text-orange-800 px-3 py-1 rounded border border-orange-300 transition-colors"
+                          >
+                            ⚡ {currentLanguage === 'np' ? 'स्वचालित' : 'Auto Equal'}
+                          </button>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="text-sm text-orange-700 mb-3">
+                            📊 {currentLanguage === 'np' ? 'यो रंगबाट कुन लेखको कति प्रतिशत बनाउने?:' : 'What percentage of each article to make from this color?'}
+                          </div>
+                          
+                          {wipData.parsedStyles.map((style, styleIndex) => {
+                            const currentPercentage = wipData.colorArticleMapping[roll.colorName]?.[style.articleNumber] || 0;
+                            return (
+                              <div key={styleIndex} className="flex items-center justify-between bg-white p-3 rounded border border-orange-200">
+                                <div className="flex items-center space-x-3">
+                                  <span className="font-medium text-gray-800">
+                                    {style.articleNumber}
+                                  </span>
+                                  <span className="text-sm text-gray-600">
+                                    ({style.styleName})
+                                  </span>
+                                </div>
+                                
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="range"
+                                    min="0"
+                                    max="100"
+                                    value={currentPercentage}
+                                    onChange={(e) => updateColorArticleMapping(roll.colorName, style.articleNumber, parseInt(e.target.value))}
+                                    className="w-24 h-2 bg-orange-200 rounded-lg appearance-none cursor-pointer"
+                                  />
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    max="100"
+                                    value={currentPercentage}
+                                    onChange={(e) => updateColorArticleMapping(roll.colorName, style.articleNumber, parseInt(e.target.value) || 0)}
+                                    className="w-16 px-2 py-1 text-sm border border-orange-300 rounded text-center"
+                                  />
+                                  <span className="text-sm text-orange-700 font-medium">%</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          
+                          {/* Total percentage indicator */}
+                          <div className={`mt-2 p-2 rounded text-sm font-medium ${
+                            (() => {
+                              const total = wipData.parsedStyles.reduce((sum, style) => 
+                                sum + (wipData.colorArticleMapping[roll.colorName]?.[style.articleNumber] || 0), 0
+                              );
+                              return total === 100 
+                                ? 'bg-green-100 text-green-800 border border-green-300'
+                                : total > 100
+                                ? 'bg-red-100 text-red-800 border border-red-300'
+                                : 'bg-yellow-100 text-yellow-800 border border-yellow-300';
+                            })()
+                          }`}>
+                            {(() => {
+                              const total = wipData.parsedStyles.reduce((sum, style) => 
+                                sum + (wipData.colorArticleMapping[roll.colorName]?.[style.articleNumber] || 0), 0
+                              );
+                              return total === 100 ? '✅' : total > 100 ? '⚠️' : '⏳';
+                            })()} 
+                            Total: {wipData.parsedStyles.reduce((sum, style) => 
+                              sum + (wipData.colorArticleMapping[roll.colorName]?.[style.articleNumber] || 0), 0
+                            )}% 
+                            {wipData.parsedStyles.reduce((sum, style) => 
+                              sum + (wipData.colorArticleMapping[roll.colorName]?.[style.articleNumber] || 0), 0
+                            ) === 100 ? ' (Perfect!)' : ' (Adjust to 100%)'}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     </div>
                   );
                 })}
@@ -1133,8 +1756,8 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
             </div>
           )}
 
-          {/* Step 5: Enhanced Preview */}
-          {currentStep === 5 && (
+          {/* Step 4: Enhanced Preview */}
+          {currentStep === 4 && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold text-gray-800">
@@ -1168,16 +1791,8 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                       <span className="font-bold text-2xl text-green-600">{wipData.totalPieces}</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-gray-600">{currentLanguage === 'np' ? 'प्रक्रिया टेम्प्लेट:' : 'Procedure Template:'}</span>
-                      <span className="font-medium text-purple-600">
-                        {wipData.procedureTemplate === 'shirt-basic' && (currentLanguage === 'np' ? 'शर्ट प्रक्रिया' : 'Shirt Procedure')}
-                        {wipData.procedureTemplate === 'trouser-standard' && (currentLanguage === 'np' ? 'ट्राउजर प्रक्रिया' : 'Trouser Procedure')}
-                        {wipData.procedureTemplate === 'dress-formal' && (currentLanguage === 'np' ? 'ड्रेस प्रक्रिया' : 'Dress Procedure')}
-                        {wipData.procedureTemplate === 'jacket-casual' && (currentLanguage === 'np' ? 'ज्याकेट प्रक्रिया' : 'Jacket Procedure')}
-                        {wipData.procedureTemplate === 'tshirt-basic' && (currentLanguage === 'np' ? 'टी-शर्ट प्रक्रिया' : 'T-Shirt Procedure')}
-                        {wipData.procedureTemplate === 'custom' && (currentLanguage === 'np' ? 'कस्टम प्रक्रिया' : 'Custom Procedure')}
-                        {!wipData.procedureTemplate && (currentLanguage === 'np' ? 'चयन गरिएको छैन' : 'Not Selected')}
-                      </span>
+                      <span className="text-gray-600">{currentLanguage === 'np' ? 'लेखको संख्या:' : 'Articles:'}</span>
+                      <span className="font-bold text-xl text-purple-600">{wipData.parsedStyles.length}</span>
                     </div>
                     <div className="pt-2 border-t border-blue-200">
                       <div className="text-xs text-blue-600">
@@ -1234,12 +1849,125 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
                               {ratios.reduce((sum, r) => sum + (parseInt(r) || 0), 0)} pieces
                             </span>
                           </div>
+                          
+                          {/* Show procedure template info */}
+                          {wipData.articleProcedures?.[style.articleNumber]?.template && (
+                            <div className="mt-3 p-2 bg-blue-50 rounded border-l-4 border-blue-300">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-medium text-blue-800">
+                                  {PROCEDURE_TEMPLATES[wipData.articleProcedures[style.articleNumber].template]?.icon} {PROCEDURE_TEMPLATES[wipData.articleProcedures[style.articleNumber].template]?.name}
+                                </span>
+                                {(() => {
+                                  const stats = getTemplateStats(wipData.articleProcedures[style.articleNumber].template, wipData.customTemplates);
+                                  return (
+                                    <span className="text-xs text-blue-600">
+                                      {stats.operations} ops, {stats.totalTime}min
+                                    </span>
+                                  );
+                                })()}
+                              </div>
+                              <div className="text-xs text-blue-700">
+                                {wipData.articleProcedures[style.articleNumber].primaryMachine?.replace('-', ' ').toUpperCase()} required
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
                   </div>
                 </div>
               </div>
+
+              {/* NEW: Cutting Plan Visualization */}
+              {Object.keys(wipData.colorArticleMapping).length > 0 && (
+                <div className="bg-gradient-to-br from-orange-50 to-red-50 border border-orange-200 rounded-xl p-6">
+                  <h3 className="text-lg font-semibold text-orange-800 mb-4 flex items-center">
+                    <span className="w-2 h-2 bg-orange-500 rounded-full mr-2"></span>
+                    🎨 {currentLanguage === 'np' ? 'काटने योजना' : 'Cutting Plan Visualization'}
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    {wipData.rolls.filter(roll => roll.colorName).map((roll, rollIndex) => {
+                      const colorMapping = wipData.colorArticleMapping[roll.colorName];
+                      if (!colorMapping || Object.keys(colorMapping).length === 0) return null;
+                      
+                      return (
+                        <div key={rollIndex} className="bg-white rounded-lg p-4 border border-orange-200">
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center space-x-3">
+                              <div className={`w-6 h-6 rounded-full`} style={{backgroundColor: roll.colorName.toLowerCase()}}></div>
+                              <div>
+                                <span className="font-bold text-gray-800">{roll.colorName} (Roll #{roll.rollNumber})</span>
+                                <div className="text-xs text-gray-600">{roll.layerCount} layers → {roll.pieces} pieces</div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Article distribution for this color */}
+                          <div className="space-y-2">
+                            {Object.entries(colorMapping).map(([articleNumber, percentage]) => {
+                              if (percentage === 0) return null;
+                              const article = wipData.parsedStyles.find(s => s.articleNumber === articleNumber);
+                              const piecesFromThisColor = Math.floor((roll.pieces * percentage) / 100);
+                              
+                              return (
+                                <div key={articleNumber} className="flex items-center justify-between bg-gray-50 p-3 rounded">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-12 h-8 bg-gradient-to-r from-blue-400 to-blue-600 rounded text-white text-xs flex items-center justify-center font-bold">
+                                      {articleNumber}
+                                    </div>
+                                    <div>
+                                      <div className="font-medium text-gray-800">{article?.styleName || 'Unknown Style'}</div>
+                                      <div className="text-xs text-gray-600">
+                                        {wipData.articleProcedures?.[articleNumber]?.template && 
+                                          PROCEDURE_TEMPLATES[wipData.articleProcedures[articleNumber].template]?.name
+                                        }
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="text-right">
+                                    <div className="font-bold text-lg text-green-600">{piecesFromThisColor}</div>
+                                    <div className="text-xs text-gray-500">pieces ({percentage}%)</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* Summary totals */}
+                  <div className="mt-4 p-4 bg-white rounded-lg border-2 border-orange-300">
+                    <h4 className="font-bold text-orange-800 mb-2">📊 Bundle Generation Summary:</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+                      {wipData.parsedStyles.map((style) => {
+                        const totalPieces = wipData.rolls.reduce((sum, roll) => {
+                          const percentage = wipData.colorArticleMapping[roll.colorName]?.[style.articleNumber] || 0;
+                          return sum + Math.floor((roll.pieces * percentage) / 100);
+                        }, 0);
+                        
+                        const procedureStats = wipData.articleProcedures?.[style.articleNumber]?.template 
+                          ? getTemplateStats(wipData.articleProcedures[style.articleNumber].template, wipData.customTemplates)
+                          : { operations: 0 };
+                        
+                        return (
+                          <div key={style.articleNumber} className="bg-blue-50 p-3 rounded border border-blue-200">
+                            <div className="font-bold text-blue-800">{style.articleNumber}</div>
+                            <div className="text-blue-700">{totalPieces} pieces</div>
+                            <div className="text-xs text-blue-600">{procedureStats.operations} operations each</div>
+                            <div className="text-xs font-bold text-green-700">
+                              = {totalPieces * procedureStats.operations} work items
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Detailed Roll Breakdown */}
               <div className="bg-white border border-gray-200 rounded-xl p-6">
@@ -1352,6 +2080,246 @@ const WIPManualEntry = ({ onImport, onCancel, initialData = null, isEditing = fa
           </div>
         </div>
       </div>
+
+      {/* Template Builder Modal */}
+      {showTemplateBuilder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center">
+                  <span className="text-3xl mr-3">🛠️</span>
+                  {editingTemplate 
+                    ? (currentLanguage === 'np' ? 'टेम्प्लेट सम्पादन गर्नुहोस्' : 'Edit Template')
+                    : (currentLanguage === 'np' ? 'नयाँ टेम्प्लेट बनाउनुहोस्' : 'Create New Template')
+                  }
+                </h2>
+                <button
+                  onClick={() => setShowTemplateBuilder(false)}
+                  className="bg-white bg-opacity-20 hover:bg-opacity-30 p-2 rounded-lg transition-all"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-hidden flex">
+              {/* Template Configuration */}
+              <div className="w-1/3 bg-gray-50 p-6 border-r overflow-y-auto">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">
+                  📝 {currentLanguage === 'np' ? 'टेम्प्लेट जानकारी' : 'Template Information'}
+                </h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {currentLanguage === 'np' ? 'टेम्प्लेट नाम' : 'Template Name'} *
+                    </label>
+                    <input
+                      type="text"
+                      value={templateBuilder.name}
+                      onChange={(e) => setTemplateBuilder(prev => ({...prev, name: e.target.value}))}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                      placeholder={currentLanguage === 'np' ? 'जस्तै: मेरो कस्टम शर्ट' : 'e.g: My Custom Shirt'}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {currentLanguage === 'np' ? 'विवरण' : 'Description'}
+                    </label>
+                    <textarea
+                      value={templateBuilder.description}
+                      onChange={(e) => setTemplateBuilder(prev => ({...prev, description: e.target.value}))}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 h-20"
+                      placeholder={currentLanguage === 'np' ? 'यो टेम्प्लेटको बारेमा...' : 'About this template...'}
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {currentLanguage === 'np' ? 'श्रेणी' : 'Category'}
+                    </label>
+                    <select
+                      value={templateBuilder.category}
+                      onChange={(e) => setTemplateBuilder(prev => ({...prev, category: e.target.value}))}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    >
+                      <option value="custom">⚙️ Custom</option>
+                      <option value="tops">👕 Tops</option>
+                      <option value="bottoms">🩳 Bottoms</option>
+                      <option value="outerwear">🧥 Outerwear</option>
+                      <option value="shirts">👔 Shirts</option>
+                    </select>
+                  </div>
+
+                  {templateBuilder.operations.length > 0 && (
+                    <div className="p-3 bg-green-100 rounded-lg">
+                      <div className="text-sm font-medium text-green-800 mb-1">
+                        📊 {currentLanguage === 'np' ? 'सारांश:' : 'Summary:'}
+                      </div>
+                      <div className="text-sm text-green-700">
+                        {templateBuilder.operations.length} operations, {' '}
+                        {templateBuilder.operations.reduce((sum, opId) => {
+                          const op = OPERATION_MODULES[opId];
+                          return sum + (op ? op.time : 0);
+                        }, 0)} minutes total
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Operation Modules Library */}
+              <div className="w-1/3 bg-white p-6 border-r overflow-y-auto">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">
+                  🧩 {currentLanguage === 'np' ? 'अपरेशन मोड्युल' : 'Operation Modules'}
+                </h3>
+                
+                <div className="space-y-4">
+                  {Object.entries({
+                    'Basic Construction': ['shoulder-join-basic', 'shoulder-join-reinforced', 'side-seam-basic', 'side-seam-flat'],
+                    'Sleeves': ['sleeve-attach-basic', 'sleeve-attach-set-in', 'sleeve-raglan'],
+                    'Necklines': ['neck-bind-basic', 'collar-attach-polo', 'collar-attach-shirt', 'hood-attach'],
+                    'Finishing': ['bottom-hem-basic', 'bottom-hem-reinforced', 'cuff-attach'],
+                    'Special Features': ['pocket-attach-basic', 'pocket-attach-welt', 'zipper-install', 'buttonhole-make'],
+                    'Bottom Wear': ['inseam', 'outseam', 'crotch-seam', 'waistband-attach', 'elastic-insert']
+                  }).map(([category, operations]) => (
+                    <div key={category} className="border border-gray-200 rounded-lg p-3">
+                      <h4 className="font-medium text-gray-700 mb-2 text-sm">{category}</h4>
+                      <div className="space-y-1">
+                        {operations.map(opId => {
+                          const operation = OPERATION_MODULES[opId];
+                          if (!operation) return null;
+                          
+                          return (
+                            <button
+                              key={opId}
+                              type="button"
+                              onClick={() => addOperationToTemplate(opId)}
+                              className="w-full text-left p-2 rounded border border-gray-200 hover:border-green-400 hover:bg-green-50 transition-all text-sm flex items-center justify-between"
+                            >
+                              <div>
+                                <div className="font-medium text-gray-800">{operation.name}</div>
+                                <div className="text-xs text-gray-500">
+                                  {operation.machine} • {operation.time}min • ${operation.rate}
+                                </div>
+                              </div>
+                              <span className="text-green-600 font-bold">+</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Template Builder */}
+              <div className="w-1/3 bg-blue-50 p-6 overflow-y-auto">
+                <h3 className="text-lg font-bold text-gray-800 mb-4">
+                  📋 {currentLanguage === 'np' ? 'अपरेशन सिक्वेन्स' : 'Operation Sequence'}
+                </h3>
+                
+                {templateBuilder.operations.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    <div className="text-4xl mb-2">👈</div>
+                    <p className="text-sm">
+                      {currentLanguage === 'np' 
+                        ? 'बाँयाबाट अपरेशन थप्नुहोस्'
+                        : 'Add operations from the left'
+                      }
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {templateBuilder.operations.map((opId, index) => {
+                      const operation = OPERATION_MODULES[opId];
+                      if (!operation) return null;
+                      
+                      return (
+                        <div key={index} className="bg-white border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                              {index + 1}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-800 text-sm">{operation.name}</div>
+                              <div className="text-xs text-gray-500">
+                                {operation.machine} • {operation.time}min
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center space-x-1">
+                            {index > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => moveOperation(index, index - 1)}
+                                className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Move up"
+                              >
+                                ↑
+                              </button>
+                            )}
+                            {index < templateBuilder.operations.length - 1 && (
+                              <button
+                                type="button"
+                                onClick={() => moveOperation(index, index + 1)}
+                                className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                                title="Move down"
+                              >
+                                ↓
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeOperationFromTemplate(index)}
+                              className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                              title="Remove"
+                            >
+                              ×
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="bg-gray-50 p-6 border-t flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setShowTemplateBuilder(false)}
+                className="px-6 py-3 text-gray-600 hover:text-gray-800 hover:bg-gray-200 rounded-lg transition-all border border-gray-300"
+              >
+                {currentLanguage === 'np' ? 'रद्द गर्नुहोस्' : 'Cancel'}
+              </button>
+              
+              <button
+                type="button"
+                onClick={saveCustomTemplate}
+                disabled={!templateBuilder.name.trim() || templateBuilder.operations.length === 0}
+                className="px-8 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white rounded-lg transition-all font-medium flex items-center space-x-2"
+              >
+                <span>💾</span>
+                <span>
+                  {editingTemplate 
+                    ? (currentLanguage === 'np' ? 'अपडेट गर्नुहोस्' : 'Update Template')
+                    : (currentLanguage === 'np' ? 'सुरक्षित गर्नुहोस्' : 'Save Template')
+                  }
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -32,6 +32,28 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
 
   const handleAssignmentComplete = async (assignments) => {
     trackMethodUsage(selectedMethod, assignments.length);
+    
+    // Show very brief success notification that disappears in 1 second
+    const successMessage = currentLanguage === 'np' 
+      ? `✅ ${assignments.length} काम असाइन गरियो`
+      : `✅ ${assignments.length} work items assigned`;
+    
+    // Create temporary toast notification
+    const toast = document.createElement('div');
+    toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-[100] transition-all transform';
+    toast.textContent = successMessage;
+    document.body.appendChild(toast);
+    
+    // Animate in
+    setTimeout(() => toast.style.transform = 'translateX(0)', 10);
+    
+    // Remove after 1 second
+    setTimeout(() => {
+      toast.style.transform = 'translateX(100%)';
+      setTimeout(() => document.body.removeChild(toast), 300);
+    }, 1000);
+    
+    // Complete the assignment and silently reload
     await onAssignmentComplete(assignments);
   };
 
@@ -147,15 +169,15 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
   };
 
   return (
-    <div className="h-full bg-gray-50 overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-gradient-to-br from-blue-50 to-purple-50 overflow-hidden flex flex-col z-50">
       
-      {/* Header with Method Selector */}
-      <div className="bg-white border-b border-gray-200 p-6 flex-shrink-0">
+      {/* Full Screen Header with Method Selector */}
+      <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-4 md:p-6 flex-shrink-0 shadow-xl">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-4">
             <button
               onClick={onCancel}
-              className="flex items-center space-x-2 p-2 hover:bg-gray-100 rounded-lg transition-colors text-gray-600 hover:text-gray-800"
+              className="flex items-center space-x-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg transition-all text-white border border-white border-opacity-30"
               title={currentLanguage === 'np' ? 'बन्द गर्नुहोस्' : 'Close'}
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -169,13 +191,14 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
             <div className="h-6 w-px bg-gray-300"></div>
             
             <div>
-              <h1 className="text-2xl font-bold text-gray-800">
-                🎯 {currentLanguage === 'np' ? 'मल्टि-मेथड वर्क असाइनमेन्ट' : 'Multi-Method Work Assignment'}
+              <h1 className="text-3xl font-bold text-white flex items-center space-x-3">
+                <span className="text-4xl">🎯</span>
+                <span>{currentLanguage === 'np' ? 'मल्टि-मेथड वर्क असाइनमेन्ट' : 'Multi-Method Work Assignment'}</span>
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-blue-100 text-lg mt-1">
                 {currentLanguage === 'np' 
-                  ? 'ट्रायल फेजमा विभिन्न असाइनमेन्ट मेथडहरू टेस्ट गर्नुहोस्'
-                  : 'Test different assignment methods during trial phase'
+                  ? 'सबैभन्दा राम्रो असाइनमेन्ट विधि छान्नुहोस्'
+                  : 'Choose the best assignment method for your workflow'
                 }
               </p>
             </div>
@@ -196,24 +219,24 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
         </div>
 
         {/* Method Selection Tabs */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-3">
           {enabledMethods.map((method) => (
             <button
               key={method.id}
               onClick={() => setSelectedMethod(method.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg border-2 transition-all duration-200 ${
+              className={`flex items-center space-x-3 px-6 py-4 rounded-xl border-2 transition-all duration-300 transform hover:scale-105 ${
                 selectedMethod === method.id
-                  ? method.color
-                  : 'bg-gray-50 text-gray-600 border-gray-200 hover:border-gray-300 hover:bg-gray-100'
+                  ? 'bg-white text-blue-700 border-white shadow-xl scale-105'
+                  : 'bg-white bg-opacity-20 text-white border-white border-opacity-30 hover:bg-opacity-30'
               }`}
             >
-              <span className="text-lg">{method.icon}</span>
+              <span className="text-2xl">{method.icon}</span>
               <div className="text-left">
-                <div className="text-sm font-medium">{method.name}</div>
+                <div className="text-sm font-bold">{method.name}</div>
                 <div className="text-xs opacity-75">{method.bestFor}</div>
               </div>
               {methodUsageStats[method.id] && (
-                <span className="bg-white bg-opacity-50 text-xs px-2 py-1 rounded-full">
+                <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full font-medium">
                   {methodUsageStats[method.id].uses}
                 </span>
               )}
@@ -221,42 +244,11 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
           ))}
         </div>
 
-        {/* Selected Method Info */}
-        {selectedMethodConfig && (
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <span className="text-2xl">{selectedMethodConfig.icon}</span>
-                <div>
-                  <h3 className="font-medium text-gray-800">{selectedMethodConfig.name}</h3>
-                  <p className="text-sm text-gray-600">{selectedMethodConfig.description}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <span className={`px-2 py-1 text-xs font-medium rounded ${getDifficultyColor(selectedMethodConfig.difficulty)}`}>
-                  {selectedMethodConfig.difficulty}
-                </span>
-                
-                {methodUsageStats[selectedMethod] && (
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-gray-800">
-                      {methodUsageStats[selectedMethod].uses} {currentLanguage === 'np' ? 'प्रयोग' : 'uses'}
-                    </div>
-                    <div className="text-xs text-gray-600">
-                      {methodUsageStats[selectedMethod].totalAssignments} {currentLanguage === 'np' ? 'असाइनमेन्ट' : 'assignments'}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Method Component Container */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-6">
+      <div className="flex-1 overflow-y-auto bg-white">
+        <div className="h-full">
           {SelectedComponent ? (
             <SelectedComponent
               workItems={workItems}
@@ -265,45 +257,24 @@ const MultiMethodWorkAssignment = ({ workItems, operators, bundles = [], onAssig
               onAssignmentComplete={handleAssignmentComplete}
             />
           ) : (
-            <div className="bg-white rounded-lg shadow-sm p-8 text-center">
-              <div className="text-6xl mb-4">🚧</div>
-              <h3 className="text-lg font-medium text-gray-800 mb-2">
-                {currentLanguage === 'np' ? 'मेथड उपलब्ध छैन' : 'Method Not Available'}
-              </h3>
-              <p className="text-gray-600">
-                {currentLanguage === 'np'
-                  ? 'यो असाइनमेन्ट मेथड ट्रायल फेजमा सक्रिय गरिएको छैन'
-                  : 'This assignment method is not enabled in trial phase'
-                }
-              </p>
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center p-8">
+                <div className="text-6xl mb-4">🚧</div>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">
+                  {currentLanguage === 'np' ? 'मेथड उपलब्ध छैन' : 'Method Not Available'}
+                </h3>
+                <p className="text-gray-600">
+                  {currentLanguage === 'np'
+                    ? 'यो असाइनमेन्ट मेथड ट्रायल फेजमा सक्रिय गरिएको छैन'
+                    : 'This assignment method is not enabled in trial phase'
+                  }
+                </p>
+              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Trial Analytics Footer */}
-      <div className="bg-white border-t border-gray-200 p-4 flex-shrink-0">
-        <div className="flex items-center justify-between text-sm">
-          <div className="flex items-center space-x-4 text-gray-600">
-            <span>
-              💡 {currentLanguage === 'np' 
-                ? 'विभिन्न मेथडहरू प्रयोग गरेर तुलना गर्नुहोस्'
-                : 'Try different methods to compare effectiveness'
-              }
-            </span>
-          </div>
-          
-          <div className="flex items-center space-x-4 text-gray-500">
-            <span>
-              📈 {currentLanguage === 'np' ? 'उपयोग तथ्याङ्क:' : 'Usage stats:'} {Object.keys(methodUsageStats).length}/{enabledMethods.length} {currentLanguage === 'np' ? 'मेथड परीक्षण गरिएको' : 'methods tested'}
-            </span>
-            <span>|</span>
-            <span>
-              ⏱️ {currentLanguage === 'np' ? 'ट्रायल मोड सक्रिय' : 'Trial mode active'}
-            </span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

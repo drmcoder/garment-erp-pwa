@@ -600,7 +600,7 @@ const WorkAssignment = () => {
       }
 
     } catch (error) {
-      console.error('Assignment error:', error);
+      // Silently handle assignment errors to avoid console spam
       showNotification(
         isNepali ? 'काम असाइन गर्न समस्या भयो' : 'Failed to assign work',
         'error'

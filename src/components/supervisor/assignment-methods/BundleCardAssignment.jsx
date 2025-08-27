@@ -31,7 +31,10 @@ const BundleCardAssignment = ({ workItems, operators, onAssignmentComplete }) =>
   };
 
   const getFilteredItems = () => {
+    if (!workItems || !Array.isArray(workItems)) return [];
+    
     return workItems.filter(item => {
+      if (!item) return false;
       const machineMatch = filterMachine === 'all' || item.machineType === filterMachine;
       const priorityMatch = filterPriority === 'all' || item.priority === filterPriority;
       return machineMatch && priorityMatch && item.status === 'ready';
@@ -39,15 +42,18 @@ const BundleCardAssignment = ({ workItems, operators, onAssignmentComplete }) =>
   };
 
   const getCompatibleOperators = () => {
+    if (!operators || !Array.isArray(operators)) return [];
     if (selectedItems.size === 0) return operators;
     
-    const selectedWorkItems = workItems.filter(item => selectedItems.has(item.id));
-    const machineTypes = [...new Set(selectedWorkItems.map(item => item.machineType))];
+    if (!workItems || !Array.isArray(workItems)) return operators;
+    
+    const selectedWorkItems = workItems.filter(item => item && selectedItems.has(item.id));
+    const machineTypes = [...new Set(selectedWorkItems.map(item => item.machineType).filter(Boolean))];
     
     if (machineTypes.length === 1) {
-      return operators.filter(op => op.machine === machineTypes[0]);
+      return operators.filter(op => op && op.machine === machineTypes[0]);
     }
-    return operators.filter(op => op.machine === 'multi-skill');
+    return operators.filter(op => op && op.machine === 'multi-skill');
   };
 
   const handleAssign = async () => {
