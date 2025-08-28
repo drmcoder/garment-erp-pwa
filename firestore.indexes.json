@@ -111,10 +111,6 @@
         {
           "fieldPath": "assignedAt",
           "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "DESCENDING"
         }
       ]
     },
@@ -220,6 +216,94 @@
         },
         {
           "fieldPath": "assignedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "workItems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "operatorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "completedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "workItems",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "operatorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "earnings",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "workAssignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "operatorId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "assignedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "wipEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "assignedOperator",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "status",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
           "order": "DESCENDING"
         },
         {

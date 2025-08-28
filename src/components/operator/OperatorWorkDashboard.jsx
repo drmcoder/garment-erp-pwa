@@ -3,6 +3,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { db, collection, getDocs, query, where, orderBy, doc, updateDoc, COLLECTIONS } from '../../config/firebase';
+import { updateBundleWithReadableId } from '../../utils/bundleIdGenerator';
 
 const OperatorWorkDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -44,10 +45,14 @@ const OperatorWorkDashboard = () => {
       
       workItemsSnapshot.forEach((doc) => {
         const workData = doc.data();
+        const bundleWithReadableId = updateBundleWithReadableId(workData);
+        
         workList.push({
           id: doc.id,
           type: 'work_item',
           ...workData,
+          readableId: bundleWithReadableId.readableId,
+          displayName: bundleWithReadableId.displayName,
           assignedAt: workData.assignedAt?.toDate(),
           startedAt: workData.startedAt?.toDate(),
           updatedAt: workData.updatedAt?.toDate()
@@ -68,10 +73,14 @@ const OperatorWorkDashboard = () => {
         const legacyWorkSnapshot = await getDocs(legacyWorkQuery);
         legacyWorkSnapshot.forEach((doc) => {
           const workData = doc.data();
+          const bundleWithReadableId = updateBundleWithReadableId(workData);
+          
           workList.push({
             id: doc.id,
             type: 'legacy_assignment',
             ...workData,
+            readableId: bundleWithReadableId.readableId,
+            displayName: bundleWithReadableId.displayName,
             assignedAt: workData.assignedAt?.toDate(),
             startedAt: workData.startedAt?.toDate(),
             updatedAt: workData.updatedAt?.toDate()
@@ -94,10 +103,14 @@ const OperatorWorkDashboard = () => {
         const wipSnapshot = await getDocs(wipQuery);
         wipSnapshot.forEach((doc) => {
           const wipData = doc.data();
+          const bundleWithReadableId = updateBundleWithReadableId(wipData);
+          
           workList.push({
             id: doc.id,
             type: 'wip_entry',
             ...wipData,
+            readableId: bundleWithReadableId.readableId,
+            displayName: bundleWithReadableId.displayName,
             assignedAt: wipData.assignedAt?.toDate() || wipData.createdAt?.toDate(),
             createdAt: wipData.createdAt?.toDate()
           });

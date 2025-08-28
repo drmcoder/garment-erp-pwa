@@ -8,6 +8,8 @@ import { NotificationContext } from "../../context/NotificationContext";
 import { BundleService, WIPService } from "../../services/firebase-services";
 import { db, collection, getDocs, setDoc, doc, updateDoc, COLLECTIONS } from "../../config/firebase";
 import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
+import MachineSpecialitySelector from './MachineSpecialitySelector';
+import { updateBundleWithReadableId, getBundleDisplayName } from '../../utils/bundleIdGenerator';
 
 // Mock operation types for fallback
 const mockOperationTypes = [
@@ -33,6 +35,7 @@ const SelfAssignmentSystem = () => {
     articleType: "all",
   });
   const [showOperationsEditor, setShowOperationsEditor] = useState(false);
+  const [showMachineSelector, setShowMachineSelector] = useState(false);
 
   // Load operation types from Firestore or localStorage fallback
   useEffect(() => {
@@ -109,26 +112,33 @@ const SelfAssignmentSystem = () => {
             
             return true;
           })
-          .map(bundle => ({
-            id: bundle.id,
-            articleNumber: bundle.article?.toString() || bundle.articleNumber,
-            articleName: bundle.articleName || `Article ${bundle.article}`,
-            englishName: bundle.articleName || `Article ${bundle.article}`,
-            color: bundle.color || 'N/A',
-            size: bundle.sizes?.[0] || bundle.size || 'N/A',
-            pieces: bundle.quantity || bundle.pieces || bundle.pieceCount || 0,
-            operation: bundle.currentOperation || 'Operation',
-            englishOperation: bundle.currentOperation || 'Operation',
-            machineType: bundle.machineType,
-            englishMachine: bundle.machineType,
-            rate: bundle.rate || 0,
-            estimatedTime: bundle.estimatedTime || 30,
-            priority: bundle.priority || 'medium',
-            englishPriority: bundle.priority || 'medium',
-            difficulty: calculateDifficulty(bundle),
-            englishDifficulty: calculateDifficulty(bundle),
-            recommendations: generateRecommendations(bundle, user)
-          }));
+          .map(bundle => {
+            // Generate human-readable bundle ID
+            const bundleWithReadableId = updateBundleWithReadableId(bundle);
+            
+            return {
+              id: bundle.id,
+              readableId: bundleWithReadableId.readableId,
+              displayName: bundleWithReadableId.displayName,
+              articleNumber: bundle.article?.toString() || bundle.articleNumber,
+              articleName: bundle.articleName || `Article ${bundle.article}`,
+              englishName: bundle.articleName || `Article ${bundle.article}`,
+              color: bundle.color || 'N/A',
+              size: bundle.sizes?.[0] || bundle.size || 'N/A',
+              pieces: bundle.quantity || bundle.pieces || bundle.pieceCount || 0,
+              operation: bundle.currentOperation || 'Operation',
+              englishOperation: bundle.currentOperation || 'Operation',
+              machineType: bundle.machineType,
+              englishMachine: bundle.machineType,
+              rate: bundle.rate || 0,
+              estimatedTime: bundle.estimatedTime || 30,
+              priority: bundle.priority || 'medium',
+              englishPriority: bundle.priority || 'medium',
+              difficulty: calculateDifficulty(bundle),
+              englishDifficulty: calculateDifficulty(bundle),
+              recommendations: generateRecommendations(bundle, user)
+            };
+          });
 
         // No sample work - use empty array when no real data available
         if (filteredWork.length === 0) {
@@ -190,8 +200,9 @@ const SelfAssignmentSystem = () => {
 
     // Enhanced compatibility check
     const isCompatible = () => {
+      // Strict machine type matching - require both bundle and user machine types
       if (!bundle.machineType || !userMachine) {
-        console.log('🔍 Compatibility check failed: missing data', { bundleMachineType: bundle.machineType, userMachine });
+        console.log('🚫 Compatibility check failed: missing data', { bundleMachineType: bundle.machineType, userMachine });
         return false;
       }
       
@@ -269,9 +280,6 @@ const SelfAssignmentSystem = () => {
     loadAvailableWork();
   }, [loadAvailableWork]);
 
-  const handleWorkSelection = (work) => {
-    setSelectedWork(work);
-  };
 
   // Filter available work based on search term and filters
   const getFilteredWork = () => {
@@ -515,6 +523,60 @@ const SelfAssignmentSystem = () => {
     }
   };
 
+  // Handle work selection with machine type validation
+  const handleWorkSelection = (work) => {
+    const userMachine = user?.machine || user?.speciality;
+
+    // If user doesn't have machine type set, show warning and open selector
+    if (!userMachine) {
+      showNotification(
+        isNepali ? 'पहिले मेसिन विशेषता सेट गर्नुहोस्' : 'Please set your machine speciality first',
+        'warning'
+      );
+      setShowMachineSelector(true);
+      return;
+    }
+
+    // Check machine type compatibility
+    if (work.machineType && work.machineType !== userMachine) {
+      // Check if machines are compatible through aliases
+      const machineMatches = {
+        'overlock': ['overlock', 'ओभरलक', 'Overlock', 'OVERLOCK'],
+        'flatlock': ['flatlock', 'फ्ल्यालक', 'Flatlock', 'FLATLOCK'], 
+        'single-needle': ['singleNeedle', 'single_needle', 'एकल सुई', 'Single Needle', 'single-needle', 'SINGLE_NEEDLE'],
+        'buttonhole': ['buttonhole', 'बटनहोल', 'Buttonhole', 'BUTTONHOLE'],
+        'buttonAttach': ['buttonAttach', 'button_attach', 'बटन जोड्ने', 'Button Attach', 'BUTTON_ATTACH'],
+        'iron': ['iron', 'pressing', 'इस्त्री प्रेस', 'Iron Press', 'IRON'],
+        'cutting': ['cutting', 'काट्ने मेसिन', 'Cutting Machine', 'CUTTING'],
+        'manual': ['manual', 'हस्तकला काम', 'Manual Work', 'MANUAL']
+      };
+
+      let isCompatible = false;
+      for (const [machineType, aliases] of Object.entries(machineMatches)) {
+        const userMachineInAliases = aliases.some(alias => alias.toLowerCase() === userMachine.toLowerCase());
+        const workMachineInAliases = aliases.some(alias => alias.toLowerCase() === work.machineType.toLowerCase());
+        
+        if (userMachineInAliases && workMachineInAliases) {
+          isCompatible = true;
+          break;
+        }
+      }
+
+      if (!isCompatible) {
+        showNotification(
+          isNepali 
+            ? `यो काम ${work.machineType} मेसिनका लागि हो, तपाईंको ${userMachine} मेसिनका लागि होइन।` 
+            : `This work requires ${work.machineType} machine, not your ${userMachine} speciality.`,
+          'error'
+        );
+        return;
+      }
+    }
+
+    // If all checks pass, select the work
+    setSelectedWork(work);
+  };
+
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-6">
@@ -549,6 +611,38 @@ const SelfAssignmentSystem = () => {
           </div>
         </div>
       </div>
+
+      {/* Machine Speciality Warning */}
+      {!user?.machine && !user?.speciality && (
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg">
+          <div className="flex items-center">
+            <div className="flex-shrink-0">
+              <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="ml-3 flex-1">
+              <p className="text-sm font-medium text-amber-800">
+                {isNepali ? 'मेसिन विशेषता आवश्यक' : 'Machine Speciality Required'}
+              </p>
+              <p className="text-sm text-amber-700 mt-1">
+                {isNepali 
+                  ? 'काम सेल्फ-एसाइन गर्न पहिले मेसिन विशेषता सेट गर्नुहोस्। यसले तपाईंलाई सही काम मिलाउन मद्दत गर्नेछ।'
+                  : 'Please set your machine speciality first to self-assign work. This helps match you with suitable tasks.'
+                }
+              </p>
+            </div>
+            <div className="ml-3">
+              <button
+                onClick={() => setShowMachineSelector(true)}
+                className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-md text-sm font-medium transition-colors"
+              >
+                {isNepali ? 'सेट गर्नुहोस्' : 'Set Now'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-3 gap-6">
         {/* Filters Panel */}
@@ -774,11 +868,20 @@ const SelfAssignmentSystem = () => {
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
-                      {/* Article and Lot Info */}
+                      {/* Article and Bundle ID Info */}
                       <div className="flex items-center space-x-3 mb-3">
                         <h3 className="text-lg font-semibold text-gray-900">
-                          {isNepali ? work.articleName : work.englishName}
+                          {work.readableId ? (
+                            <span className="text-blue-600">{work.readableId}</span>
+                          ) : (
+                            isNepali ? work.articleName : work.englishName
+                          )}
                         </h3>
+                        {work.displayName && (
+                          <span className="text-sm text-gray-600">
+                            {work.displayName}
+                          </span>
+                        )}
                         <span className="text-sm bg-gray-100 px-2 py-1 rounded">
                           #{work.articleNumber}
                         </span>
@@ -997,6 +1100,17 @@ const SelfAssignmentSystem = () => {
       {showOperationsEditor && (
         <OperationsSequenceEditor
           onClose={() => setShowOperationsEditor(false)}
+        />
+      )}
+
+      {/* Machine Speciality Selector Modal */}
+      {showMachineSelector && (
+        <MachineSpecialitySelector
+          onClose={() => setShowMachineSelector(false)}
+          onUpdate={(machineType) => {
+            // Refresh available work after machine type is set
+            loadAvailableWork();
+          }}
         />
       )}
     </div>

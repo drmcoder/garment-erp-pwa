@@ -44,7 +44,8 @@
       "Bash(PORT=3001 timeout 25 npm start)",
       "Bash(sed:*)",
       "Bash(PORT=3001 timeout 20 npm start)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(gcloud firestore indexes composite create:*)"
     ],
     "deny": [],
     "ask": []
