@@ -21,6 +21,7 @@ import {
   OperatorService,
   BundleService
 } from "../../services/firebase-services";
+import { CompactLoader } from "../common/BrandedLoader";
 
 const SupervisorDashboard = () => {
   const { getUserDisplayInfo } = useAuth();
@@ -264,12 +265,7 @@ const SupervisorDashboard = () => {
 
   const LineMonitoringView = () => {
     if (loading) {
-      return (
-        <div className="text-center py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading line data...</p>
-        </div>
-      );
+      return <CompactLoader message="Loading line data..." />;
     }
 
     if (error) {
