@@ -143,16 +143,16 @@ const OperatorWorkDashboardNew = () => {
       try {
         const payrollEntry = {
           operatorId: user.id,
-          operatorName: user.name || user.nameEn,
+          operatorName: user.name || user.nameEn || 'Unknown Operator',
           workItemId: workItem.id,
-          articleNumber: workItem.articleNumber,
-          operation: workItem.operation,
-          pieces: pieces,
-          rate: rate,
-          earnings: earnings,
+          articleNumber: workItem.articleNumber || workItem.article || workItem.bundleId || 'N/A',
+          operation: workItem.operation || workItem.currentOperation || 'N/A',
+          pieces: pieces || 0,
+          rate: rate || 0,
+          earnings: earnings || 0,
           completedAt: new Date(),
-          bundleId: workItem.bundleId,
-          readableId: workItem.readableId,
+          bundleId: workItem.bundleId || workItem.id,
+          readableId: workItem.readableId || workItem.displayName || `WI-${(workItem.id || 'unknown').slice(-6)}`,
           status: 'completed',
           paymentStatus: 'pending'
         };

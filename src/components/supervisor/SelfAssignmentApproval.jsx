@@ -4,6 +4,7 @@ import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { db, collection, getDocs, query, where, orderBy, doc, updateDoc, serverTimestamp, COLLECTIONS } from '../../config/firebase';
 import { updateBundleWithReadableId } from '../../utils/bundleIdGenerator';
+import { formatDateByLanguage } from '../../utils/nepaliDate';
 
 const SelfAssignmentApproval = () => {
   const { user } = useContext(AuthContext);
@@ -27,8 +28,7 @@ const SelfAssignmentApproval = () => {
       // Check workItems collection for self-assignments
       const workItemsQuery = query(
         collection(db, COLLECTIONS.WORK_ITEMS),
-        where('status', '==', 'self_assigned'),
-        orderBy('assignedAt', 'desc')
+        where('status', '==', 'self_assigned')
       );
       
       const workItemsSnapshot = await getDocs(workItemsQuery);
@@ -44,7 +44,11 @@ const SelfAssignmentApproval = () => {
             ...workData,
             readableId: bundleWithReadableId.readableId,
             displayName: bundleWithReadableId.displayName,
-            assignedAt: workData.assignedAt?.toDate(),
+            assignedAt: workData.assignedAt ? (
+              workData.assignedAt.toDate ? workData.assignedAt.toDate() : 
+              workData.assignedAt instanceof Date ? workData.assignedAt : 
+              new Date(workData.assignedAt)
+            ) : new Date(),
             operatorName: workData.operatorName || 'Unknown Operator'
           });
         }
@@ -53,8 +57,7 @@ const SelfAssignmentApproval = () => {
       // Check work assignments collection for self-assignments  
       const workAssignmentsQuery = query(
         collection(db, COLLECTIONS.WORK_ASSIGNMENTS),
-        where('status', '==', 'self_assigned'),
-        orderBy('assignedAt', 'desc')
+        where('status', '==', 'self_assigned')
       );
       
       const assignmentsSnapshot = await getDocs(workAssignmentsQuery);
@@ -70,10 +73,21 @@ const SelfAssignmentApproval = () => {
             ...workData,
             readableId: bundleWithReadableId.readableId,
             displayName: bundleWithReadableId.displayName,
-            assignedAt: workData.assignedAt?.toDate(),
+            assignedAt: workData.assignedAt ? (
+              workData.assignedAt.toDate ? workData.assignedAt.toDate() : 
+              workData.assignedAt instanceof Date ? workData.assignedAt : 
+              new Date(workData.assignedAt)
+            ) : new Date(),
             operatorName: workData.operatorName || 'Unknown Operator'
           });
         }
+      });
+      
+      // Sort assignments by assignedAt date (client-side sorting)
+      assignments.sort((a, b) => {
+        const dateA = a.assignedAt || new Date(0);
+        const dateB = b.assignedAt || new Date(0);
+        return dateB - dateA; // Descending order (newest first)
       });
       
       console.log(`✅ Found ${assignments.length} pending self-assignments`);
@@ -251,7 +265,7 @@ const SelfAssignmentApproval = () => {
                       <div>
                         <span className="text-gray-500">{isNepali ? 'असाइन गरिएको:' : 'Assigned:'}</span>
                         <div className="font-medium">
-                          {assignment.assignedAt ? assignment.assignedAt.toLocaleDateString() : 'N/A'}
+                          {assignment.assignedAt ? formatDateByLanguage(assignment.assignedAt, isNepali, true) : 'N/A'}
                         </div>
                       </div>
                       <div>
