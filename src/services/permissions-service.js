@@ -188,7 +188,6 @@ export class PermissionService {
       'dashboard': [PERMISSIONS.DASHBOARD_VIEW],
       'analytics': [PERMISSIONS.ANALYTICS_VIEW],
       'payroll': [PERMISSIONS.PAYROLL_VIEW],
-      'wip-import': [PERMISSIONS.WIP_IMPORT],
       'work-assignment': [PERMISSIONS.WORK_ASSIGN],
       'user-management': [PERMISSIONS.USER_VIEW_ALL],
       'settings': [PERMISSIONS.SETTINGS_VIEW],

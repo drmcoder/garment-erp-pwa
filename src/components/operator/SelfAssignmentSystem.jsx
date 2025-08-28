@@ -22,7 +22,7 @@ const mockOperationTypes = [
 const SelfAssignmentSystem = () => {
   const { user } = useContext(AuthContext);
   const { isNepali } = useContext(LanguageContext);
-  const { showNotification } = useContext(NotificationContext);
+  const { showNotification, addNotification, sendWorkflowNotification, sendMachineGroupNotification } = useContext(NotificationContext);
 
   const [availableWork, setAvailableWork] = useState([]);
   const [selectedWork, setSelectedWork] = useState(null);
@@ -369,14 +369,16 @@ const SelfAssignmentSystem = () => {
         assignResult = await WIPService.assignWorkItem(
           selectedWork.id,
           user.id,
-          user.id // Self-assignment, so assignedBy is the operator themselves
+          user.id, // Self-assignment, so assignedBy is the operator themselves
+          'self_assigned' // Set special status for supervisor approval
         );
       } else {
         console.log(`🔄 Self-assigning traditional bundle: ${selectedWork.id}`);
         assignResult = await BundleService.assignBundle(
           selectedWork.id,
           user.id,
-          user.id // Self-assignment, so assignedBy is the operator themselves
+          user.id, // Self-assignment, so assignedBy is the operator themselves
+          'self_assigned' // Set special status for supervisor approval
         );
       }
 
@@ -459,10 +461,50 @@ const SelfAssignmentSystem = () => {
         console.error('❌ Failed to report to supervisor:', reportError);
       }
 
+      // Send immediate notification to supervisors about self-assignment
+      try {
+        const supervisorNotification = addNotification({
+          title: isNepali ? '🎯 ऑपरेटर सेल्फ-असाइनमेन्ट' : '🎯 Operator Self-Assignment',
+          message: isNepali 
+            ? `${user.name} ले आर्टिकल ${selectedWork.articleNumber} (${selectedWork.operation}) को काम आफैंलाई असाइन गरे`
+            : `${user.name} self-assigned Article ${selectedWork.articleNumber} (${selectedWork.operation})`,
+          type: 'supervisor_alert',
+          priority: 'high',
+          data: {
+            operatorId: user.id,
+            operatorName: user.name,
+            bundleId: selectedWork.id,
+            articleNumber: selectedWork.articleNumber,
+            operation: selectedWork.operation,
+            machineType: selectedWork.machineType,
+            pieces: selectedWork.pieces,
+            estimatedTime: selectedWork.estimatedTime,
+            selfAssignedAt: new Date().toISOString(),
+            requiresApproval: true,
+            actionType: 'SELF_ASSIGNMENT'
+          }
+        });
+
+        // Add beep sound for supervisor notification
+        if (supervisorNotification && 'Audio' in window) {
+          try {
+            const beep = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0E');
+            beep.volume = 0.3;
+            beep.play().catch(() => {}); // Silent fail if audio doesn't work
+          } catch (audioError) {
+            console.log('Audio notification failed:', audioError.message);
+          }
+        }
+
+        console.log('✅ Supervisor notification sent for self-assignment');
+      } catch (notificationError) {
+        console.error('❌ Failed to send supervisor notification:', notificationError);
+      }
+
       showNotification(
         isNepali
-          ? `🚀 काम सुरु भयो! अनुमानित समय: ${selectedWork.estimatedTime} मिनेट`
-          : `🚀 Work started! Estimated time: ${selectedWork.estimatedTime} minutes`,
+          ? `✅ काम सेल्फ-असाइन गरियो! सुपरवाइजर अनुमोदनको पर्खाइमा।`
+          : `✅ Work self-assigned! Waiting for supervisor approval.`,
         "success"
       );
 
@@ -575,6 +617,50 @@ const SelfAssignmentSystem = () => {
 
     // If all checks pass, select the work
     setSelectedWork(work);
+  };
+
+  // Test function for notification system
+  const testNotificationSystem = () => {
+    // Test supervisor alert
+    addNotification({
+      title: isNepali ? '🎯 टेस्ट सुपरवाइजर अलर्ट' : '🎯 Test Supervisor Alert',
+      message: isNepali 
+        ? 'यो एक टेस्ट सुपरवाइजर नोटिफिकेशन हो - बीप र पुश नोटिफिकेशन सहित'
+        : 'This is a test supervisor notification - with beep and push notification',
+      type: 'supervisor_alert',
+      priority: 'high'
+    });
+
+    // Test workflow notification
+    setTimeout(() => {
+      const mockCompletedWork = {
+        operatorName: user?.name || 'Test Operator',
+        operation: 'Overlock Side Seam',
+        articleNumber: 'TEST123',
+        pieces: 30
+      };
+
+      const mockNextOperators = [
+        { operation: 'Flatlock Shoulder', machineType: 'Flatlock' },
+        { operation: 'Button Attach', machineType: 'Button Machine' }
+      ];
+
+      sendWorkflowNotification(mockCompletedWork, mockNextOperators);
+    }, 1000);
+
+    // Test machine group notification
+    setTimeout(() => {
+      sendMachineGroupNotification('Overlock', {
+        articleNumber: 'TEST456',
+        nextOperation: 'Side Seam',
+        pieces: 25
+      });
+    }, 2000);
+
+    showNotification(
+      isNepali ? 'टेस्ट नोटिफिकेशन पठाइयो!' : 'Test notifications sent!',
+      'success'
+    );
   };
 
 
@@ -806,6 +892,14 @@ const SelfAssignmentSystem = () => {
               </p>
             </div>
 
+
+            {/* Test Notification System Button */}
+            <button
+              onClick={testNotificationSystem}
+              className="w-full bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 transition-colors mb-2"
+            >
+              🔔 {isNepali ? "नोटिफिकेशन टेस्ट गर्नुहोस्" : "Test Notifications"}
+            </button>
 
             {/* Operations Sequence Editor Button */}
             <button

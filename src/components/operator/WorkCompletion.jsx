@@ -10,7 +10,7 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
   const { user } = useContext(AuthContext);
   const { t, isNepali, formatNumber, formatCurrency } =
     useContext(LanguageContext);
-  const { showNotification, sendWorkCompleted } =
+  const { showNotification, sendWorkCompleted, sendWorkflowNotification, sendMachineGroupNotification } =
     useContext(NotificationContext);
 
   const [bundleData, setBundleData] = useState(null);
@@ -185,7 +185,32 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
 
       if (response.ok) {
         // Send completion notification
-        sendWorkCompleted(bundleData.articleNumber, earnings);
+        sendWorkCompleted(bundleData.articleNumber, bundleData.operation, validPieces, earnings);
+
+        // Send workflow notifications to next operators
+        if (bundleData.nextOperation && bundleData.nextMachine) {
+          const completedWorkData = {
+            operatorName: user.name,
+            operation: bundleData.operation,
+            articleNumber: bundleData.articleNumber,
+            pieces: validPieces
+          };
+
+          // Determine next operators based on machine type
+          const nextOperators = [{
+            operation: bundleData.nextOperation,
+            machineType: bundleData.nextMachine
+          }];
+
+          sendWorkflowNotification(completedWorkData, nextOperators);
+
+          // Also send machine group notification
+          sendMachineGroupNotification(bundleData.nextMachine, {
+            articleNumber: bundleData.articleNumber,
+            nextOperation: bundleData.nextOperation,
+            pieces: validPieces
+          });
+        }
 
         showNotification(
           isNepali

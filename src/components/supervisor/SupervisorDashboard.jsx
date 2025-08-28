@@ -5,7 +5,6 @@ import { db, collection, addDoc, getDocs, setDoc, doc, query, where, orderBy, se
 import { WIPService, OperatorService, ConfigService } from '../../services/firebase-services';
 import BundleFlowTracker from './BundleFlowTracker';
 import WIPStatusBoard from './WIPStatusBoard';
-import WIPImportSimplified from './WIPImportSimplified';
 import WIPDataManager from './WIPDataManager';
 import WIPProgressTracker from './WIPProgressTracker';
 import ProcessTemplateManager from './ProcessTemplateManager';
@@ -27,7 +26,6 @@ const SupervisorDashboard = () => {
   const isNepali = currentLanguage === 'np';
   const [showBundleTracker, setShowBundleTracker] = useState(false);
   const [showWIPBoard, setShowWIPBoard] = useState(false);
-  const [showWIPImport, setShowWIPImport] = useState(false);
   const [showWIPManager, setShowWIPManager] = useState(false);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
   const [wipData, setWipData] = useState(null);
@@ -341,18 +339,6 @@ const SupervisorDashboard = () => {
               </div>
             </button>
 
-            <button 
-              onClick={() => setShowWIPImport(true)}
-              className="flex flex-col items-center p-4 border-2 border-dashed border-green-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-colors"
-            >
-              <div className="text-3xl mb-2">📝</div>
-              <div className="text-sm font-medium text-gray-900 text-center">
-                {isNepali ? 'WIP डेटा इम्पोर्ट' : 'WIP Data Import'}
-              </div>
-              <div className="text-xs text-gray-600 mt-1 text-center">
-                {isNepali ? 'उत्पादन डेटा र बंडल बनाउनुहोस्' : 'Create production data and bundles'}
-              </div>
-            </button>
 
             <button
               onClick={() => setShowWIPManager(true)}
@@ -403,6 +389,19 @@ const SupervisorDashboard = () => {
               </div>
               <div className="text-xs text-gray-600 mt-1 text-center">
                 {isNepali ? 'लट र बन्डलको प्रगति हेर्नुहोस्' : 'Track lot and bundle progress'}
+              </div>
+            </button>
+
+            <button 
+              onClick={() => setShowSelfAssignmentApproval(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-purple-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-colors"
+            >
+              <div className="text-3xl mb-2">✅</div>
+              <div className="text-sm font-medium text-gray-900 text-center">
+                {isNepali ? 'सेल्फ-असाइनमेन्ट अनुमोदन' : 'Self-Assignment Approval'}
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {isNepali ? 'अपरेटरहरूको सेल्फ-असाइनमेन्ट अनुमोदन गर्नुहोस्' : 'Approve operator self-assignments'}
               </div>
             </button>
           </div>
@@ -553,78 +552,6 @@ const SupervisorDashboard = () => {
         />
       )}
 
-      {showWIPImport && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden">
-            <WIPImportSimplified 
-              onImport={async (result) => {
-                console.log('🔥 SUPERVISOR DASHBOARD - WIP IMPORT COMPLETED CALLBACK');
-                console.log('📋 Import Result:', JSON.stringify(result, null, 2));
-                
-                // Save WIP data to Firestore first, fallback to localStorage
-                if (result.wipData) {
-                  console.log('💾 Saving WIP data to Firestore...');
-                  try {
-                    const wipEntry = {
-                      ...result.wipData,
-                      status: 'completed',
-                      createdAt: serverTimestamp(),
-                      updatedAt: serverTimestamp(),
-                      bundles: result.bundles,
-                      workItems: result.workItems,
-                      assignments: result.assignments,
-                      template: result.template
-                    };
-                    
-                    const docRef = doc(collection(db, 'wipEntries'));
-                    await setDoc(docRef, { ...wipEntry, id: docRef.id });
-                    console.log('✅ WIP entry saved to Firestore with ID:', docRef.id);
-                  } catch (error) {
-                    console.error('Failed to save WIP data to Firestore:', error);
-                    // Skip localStorage fallback - data will not be saved
-                  }
-                }
-                
-                // Save work items to Firestore first, fallback to localStorage
-                if (result.workItems && result.workItems.length > 0) {
-                  console.log('💾 Saving work items to Firestore...');
-                  try {
-                    const batch = [];
-                    const newWorkItems = result.workItems.map(item => ({
-                      ...item,
-                      wipId: result.wipData?.id || Date.now(),
-                      createdAt: serverTimestamp()
-                    }));
-                    
-                    for (const item of newWorkItems) {
-                      const docRef = doc(collection(db, COLLECTIONS.WORK_ASSIGNMENTS));
-                      await setDoc(docRef, { ...item, id: docRef.id });
-                    }
-                    
-                    console.log('✅ Work items saved to Firestore. Total:', newWorkItems.length);
-                  } catch (error) {
-                    console.error('Failed to save work items to Firestore:', error);
-                    // Skip localStorage fallback - data will not be saved
-                  }
-                }
-                
-                console.log('🔄 Closing WIP import dialog...');
-                setShowWIPImport(false);
-                
-                // Show success notification
-                const successMessage = isNepali 
-                  ? `सफलतापूर्वक सम्पन्न! ${result.bundles?.length || 0} बन्डल र ${result.workItems?.length || 0} काम आइटम सिर्जना गरियो।`
-                  : `Successfully completed! Created ${result.bundles?.length || 0} bundles and ${result.workItems?.length || 0} work items.`;
-                
-                console.log('🎉 Success message:', successMessage);
-                alert(successMessage);
-                console.log('✅ SUPERVISOR DASHBOARD - WIP IMPORT CALLBACK COMPLETED');
-              }}
-              onCancel={() => setShowWIPImport(false)}
-            />
-          </div>
-        </div>
-      )}
 
       {showWIPManager && (
         <WIPDataManager
@@ -652,6 +579,29 @@ const SupervisorDashboard = () => {
         <WorkAssignmentManager
           onClose={() => setShowWorkAssignment(false)}
         />
+      )}
+
+      {showSelfAssignmentApproval && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl h-full max-h-[90vh] overflow-hidden">
+            <div className="h-full flex flex-col">
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {isNepali ? 'सेल्फ-असाइनमेन्ट अनुमोदन' : 'Self-Assignment Approval'}
+                </h2>
+                <button
+                  onClick={() => setShowSelfAssignmentApproval(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <SelfAssignmentApproval />
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

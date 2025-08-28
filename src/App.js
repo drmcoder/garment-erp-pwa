@@ -1,7 +1,7 @@
 // src/App.jsx
 // Main App Component with Complete Context Integration
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { LanguageProvider, useLanguage } from "./context/LanguageContext";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import {
@@ -10,12 +10,11 @@ import {
 } from "./context/NotificationContext";
 import { SystemProvider, useSystem } from "./context/SystemContext";
 import { GlobalErrorProvider } from "./components/common/GlobalErrorHandler";
-import { db, collection, getDocs, COLLECTIONS } from "./config/firebase";
+// Removed unused Firebase imports - using modular LoginScreen
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
-import OperatorWorkDashboard from "./components/operator/OperatorWorkDashboard";
+import OperatorWorkDashboard from "./components/operator/OperatorWorkDashboardNew";
 import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
-import WIPImportSimplified from "./components/supervisor/WIPImportSimplified";
 import SystemSettings from "./components/admin/SystemSettings";
 import UserManagement from "./components/admin/UserManagement";
 import MachineManagement from "./components/admin/MachineManagement";
@@ -25,448 +24,9 @@ import PayrollSystem from "./components/management/PayrollSystem";
 import { PermissionGate, usePermissions, PermissionsProvider } from "./context/PermissionsContext";
 import { PERMISSIONS } from "./services/permissions-service";
 import { FullScreenLoader } from "./components/common/BrandedLoader";
+import LoginScreen from "./components/auth/LoginScreen";
 
-// Login Component
-const LoginScreen = () => {
-  const { login, loading } = useAuth();
-  const { showNotification } = useNotifications();
-  const [credentials, setCredentials] = useState({
-    username: "",
-    password: "",
-    rememberMe: false,
-  });
-  const [loginLoading, setLoginLoading] = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [manualEntry, setManualEntry] = useState(false);
-  const [clickCount, setClickCount] = useState(0);
-  const [availableUsers, setAvailableUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
-
-  // Load available users from Firestore with fallback to demo data
-  useEffect(() => {
-    const loadUsers = async () => {
-      setLoadingUsers(true);
-      try {
-        const usersData = [];
-        
-        try {
-          // Try loading from Firestore first
-          const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
-          operatorsSnapshot.forEach((doc) => {
-            const userData = doc.data();
-            if (userData.username) {
-              usersData.push({
-                username: userData.username,
-                name: userData.name || userData.nameEn || userData.username,
-                role: 'operator',
-                lastLogin: userData.lastLogin?.toDate() || null
-              });
-            }
-          });
-
-          const supervisorsSnapshot = await getDocs(collection(db, COLLECTIONS.SUPERVISORS));
-          supervisorsSnapshot.forEach((doc) => {
-            const userData = doc.data();
-            if (userData.username) {
-              usersData.push({
-                username: userData.username,
-                name: userData.name || userData.nameEn || userData.username,
-                role: 'supervisor',
-                lastLogin: userData.lastLogin?.toDate() || null
-              });
-            }
-          });
-
-          const managementSnapshot = await getDocs(collection(db, COLLECTIONS.MANAGEMENT));
-          managementSnapshot.forEach((doc) => {
-            const userData = doc.data();
-            if (userData.username) {
-              usersData.push({
-                username: userData.username,
-                name: userData.name || userData.nameEn || userData.username,
-                role: 'management',
-                lastLogin: userData.lastLogin?.toDate() || null
-              });
-            }
-          });
-        } catch (firestoreError) {
-          console.log('Firestore unavailable, using demo data:', firestoreError.message);
-        }
-
-        // If no Firestore data, use demo/mock data
-        if (usersData.length === 0) {
-          const mockUsers = [
-            {
-              username: 'ram.singh',
-              name: 'Ram Singh',
-              role: 'operator',
-              lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
-            },
-            {
-              username: 'sita.devi',  
-              name: 'Sita Devi',
-              role: 'operator',
-              lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000) // 4 hours ago
-            },
-            {
-              username: 'hari.supervisor',
-              name: 'Hari Pokharel',
-              role: 'supervisor', 
-              lastLogin: new Date(Date.now() - 1 * 60 * 60 * 1000) // 1 hour ago
-            },
-            {
-              username: 'admin.manager',
-              name: 'Admin Manager',
-              role: 'management',
-              lastLogin: new Date(Date.now() - 30 * 60 * 1000) // 30 minutes ago
-            },
-            {
-              username: 'ka2468',
-              name: 'Krishna Aryal', 
-              role: 'operator',
-              lastLogin: new Date(Date.now() - 6 * 60 * 60 * 1000) // 6 hours ago
-            },
-            {
-              username: 'su1832',
-              name: 'Sunita Sharma',
-              role: 'operator', 
-              lastLogin: new Date(Date.now() - 3 * 60 * 60 * 1000) // 3 hours ago
-            }
-          ];
-          usersData.push(...mockUsers);
-        }
-
-        // Sort by most recently logged in
-        usersData.sort((a, b) => {
-          if (!a.lastLogin && !b.lastLogin) return 0;
-          if (!a.lastLogin) return 1;
-          if (!b.lastLogin) return -1;
-          return b.lastLogin.getTime() - a.lastLogin.getTime();
-        });
-
-        setAvailableUsers(usersData.slice(0, 8)); // Show top 8 users
-      } catch (error) {
-        console.error('Failed to load users:', error);
-        // Fallback to basic demo data even on complete failure
-        setAvailableUsers([
-          {
-            username: 'ram.singh',
-            name: 'Ram Singh',
-            role: 'operator',
-            lastLogin: new Date()
-          }
-        ]);
-      } finally {
-        setLoadingUsers(false);
-      }
-    };
-
-    loadUsers();
-  }, []);
-
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setLoginLoading(true);
-
-    try {
-      await login(
-        credentials.username,
-        credentials.password,
-        credentials.rememberMe
-      );
-      showNotification("Login successful!", "success");
-    } catch (error) {
-      showNotification(error.message, "error");
-    } finally {
-      setLoginLoading(false);
-    }
-  };
-
-  const handleUserSelect = (user) => {
-    setCredentials(prev => ({ 
-      ...prev, 
-      username: user.username,
-      password: 'password123' // Auto-fill default password
-    }));
-    setShowDropdown(false);
-    setManualEntry(false);
-  };
-
-  const handleUsernameClick = () => {
-    setClickCount(prev => prev + 1);
-    setTimeout(() => {
-      if (clickCount === 0) {
-        // Single click - show dropdown
-        setShowDropdown(true);
-        setManualEntry(false);
-      }
-      setClickCount(0);
-    }, 300);
-  };
-
-  const handleUsernameDoubleClick = () => {
-    // Double click - enable manual entry
-    setManualEntry(true);
-    setShowDropdown(false);
-    setCredentials(prev => ({ ...prev, username: '' }));
-  };
-
-  const getRoleIcon = (role) => {
-    const icons = {
-      operator: '👤',
-      supervisor: '👨‍💼', 
-      management: '👔'
-    };
-    return icons[role] || '👤';
-  };
-
-  const getRoleColor = (role) => {
-    const colors = {
-      operator: 'text-blue-600',
-      supervisor: 'text-purple-600',
-      management: 'text-red-600'
-    };
-    return colors[role] || 'text-gray-600';
-  };
-
-  const getRoleBgColor = (role) => {
-    const colors = {
-      operator: 'bg-blue-100',
-      supervisor: 'bg-purple-100', 
-      management: 'bg-red-100'
-    };
-    return colors[role] || 'bg-gray-100';
-  };
-
-  // Close dropdown when clicking outside
-  React.useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (showDropdown && !event.target.closest('.relative')) {
-        setShowDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showDropdown]);
-
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center text-4xl">
-            🏭
-          </div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            TSA Production Management System
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            AI Powered for Line Balancing
-          </p>
-        </div>
-
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div className="relative">
-              <label htmlFor="username" className="sr-only">
-                Username
-              </label>
-              
-              {/* Username Input/Button */}
-              {manualEntry ? (
-                <input
-                  id="username"
-                  name="username"
-                  type="text"
-                  required
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                  placeholder="Type username manually..."
-                  value={credentials.username}
-                  onChange={(e) =>
-                    setCredentials({ ...credentials, username: e.target.value })
-                  }
-                  onBlur={() => {
-                    if (!credentials.username) {
-                      setManualEntry(false);
-                    }
-                  }}
-                  autoFocus
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={handleUsernameClick}
-                  onDoubleClick={handleUsernameDoubleClick}
-                  className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm text-left bg-white hover:bg-gray-50"
-                >
-                  {credentials.username || "Click to select user, double-click for manual entry"}
-                </button>
-              )}
-
-              {/* Enhanced Dropdown */}
-              {showDropdown && !manualEntry && (
-                <div className="absolute z-50 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-xl max-h-80 overflow-hidden">
-                  <div className="p-3 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-                    <p className="text-xs text-gray-700 text-center font-medium">
-                      💫 Select user or double-click above for manual entry
-                    </p>
-                    {loadingUsers && (
-                      <div className="flex items-center justify-center mt-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                        <span className="ml-2 text-xs text-gray-600">Loading users...</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="max-h-64 overflow-y-auto">
-                    {loadingUsers ? (
-                      <div className="p-4 text-center text-gray-500">
-                        <div className="animate-pulse">Loading available users...</div>
-                      </div>
-                    ) : availableUsers.length > 0 ? (
-                      availableUsers.map((user) => (
-                        <button
-                          key={user.username}
-                          type="button"
-                          onClick={() => handleUserSelect(user)}
-                          className="w-full text-left px-4 py-3 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-b-0 transition-colors"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="flex-shrink-0">
-                              <span className="text-xl">{getRoleIcon(user.role)}</span>
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-gray-900 truncate">{user.name}</div>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-sm text-gray-600 font-mono">@{user.username}</span>
-                                <span className={`text-xs px-2 py-0.5 rounded-full font-semibold bg-opacity-20 ${getRoleColor(user.role)} ${getRoleBgColor(user.role)}`}>
-                                  {user.role}
-                                </span>
-                                {user.lastLogin && (
-                                  <span className="text-xs text-gray-500">
-                                    Last: {user.lastLogin.toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <div className="flex-shrink-0">
-                              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                            </div>
-                          </div>
-                        </button>
-                      ))
-                    ) : (
-                      <div className="p-4 text-center text-gray-500">
-                        <div className="text-2xl mb-2">🔍</div>
-                        <div className="text-sm">No users found</div>
-                        <div className="text-xs text-gray-400 mt-1">Create users in User Management</div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-2 border-t bg-gray-50">
-                    <div className="text-center">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setManualEntry(true);
-                          setShowDropdown(false);
-                          setCredentials(prev => ({ ...prev, username: '' }));
-                        }}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-medium"
-                      >
-                        ⌨️ Type username manually
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className={`appearance-none rounded-none relative block w-full px-3 py-2 border placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm ${
-                  credentials.password === 'password123' ? 'border-green-300 bg-green-50' : 'border-gray-300'
-                }`}
-                placeholder={credentials.password === 'password123' ? "Auto-filled password" : "Password (password123)"}
-                value={credentials.password}
-                onChange={(e) =>
-                  setCredentials({ ...credentials, password: e.target.value })
-                }
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                name="remember-me"
-                type="checkbox"
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
-                checked={credentials.rememberMe}
-                onChange={(e) =>
-                  setCredentials({
-                    ...credentials,
-                    rememberMe: e.target.checked,
-                  })
-                }
-              />
-              <label
-                htmlFor="remember-me"
-                className="ml-2 block text-sm text-gray-900"
-              >
-                Remember me
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <button
-              type="submit"
-              disabled={loginLoading || loading}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loginLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Logging in...
-                </div>
-              ) : (
-                "Login"
-              )}
-            </button>
-          </div>
-
-          <div className="text-sm text-gray-600 bg-gray-50 p-4 rounded-md">
-            <p className="font-medium mb-2">Demo Accounts:</p>
-            <div className="space-y-1">
-              <p>
-                <strong>Operator:</strong> ram.singh / password123
-              </p>
-              <p>
-                <strong>Supervisor:</strong> hari.supervisor / password123
-              </p>
-              <p>
-                <strong>Manager:</strong> admin.manager / password123
-              </p>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-};
+// Inline Login Component removed - using modular LoginScreen from ./components/auth/LoginScreen.jsx
 
 // Language Toggle Component
 const LanguageToggle = () => {
@@ -701,7 +261,7 @@ const Navigation = () => {
 // Basic Operator Dashboard
 const OperatorDashboard = ({ onNavigate }) => {
   const { user } = useAuth();
-  const { sendWorkAssigned, sendWorkCompleted } = useNotifications();
+  // Removed unused notification methods
 
   // Demo notification buttons
 
@@ -792,7 +352,7 @@ const OperatorDashboard = ({ onNavigate }) => {
 // Main App Content based on user role
 const AppContent = () => {
   const { user } = useAuth();
-  const { canAccessView } = usePermissions();
+  // Removed unused permission check
   const [currentView, setCurrentView] = useState("dashboard");
 
   if (!user) return null;
@@ -814,32 +374,6 @@ const AppContent = () => {
     // Supervisor views
     if (user.role === "supervisor") {
       switch (currentView) {
-        case "wip-import":
-          return (
-            <PermissionGate permission={PERMISSIONS.WIP_IMPORT}>
-              <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg shadow-xl w-full max-w-7xl h-full max-h-[95vh] overflow-hidden relative">
-                  {/* Close button */}
-                  <button
-                    onClick={() => setCurrentView('dashboard')}
-                    className="absolute top-4 right-4 z-10 p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                    title="Close"
-                  >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                  <WIPImportSimplified 
-                    onImport={(result) => {
-                      console.log('WIP Import completed:', result);
-                      setCurrentView('dashboard');
-                    }}
-                    onCancel={() => setCurrentView('dashboard')}
-                  />
-                </div>
-              </div>
-            </PermissionGate>
-          );
         case "work-assignment":
           return (
             <PermissionGate permission={PERMISSIONS.WORK_ASSIGN}>
@@ -1040,16 +574,6 @@ const AppContent = () => {
                 }`}
               >
                 📊 Dashboard
-              </button>
-              <button
-                onClick={() => setCurrentView("wip-import")}
-                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
-                  currentView === "wip-import"
-                    ? "border-indigo-500 text-indigo-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
-              >
-                📝 WIP
               </button>
               <button
                 onClick={() => setCurrentView("work-assignment")}

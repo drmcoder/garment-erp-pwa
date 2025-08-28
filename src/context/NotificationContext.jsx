@@ -22,15 +22,78 @@ export const NotificationProvider = ({ children }) => {
     setNotifications(prev => [newNotification, ...prev]);
     setUnreadCount(prev => prev + 1);
 
+    // Play enhanced beep sound for high priority notifications
+    if (newNotification.priority === 'high' || newNotification.type === 'supervisor_alert') {
+      try {
+        // Enhanced beep sound with multiple tones for supervisor alerts
+        const playBeepSequence = () => {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          
+          // Create a sequence of beeps for supervisor alerts
+          const frequencies = newNotification.type === 'supervisor_alert' ? [800, 600, 400] : [600];
+          
+          frequencies.forEach((freq, index) => {
+            setTimeout(() => {
+              const oscillator = audioContext.createOscillator();
+              const gainNode = audioContext.createGain();
+              
+              oscillator.connect(gainNode);
+              gainNode.connect(audioContext.destination);
+              
+              oscillator.frequency.value = freq;
+              oscillator.type = 'sine';
+              
+              gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+              gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
+              gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+              
+              oscillator.start(audioContext.currentTime);
+              oscillator.stop(audioContext.currentTime + 0.3);
+            }, index * 400);
+          });
+        };
+
+        // Try to play enhanced beep, fallback to simple beep
+        playBeepSequence();
+      } catch (audioError) {
+        // Fallback to simple beep
+        try {
+          const beep = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0E');
+          beep.volume = 0.4;
+          beep.play().catch(() => {});
+        } catch (fallbackError) {
+          console.log('Both audio methods failed');
+        }
+      }
+    }
+
     // Show browser notification if permission granted
     if ('Notification' in window && Notification.permission === 'granted') {
-      new Notification(newNotification.title, {
+      const browserNotification = new Notification(newNotification.title, {
         body: newNotification.message,
         icon: '/logo192.png',
         badge: '/logo192.png',
         tag: newNotification.type,
-        vibrate: [100, 50, 100]
+        vibrate: newNotification.type === 'supervisor_alert' ? [200, 100, 200, 100, 200] : [100, 50, 100],
+        requireInteraction: newNotification.priority === 'high', // Keep high priority notifications visible
+        silent: false
       });
+
+      // Auto-close normal notifications after 5 seconds, but keep high priority ones
+      if (newNotification.priority !== 'high') {
+        setTimeout(() => {
+          browserNotification.close();
+        }, 5000);
+      }
+
+      // Handle notification click
+      browserNotification.onclick = () => {
+        window.focus();
+        browserNotification.close();
+        
+        // Mark notification as read when clicked
+        markAsRead(newNotification.id);
+      };
     }
 
     return newNotification;
@@ -134,6 +197,60 @@ export const NotificationProvider = ({ children }) => {
     });
   };
 
+  // Send workflow-based notification to next operators
+  const sendWorkflowNotification = (completedWork, nextOperators) => {
+    if (!nextOperators || nextOperators.length === 0) return;
+
+    nextOperators.forEach(nextOp => {
+      const notification = {
+        title: currentLanguage === 'np' ? '🔄 नयाँ काम तयार छ' : '🔄 New Work Ready',
+        message: currentLanguage === 'np' 
+          ? `आर्टिकल ${completedWork.articleNumber} - ${nextOp.operation} तपाईंको मेसिन ${nextOp.machineType} का लागि तयार छ`
+          : `Article ${completedWork.articleNumber} - ${nextOp.operation} ready for your ${nextOp.machineType} machine`,
+        type: 'workflow_next',
+        priority: 'high',
+        data: {
+          previousOperator: completedWork.operatorName,
+          previousOperation: completedWork.operation,
+          nextOperation: nextOp.operation,
+          machineType: nextOp.machineType,
+          articleNumber: completedWork.articleNumber,
+          pieces: completedWork.pieces,
+          completedAt: new Date().toISOString(),
+          actionType: 'WORKFLOW_NOTIFICATION'
+        }
+      };
+
+      // Add notification for each next operator
+      addNotification(notification);
+    });
+
+    console.log(`✅ Workflow notifications sent to ${nextOperators.length} next operators`);
+  };
+
+  // Send machine type group notifications
+  const sendMachineGroupNotification = (machineType, workData) => {
+    const notification = {
+      title: currentLanguage === 'np' ? `🔧 ${machineType} मेसिन काम` : `🔧 ${machineType} Machine Work`,
+      message: currentLanguage === 'np' 
+        ? `आर्टिकल ${workData.articleNumber} ${machineType} मेसिनका सबै ऑपरेटरहरूका लागि तयार छ`
+        : `Article ${workData.articleNumber} ready for all ${machineType} machine operators`,
+      type: 'machine_group',
+      priority: 'medium',
+      data: {
+        machineType: machineType,
+        articleNumber: workData.articleNumber,
+        operation: workData.nextOperation,
+        pieces: workData.pieces,
+        readyAt: new Date().toISOString(),
+        actionType: 'MACHINE_GROUP_NOTIFICATION'
+      }
+    };
+
+    addNotification(notification);
+    console.log(`✅ Machine group notification sent for ${machineType}`);
+  };
+
   // Request notification permission on mount
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -148,6 +265,8 @@ export const NotificationProvider = ({ children }) => {
     showNotification,
     sendWorkAssigned,
     sendWorkCompleted,
+    sendWorkflowNotification,
+    sendMachineGroupNotification,
     markAsRead,
     markAsUnread,
     toggleReadStatus,

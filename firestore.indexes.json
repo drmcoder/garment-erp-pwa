@@ -27,15 +27,15 @@
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "machineType",
-          "order": "ASCENDING"
-        },
-        {
           "fieldPath": "priority",
           "order": "DESCENDING"
         },
         {
           "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
           "order": "ASCENDING"
         }
       ]
@@ -45,11 +45,19 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "assignedOperator",
+          "order": "ASCENDING"
+        },
+        {
           "fieldPath": "status",
           "order": "ASCENDING"
         },
         {
           "fieldPath": "assignedAt",
+          "order": "DESCENDING"
+        },
+        {
+          "fieldPath": "__name__",
           "order": "DESCENDING"
         }
       ]
@@ -115,94 +123,6 @@
       ]
     },
     {
-      "collectionGroup": "bundles",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "priority",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "createdAt",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "bundles",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "assignedOperator",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "assignedAt",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "bundles",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "operatorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "completedAt",
-          "order": "DESCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "bundles",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "operatorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "earnings",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "ASCENDING"
-        }
-      ]
-    },
-    {
       "collectionGroup": "workItems",
       "queryScope": "COLLECTION",
       "fields": [
@@ -229,42 +149,16 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "operatorId",
+          "fieldPath": "assignedOperator",
           "order": "ASCENDING"
         },
         {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "completedAt",
+          "fieldPath": "assignedAt",
           "order": "DESCENDING"
         },
         {
           "fieldPath": "__name__",
           "order": "DESCENDING"
-        }
-      ]
-    },
-    {
-      "collectionGroup": "workItems",
-      "queryScope": "COLLECTION",
-      "fields": [
-        {
-          "fieldPath": "operatorId",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "status",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "earnings",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "__name__",
-          "order": "ASCENDING"
         }
       ]
     },
@@ -309,6 +203,20 @@
         {
           "fieldPath": "__name__",
           "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "wipRolls",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "wipEntryId",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "rollNumber",
+          "order": "ASCENDING"
         }
       ]
     }
