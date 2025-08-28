@@ -868,40 +868,45 @@ const SelfAssignmentSystem = () => {
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex-1">
-                      {/* Article and Bundle ID Info */}
-                      <div className="flex items-center space-x-3 mb-3">
-                        <h3 className="text-lg font-semibold text-gray-900">
-                          {work.readableId ? (
-                            <span className="text-blue-600">{work.readableId}</span>
-                          ) : (
-                            isNepali ? work.articleName : work.englishName
-                          )}
-                        </h3>
-                        {work.displayName && (
-                          <span className="text-sm text-gray-600">
-                            {work.displayName}
+                      {/* Main Work Info */}
+                      <div className="mb-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <h3 className="text-xl font-bold text-gray-900">
+                            {isNepali ? work.operation : work.englishOperation}
+                          </h3>
+                          <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded">
+                            {work.readableId || `#${work.articleNumber}`}
                           </span>
-                        )}
-                        <span className="text-sm bg-gray-100 px-2 py-1 rounded">
-                          #{work.articleNumber}
-                        </span>
+                        </div>
+                        <div className="flex items-center space-x-4 text-sm text-gray-600">
+                          <span>Lot #{work.articleNumber}</span>
+                          <span>•</span>
+                          <span>{work.size} Size</span>
+                          <span>•</span>
+                          <span>{work.color}</span>
+                          <span>•</span>
+                          <span className="font-medium text-gray-900">{work.pieces} pcs</span>
+                        </div>
                       </div>
 
-                      {/* Essential Work Details */}
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500">
-                            {isNepali ? "रङ:" : "Color:"}
-                          </span>
-                          <div className="font-medium">{work.color}</div>
-                        </div>
-                        <div>
-                          <span className="text-gray-500">
-                            {isNepali ? "सिर्जना मिति:" : "Created:"}
-                          </span>
-                          <div className="font-medium">
-                            {work.createdAt ? new Date(work.createdAt.seconds * 1000).toLocaleDateString() : 'N/A'}
+                      {/* Work Status and Details */}
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center space-x-4">
+                          <div className={`px-2 py-1 rounded text-xs font-medium ${
+                            work.difficulty === 'Easy' || work.difficulty === 'सजिलो' 
+                              ? 'bg-green-100 text-green-700' 
+                              : work.difficulty === 'Medium' || work.difficulty === 'मध्यम'
+                              ? 'bg-yellow-100 text-yellow-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}>
+                            💪 {isNepali ? work.difficulty : work.englishDifficulty}
                           </div>
+                          <div className="text-gray-600">
+                            ⚙️ {isNepali ? work.machineType : work.englishMachine}
+                          </div>
+                        </div>
+                        <div className="text-gray-600">
+                          💰 Rs. {work.rate || 0}
                         </div>
                       </div>
                     </div>

@@ -4,6 +4,7 @@ import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { db, collection, getDocs, query, where, orderBy, doc, updateDoc, COLLECTIONS } from '../../config/firebase';
 import { updateBundleWithReadableId } from '../../utils/bundleIdGenerator';
+import { formatDateByLanguage } from '../../utils/nepaliDate';
 
 const OperatorWorkDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -268,6 +269,36 @@ const OperatorWorkDashboard = () => {
     }
   };
 
+  // Start work (change status from assigned to in_progress)
+  const handleStartWork = async (workItem) => {
+    try {
+      const collectionName = workItem.type === 'work_item' ? COLLECTIONS.WORK_ITEMS : COLLECTIONS.WORK_ASSIGNMENTS;
+      const workRef = doc(db, collectionName, workItem.id);
+      
+      await updateDoc(workRef, {
+        status: 'in_progress',
+        startedAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      showNotification(
+        currentLanguage === 'np' 
+          ? 'काम सुरु भयो। अब तपाईं यसलाई पूरा गर्न सक्नुहुन्छ।' 
+          : 'Work started. You can now complete it.',
+        'success'
+      );
+
+      // Refresh present work
+      loadPresentWork();
+    } catch (error) {
+      console.error('❌ Failed to start work:', error);
+      showNotification(
+        currentLanguage === 'np' ? 'काम सुरु गर्न असफल' : 'Failed to start work',
+        'error'
+      );
+    }
+  };
+
   // Load data based on active tab
   useEffect(() => {
     if (activeTab === 'present') {
@@ -302,8 +333,17 @@ const OperatorWorkDashboard = () => {
         <div className="flex justify-between items-start mb-3">
           <div>
             <h3 className="font-semibold text-lg text-gray-900">
-              {workItem.type === 'wip' ? `WIP: ${workItem.lotNumber}` : `Bundle: ${workItem.bundleId || workItem.id}`}
+              {workItem.readableId ? (
+                <span className="text-blue-600">{workItem.readableId}</span>
+              ) : workItem.type === 'wip_entry' ? (
+                `WIP: ${workItem.lotNumber || workItem.id}`
+              ) : (
+                `Bundle: ${workItem.bundleId || workItem.id}`
+              )}
             </h3>
+            {workItem.displayName && (
+              <p className="text-sm text-gray-500 mt-1">{workItem.displayName}</p>
+            )}
             <p className="text-sm text-gray-600">
               {currentLanguage === 'np' ? 'लेख:' : 'Article:'} {workItem.article || workItem.articleNumber || 'N/A'}
             </p>
@@ -341,16 +381,26 @@ const OperatorWorkDashboard = () => {
 
         <div className="mt-3 flex justify-between items-center text-xs text-gray-500">
           <div>
-            {currentLanguage === 'np' ? 'नियुक्त:' : 'Assigned:'} {workItem.assignedAt?.toLocaleDateString() || 'N/A'}
+            {currentLanguage === 'np' ? 'नियुक्त:' : 'Assigned:'} {workItem.assignedAt ? formatDateByLanguage(workItem.assignedAt, currentLanguage === 'np', true) : 'N/A'}
           </div>
           {isPast && workItem.completedAt && (
             <div>
-              {currentLanguage === 'np' ? 'पूरा:' : 'Completed:'} {workItem.completedAt.toLocaleDateString()}
+              {currentLanguage === 'np' ? 'पूरा:' : 'Completed:'} {formatDateByLanguage(workItem.completedAt, currentLanguage === 'np', true)}
             </div>
           )}
         </div>
 
         {/* Action buttons for present work */}
+        {!isPast && workItem.status === 'assigned' && (
+          <div className="mt-4">
+            <button
+              onClick={() => handleStartWork(workItem)}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+            >
+              {currentLanguage === 'np' ? '🚀 काम सुरु गर्नुहोस्' : '🚀 Start Work'}
+            </button>
+          </div>
+        )}
         {!isPast && workItem.status === 'in_progress' && (
           <div className="mt-4 flex space-x-2">
             <button

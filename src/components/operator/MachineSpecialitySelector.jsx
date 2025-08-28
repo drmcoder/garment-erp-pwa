@@ -5,7 +5,7 @@ import { NotificationContext } from '../../context/NotificationContext';
 import { db, doc, updateDoc, COLLECTIONS } from '../../config/firebase';
 
 const MachineSpecialitySelector = ({ onClose, onUpdate }) => {
-  const { user, refreshUser } = useContext(AuthContext);
+  const { user, refreshUserData } = useContext(AuthContext);
   const { isNepali } = useContext(LanguageContext);
   const { showNotification } = useContext(NotificationContext);
   
@@ -83,7 +83,7 @@ const MachineSpecialitySelector = ({ onClose, onUpdate }) => {
       });
 
       // Refresh user data
-      await refreshUser();
+      await refreshUserData();
 
       showNotification(
         isNepali ? 'मेसिन विशेषता सफलतापूर्वक अपडेट गरियो' : 'Machine speciality updated successfully',

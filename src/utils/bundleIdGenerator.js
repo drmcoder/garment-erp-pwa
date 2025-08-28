@@ -123,6 +123,14 @@ const normalizeColor = (color, quantity = 1) => {
   };
 
   const upperColor = color.toString().toUpperCase();
+  
+  // Handle numbered color patterns (e.g., "color-1", "color 2")
+  const numberedColorMatch = upperColor.match(/(?:COLOR\s*-?\s*(\d+)|\s*(\d+)\s*CLR?)/);
+  if (numberedColorMatch) {
+    const colorNum = numberedColorMatch[1] || numberedColorMatch[2];
+    return `${colorNum}clr`;
+  }
+  
   const baseColor = colorMap[upperColor] || upperColor.slice(0, 3).toLowerCase();
   
   // Add quantity prefix if more than 1 (e.g., 2bla for 2 black items)
@@ -229,4 +237,55 @@ export const updateBundleWithReadableId = (bundle) => {
     readableId,
     displayName: getBundleDisplayName(readableId)
   };
+};
+
+// Function to check for duplicate bundle IDs
+export const checkForDuplicateBundleId = (bundleId, existingBundles) => {
+  if (!bundleId || !Array.isArray(existingBundles)) return { isDuplicate: false };
+  
+  const duplicates = existingBundles.filter(bundle => 
+    bundle.readableId === bundleId || bundle.id === bundleId
+  );
+  
+  return {
+    isDuplicate: duplicates.length > 0,
+    duplicates,
+    count: duplicates.length
+  };
+};
+
+// Function to generate unique bundle ID with suffix if needed
+export const generateUniqueBundleId = (bundleData, existingBundles) => {
+  let baseId = generateBundleId(bundleData);
+  let uniqueId = baseId;
+  let suffix = 1;
+  
+  while (checkForDuplicateBundleId(uniqueId, existingBundles).isDuplicate) {
+    uniqueId = `${baseId}-${suffix}`;
+    suffix++;
+  }
+  
+  return {
+    bundleId: uniqueId,
+    isUnique: uniqueId === baseId,
+    suffix: uniqueId === baseId ? 0 : suffix - 1
+  };
+};
+
+// Function to validate bundle ID format
+export const validateBundleId = (bundleId) => {
+  if (!bundleId || typeof bundleId !== 'string') {
+    return { isValid: false, error: 'Bundle ID is required' };
+  }
+  
+  const parsed = parseBundleId(bundleId);
+  if (!parsed) {
+    return { isValid: false, error: 'Invalid bundle ID format. Expected format: B:batch:article:S:size:color:pieces' };
+  }
+  
+  if (!parsed.batchNumber || !parsed.articleNumber || !parsed.size || !parsed.color || parsed.pieces === 0) {
+    return { isValid: false, error: 'Bundle ID contains missing or invalid components' };
+  }
+  
+  return { isValid: true, parsed };
 };

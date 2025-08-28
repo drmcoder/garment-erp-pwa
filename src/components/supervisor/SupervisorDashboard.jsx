@@ -10,6 +10,7 @@ import WIPDataManager from './WIPDataManager';
 import WIPProgressTracker from './WIPProgressTracker';
 import ProcessTemplateManager from './ProcessTemplateManager';
 import WorkAssignmentManager from './WorkAssignmentManager';
+import SelfAssignmentApproval from './SelfAssignmentApproval';
 import { 
   BarChart3, 
   Users, 
@@ -32,6 +33,7 @@ const SupervisorDashboard = () => {
   const [wipData, setWipData] = useState(null);
   const [showWorkAssignment, setShowWorkAssignment] = useState(false);
   const [showWIPProgress, setShowWIPProgress] = useState(false);
+  const [showSelfAssignmentApproval, setShowSelfAssignmentApproval] = useState(false);
   const [stats, setStats] = useState({
     totalOperators: 0,
     activeOperators: 0,
