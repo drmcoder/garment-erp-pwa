@@ -15,8 +15,17 @@ const WIPProgressTracker = ({ onClose }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [viewMode, setViewMode] = useState('overview'); // 'overview', 'timeline', 'journey', 'process_flow'
   const [groupBy, setGroupBy] = useState('lot'); // 'lot', 'roll', 'article'
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastFetched, setLastFetched] = useState(null);
 
-  const loadProgressData = useCallback(async () => {
+  const loadProgressData = useCallback(async (forceRefresh = false) => {
+    // Don't fetch if data was recently loaded and not forcing refresh
+    if (!forceRefresh && lastFetched && Date.now() - lastFetched < 30000) { // 30 seconds cache
+      console.log('🔄 Using cached WIP progress data (less than 30s old)');
+      return;
+    }
+    
+    setIsLoading(true);
     try {
       console.log('🔄 Loading WIP progress data from Firestore...');
       
@@ -61,6 +70,7 @@ const WIPProgressTracker = ({ onClose }) => {
       });
 
       setWipEntries(enhancedWipEntries);
+      setLastFetched(Date.now());
       
       addError({
         message: `${isNepali ? 'लोड गरियो' : 'Loaded'} ${enhancedWipEntries.length} ${isNepali ? 'WIP एन्ट्री' : 'WIP entries'}`,
@@ -76,12 +86,15 @@ const WIPProgressTracker = ({ onClose }) => {
         action: 'Load Data',
         data: { error: error.message }
       }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+    } finally {
+      setIsLoading(false);
     }
-  }, [addError, isNepali]);
+  }, [addError, isNepali, lastFetched]);
 
+  // Load data only once when component mounts
   useEffect(() => {
     loadProgressData();
-  }, [loadProgressData]);
+  }, []); // Empty dependency array - only run once on mount
 
   const calculateWIPProgress = (wip, wipWorkItems) => {
     if (!wipWorkItems || !Array.isArray(wipWorkItems) || !wipWorkItems.length) {
@@ -491,7 +504,10 @@ const WIPProgressTracker = ({ onClose }) => {
               {/* View Mode Toggle */}
               <div className="flex bg-white/20 rounded-lg p-1">
                 <button
-                  onClick={() => setViewMode('overview')}
+                  onClick={() => {
+                    console.log('🔄 Switching to overview view (using cached data)');
+                    setViewMode('overview');
+                  }}
                   className={`px-2 py-1 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'overview'
                       ? 'bg-white text-green-600 shadow-sm'
@@ -501,7 +517,10 @@ const WIPProgressTracker = ({ onClose }) => {
                   📋 {isNepali ? 'सारांश' : 'Overview'}
                 </button>
                 <button
-                  onClick={() => setViewMode('timeline')}
+                  onClick={() => {
+                    console.log('🔄 Switching to timeline view (using cached data)');
+                    setViewMode('timeline');
+                  }}
                   className={`px-2 py-1 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'timeline'
                       ? 'bg-white text-green-600 shadow-sm'
@@ -511,7 +530,10 @@ const WIPProgressTracker = ({ onClose }) => {
                   📅 {isNepali ? 'टाइमलाइन' : 'Timeline'}
                 </button>
                 <button
-                  onClick={() => setViewMode('journey')}
+                  onClick={() => {
+                    console.log('🔄 Switching to journey view (using cached data)');
+                    setViewMode('journey');
+                  }}
                   className={`px-2 py-1 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'journey'
                       ? 'bg-white text-green-600 shadow-sm'
@@ -521,7 +543,10 @@ const WIPProgressTracker = ({ onClose }) => {
                   🔄 {isNepali ? 'यात्रा' : 'Journey'}
                 </button>
                 <button
-                  onClick={() => setViewMode('process_flow')}
+                  onClick={() => {
+                    console.log('🔄 Switching to process flow view (using cached data)');
+                    setViewMode('process_flow');
+                  }}
                   className={`px-2 py-1 rounded-md text-sm font-medium transition-colors ${
                     viewMode === 'process_flow'
                       ? 'bg-white text-green-600 shadow-sm'
@@ -535,7 +560,10 @@ const WIPProgressTracker = ({ onClose }) => {
               {/* Group By Toggle */}
               <div className="flex bg-white/20 rounded-lg p-1">
                 <button
-                  onClick={() => setGroupBy('lot')}
+                  onClick={() => {
+                    console.log('🔄 Grouping by lot (using cached data)');
+                    setGroupBy('lot');
+                  }}
                   className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
                     groupBy === 'lot'
                       ? 'bg-white text-green-600 shadow-sm'
@@ -545,7 +573,10 @@ const WIPProgressTracker = ({ onClose }) => {
                   {isNepali ? 'लटवार' : 'Lot-wise'}
                 </button>
                 <button
-                  onClick={() => setGroupBy('roll')}
+                  onClick={() => {
+                    console.log('🔄 Grouping by roll (using cached data)');
+                    setGroupBy('roll');
+                  }}
                   className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
                     groupBy === 'roll'
                       ? 'bg-white text-green-600 shadow-sm'
@@ -555,7 +586,10 @@ const WIPProgressTracker = ({ onClose }) => {
                   {isNepali ? 'रोलवार' : 'Roll-wise'}
                 </button>
                 <button
-                  onClick={() => setGroupBy('article')}
+                  onClick={() => {
+                    console.log('🔄 Grouping by article (using cached data)');
+                    setGroupBy('article');
+                  }}
                   className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
                     groupBy === 'article'
                       ? 'bg-white text-green-600 shadow-sm'
@@ -586,7 +620,7 @@ const WIPProgressTracker = ({ onClose }) => {
               {/* Controls */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="flex space-x-4">
+                  <div className="flex items-center space-x-4">
                     <select
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value)}
@@ -597,12 +631,37 @@ const WIPProgressTracker = ({ onClose }) => {
                       <option value="in_progress">{isNepali ? 'प्रगतिमा' : 'In Progress'}</option>
                       <option value="completed">{isNepali ? 'सम्पन्न' : 'Completed'}</option>
                     </select>
+                    
+                    {/* Data Freshness Indicator */}
+                    {lastFetched && (
+                      <div className="text-xs text-gray-500 flex items-center space-x-1">
+                        <span>📊</span>
+                        <span>
+                          {isNepali ? 'डेटा अपडेट:' : 'Data updated:'} 
+                          {Math.floor((Date.now() - lastFetched) / 1000)}s {isNepali ? 'अघि' : 'ago'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   <button
-                    onClick={loadProgressData}
-                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                    onClick={() => loadProgressData(true)} // Force refresh
+                    disabled={isLoading}
+                    className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed flex items-center space-x-2"
                   >
-                    🔄 {isNepali ? 'रिफ्रेस' : 'Refresh'}
+                    {isLoading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        <span>{isNepali ? 'लोड गर्दै...' : 'Loading...'}</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>🔄</span>
+                        <span>{isNepali ? 'रिफ्रेस' : 'Refresh'}</span>
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

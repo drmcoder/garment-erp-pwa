@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { db, collection, getDocs } from '../../config/firebase';
 import { COLLECTIONS } from '../../config/firebase';
@@ -13,12 +13,7 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
   const [loading, setLoading] = useState(true);
   const [previewMode, setPreviewMode] = useState(false);
 
-  // Load available custom templates from Firestore
-  useEffect(() => {
-    loadCustomTemplates();
-  }, []);
-
-  const loadCustomTemplates = async () => {
+  const loadCustomTemplates = useCallback(async () => {
     setLoading(true);
     try {
       const templatesSnapshot = await getDocs(collection(db, COLLECTIONS.ARTICLE_TEMPLATES));
@@ -41,7 +36,12 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedArticle]);
+
+  // Load available custom templates from Firestore
+  useEffect(() => {
+    loadCustomTemplates();
+  }, [loadCustomTemplates]);
 
   const handleTemplateSelection = (template) => {
     setSelectedTemplate(template);
@@ -53,11 +53,6 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
   };
 
   const handleSaveProcedure = () => {
-    if (!selectedTemplate || procedureWorkflow.length === 0) {
-      alert(isNepali ? 'कृपया प्रक्रिया टेम्प्लेट छान्नुहोस्' : 'Please select a process template');
-      return;
-    }
-
     const configData = {
       template: selectedTemplate,
       workflow: procedureWorkflow,
@@ -124,9 +119,9 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
+        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-bold flex items-center">
@@ -134,7 +129,7 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
                 {isNepali ? 'सिलाई प्रक्रिया कन्फिगरेसन' : 'Sewing Procedure Configuration'}
               </h2>
               <p className="text-blue-100 mt-1">
-                {isNepali ? 'प्रक्रिया टेम्प्लेट छान्नुहोस्' : 'Select Production Process Template'}
+                {isNepali ? 'प्रक्रिया टेम्प्लेट छान्नुहोस् (वैकल्पिक)' : 'Select Production Process Template (Optional)'}
               </p>
               {selectedArticle && (
                 <div className="text-blue-200 text-sm mt-2">
@@ -144,7 +139,8 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
             </div>
             <button
               onClick={onCancel}
-              className="text-white hover:text-gray-200 p-2 rounded-full hover:bg-white hover:bg-opacity-20"
+              className="text-white hover:text-gray-200 p-2 rounded-full hover:bg-white hover:bg-opacity-30 transition-all duration-200"
+              title={isNepali ? 'बन्द गर्नुहोस्' : 'Close'}
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -153,7 +149,8 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
           </div>
         </div>
 
-        <div className="flex h-full max-h-[calc(95vh-120px)]">
+        {/* Content Area - with proper scrolling */}
+        <div className="flex flex-1 min-h-0">
           {/* Left Panel - Process Template Selection */}
           <div className="w-1/3 border-r border-gray-200 bg-gray-50">
             <div className="p-4">
@@ -308,7 +305,7 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
                       {procedureWorkflow
                         .sort((a, b) => (a.sequence || 0) - (b.sequence || 0))
                         .map((operation, index) => (
-                        <div key={operation.operation} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                        <div key={operation.operation || operation.name || index} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-4">
                               <div className="flex items-center justify-center w-8 h-8 bg-blue-100 text-blue-600 rounded-full text-sm font-bold">
@@ -317,7 +314,7 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
                               <div className="text-2xl">{getMachineIcon(operation.machine)}</div>
                               <div>
                                 <h4 className="font-semibold text-gray-900 capitalize">
-                                  {operation.operation.replace(/_/g, ' ')}
+                                  {operation.operation?.replace(/_/g, ' ') || operation.name || 'Unknown Operation'}
                                 </h4>
                                 <p className="text-sm text-gray-600">
                                   {operation.machine} • {operation.estimatedTime} {isNepali ? 'मिनेट' : 'minutes'}
@@ -381,22 +378,18 @@ const SewingProcedureConfig = ({ onSave, onCancel, selectedArticle }) => {
               )}
             </div>
             
-            <div className="flex space-x-3">
-              <button
-                onClick={onCancel}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-              >
-                {isNepali ? 'रद्द गर्नुहोस्' : 'Cancel'}
-              </button>
-              <button
-                onClick={handleSaveProcedure}
-                disabled={!selectedTemplate}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isNepali ? 'प्रक्रिया सेट गर्नुहोस्' : 'Set Procedure'}
-              </button>
-            </div>
           </div>
+        </div>
+        
+        {/* Fixed Footer with Submit Button */}
+        <div className="border-t border-gray-200 p-4 flex justify-end bg-gray-50 flex-shrink-0">
+          <button
+            onClick={handleSaveProcedure}
+            className="px-8 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center space-x-2"
+          >
+            <span>💾</span>
+            <span>{isNepali ? 'प्रक्रिया सेट गर्नुहोस्' : 'Set Procedure'}</span>
+          </button>
         </div>
       </div>
     </div>

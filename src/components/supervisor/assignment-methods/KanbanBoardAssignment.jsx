@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
 import { getMachineTypeIcon } from '../../../constants';
+import { MachineCompatibilityValidator } from '../../../utils/machineCompatibility';
 
 const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const { currentLanguage } = useLanguage();
@@ -18,11 +19,20 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
                          op.machine === 'overlock' ? '🔗' : 
                          op.machine === 'flatlock' ? '📎' : 
                          op.machine === 'buttonhole' ? '🕳️' : '⚙️';
+      
+      // Get assigned work items for this operator (multiple possible field names)
+      const assignedItems = workItems.filter(item => 
+        item.assignedTo === op.id || 
+        item.assignedOperator === op.id || 
+        item.operatorId === op.id ||
+        (item.status === 'assigned' && item.assignedTo === op.id)
+      );
+      
       return {
         id: op.id,
         title: `${machineIcon} ${op.name}`,
         subtitle: `${op.machine?.replace('-', ' ').toUpperCase()} | ${op.efficiency}% efficient`,
-        items: workItems.filter(item => item.assignedTo === op.id),
+        items: assignedItems,
         operator: op,
         color: getOperatorLoadColor(op.currentLoad, op.maxLoad)
       };
@@ -147,13 +157,37 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
     try {
       if (columnView === 'operators') {
         const operator = operators.find(op => op.id === columnId);
-        if (!operator || !isCompatibleOperator(draggedItem, operator)) {
-          addError({
-            message: currentLanguage === 'np'
+        if (!operator) return;
+
+        // Detailed validation using centralized validator
+        const validation = MachineCompatibilityValidator.validateAssignment(operator, draggedItem, {
+          checkWorkload: true,
+          checkAvailability: true
+        });
+
+        if (!validation.valid) {
+          const error = validation.errors[0];
+          let errorMessage;
+          
+          if (error.type === 'MACHINE_INCOMPATIBLE') {
+            errorMessage = currentLanguage === 'np'
+              ? `मेसिन बेमेल: ${operator.name} (${operator.machine}) ले ${draggedItem.machineType} काम गर्न सक्दैन`
+              : `Machine mismatch: ${operator.name} (${operator.machine}) cannot handle ${draggedItem.machineType} work`;
+          } else if (error.type === 'OPERATOR_UNAVAILABLE') {
+            errorMessage = currentLanguage === 'np'
+              ? `अपरेटर उपलब्ध छैन: ${operator.name} (${operator.status})`
+              : `Operator not available: ${operator.name} (${operator.status})`;
+          } else {
+            errorMessage = currentLanguage === 'np'
               ? 'यो अपरेटर यस काम प्रकारको लागि उपयुक्त छैन'
-              : 'This operator is not compatible with this work type',
+              : 'This operator is not compatible with this work type';
+          }
+
+          addError({
+            message: errorMessage,
             component: 'KanbanBoardAssignment',
-            action: 'Invalid Drop'
+            action: 'Invalid Drop Validation',
+            data: { validation }
           }, ERROR_TYPES.USER, ERROR_SEVERITY.MEDIUM);
           return;
         }
@@ -165,6 +199,7 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
           method: 'kanban-board'
         };
 
+        console.log('🔄 Kanban Assignment:', assignment);
         await onAssignmentComplete([assignment]);
         
         addError({
@@ -187,7 +222,8 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
   };
 
   const isCompatibleOperator = (item, operator) => {
-    return operator.machine === item.machineType || operator.machine === 'multi-skill';
+    const compatibility = MachineCompatibilityValidator.isCompatible(operator, item);
+    return compatibility.compatible;
   };
 
   // Using centralized machine type icons
@@ -210,28 +246,82 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
       onDragEnd={handleDragEnd}
       className={`bg-white border border-gray-200 rounded-lg p-3 mb-3 cursor-grab hover:shadow-md transition-all duration-200 ${getPriorityColor(item.priority)}`}
     >
+      {/* Bundle Header with Number and Priority */}
       <div className="flex items-start justify-between mb-2">
         <div className="flex items-center space-x-2">
           <span className="text-lg">{getMachineTypeIcon(item.machineType)}</span>
-          <div className="font-medium text-gray-800 text-sm">
-            Bundle #{item.bundleNumber}
+          <div className="font-bold text-gray-800 text-sm">
+            #{item.bundleNumber || item.id?.slice(-4) || 'N/A'}
           </div>
         </div>
-        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
-          {item.priority}
+        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded font-medium">
+          {item.priority || 'medium'}
         </span>
       </div>
       
-      <div className="text-sm text-gray-600 space-y-1">
-        <div>{item.articleName} - {item.size}</div>
-        <div className="flex items-center justify-between">
-          <span>🔢 {item.pieces} pieces</span>
-          <span>⏱️ {item.estimatedTime}min</span>
-        </div>
-        <div className="text-xs text-gray-500">{item.operation}</div>
+      {/* Article and Color */}
+      <div className="text-sm font-medium text-gray-800 mb-1">
+        {item.articleName || item.article || 'Unknown Article'}
       </div>
+      
+      {/* Color Display */}
+      <div className="flex items-center space-x-2 mb-2">
+        <div className="flex items-center space-x-1">
+          <div className="w-3 h-3 rounded-full border border-gray-300" 
+               style={{backgroundColor: getColorValue(item.color)}}
+               title={item.color}
+          ></div>
+          <span className="text-xs font-medium text-gray-700">
+            {item.color || 'N/A'}
+          </span>
+        </div>
+        <span className="text-xs text-gray-500">
+          {item.size || 'N/A'}
+        </span>
+      </div>
+      
+      {/* Operation */}
+      <div className="text-xs font-medium text-blue-700 bg-blue-50 px-2 py-1 rounded mb-2">
+        ⚙️ {item.operation || item.currentOperation || 'No Operation'}
+      </div>
+      
+      {/* Pieces and Time */}
+      <div className="flex items-center justify-between text-xs text-gray-600">
+        <span className="flex items-center space-x-1">
+          <span>🔢</span>
+          <span className="font-medium">{item.pieces || 0} pcs</span>
+        </span>
+        <span className="flex items-center space-x-1">
+          <span>⏱️</span>
+          <span className="font-medium">{item.estimatedTime || 0}min</span>
+        </span>
+      </div>
+      
+      {/* Assignment Info (if assigned) */}
+      {(item.assignedAt || item.status === 'assigned') && (
+        <div className="mt-2 pt-2 border-t border-gray-100 text-xs text-green-600">
+          ✅ Assigned {item.assignedAt ? new Date(item.assignedAt).toLocaleTimeString() : 'recently'}
+        </div>
+      )}
     </div>
   );
+
+  // Helper function to get color value for display
+  const getColorValue = (colorName) => {
+    const colorMap = {
+      'red': '#ef4444',
+      'blue': '#3b82f6',
+      'green': '#10b981',
+      'yellow': '#f59e0b',
+      'black': '#374151',
+      'white': '#f3f4f6',
+      'gray': '#6b7280',
+      'pink': '#ec4899',
+      'purple': '#8b5cf6',
+      'orange': '#f97316'
+    };
+    return colorMap[colorName?.toLowerCase()] || '#d1d5db';
+  };
 
   const currentColumns = columns[columnView];
 
@@ -312,9 +402,20 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
                 
                 {/* Operator specific info */}
                 {column.operator && (
-                  <div className="mt-2 text-xs text-gray-600">
+                  <div className="mt-2 text-xs text-gray-600 space-y-1">
                     <div>📊 {column.operator.currentLoad}/{column.operator.maxLoad} load</div>
                     <div>⚡ {column.operator.efficiency}% efficiency</div>
+                    {/* Current Work */}
+                    {column.operator.currentWork && (
+                      <div className="bg-blue-50 rounded px-2 py-1 mt-1">
+                        <div className="text-blue-700 font-medium">
+                          🔄 Current: {column.operator.currentWork.bundleNumber || column.operator.currentWork.slice(-4)}
+                        </div>
+                        <div className="text-blue-600 text-xs">
+                          {column.operator.currentWorkOperation || 'In Progress'}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -324,8 +425,81 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
                 {column.items.map(renderWorkItem)}
               </div>
 
-              {/* Drop Zone Indicator */}
-              {column.items.length === 0 && (
+              {/* Drop Zone Indicator or Quick Assignment */}
+              {column.items.length === 0 && column.operator ? (
+                <div className="text-center py-6 text-gray-400">
+                  <div className="text-2xl mb-2">📦</div>
+                  <p className="text-xs mb-3">
+                    {currentLanguage === 'np' 
+                      ? 'यहाँ काम आइटम ड्रप गर्नुहोस्'
+                      : 'Drop work items here'
+                    }
+                  </p>
+                  
+                  {/* Quick Assignment Section */}
+                  <div className="border-t border-gray-200 pt-3 mt-3">
+                    <p className="text-xs font-medium text-gray-600 mb-2">
+                      {currentLanguage === 'np' ? 'वा छिटो असाइन गर्नुहोस्:' : 'Or quick assign:'}
+                    </p>
+                    
+                    {/* Compatible Work Dropdown */}
+                    {workItems.filter(item => 
+                      item.status === 'ready' && 
+                      (column.operator.machine === item.machineType || column.operator.machine === 'multi-skill')
+                    ).length > 0 && (
+                      <div className="space-y-2">
+                        <select 
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500"
+                          id={`quick-assign-${column.operator.id}`}
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              console.log(`Quick assigning ${e.target.value} to ${column.operator.id}`);
+                            }
+                          }}
+                        >
+                          <option value="">
+                            {currentLanguage === 'np' ? 'काम छान्नुहोस्' : 'Select Work'}
+                          </option>
+                          {workItems
+                            .filter(item => 
+                              item.status === 'ready' && 
+                              (column.operator.machine === item.machineType || column.operator.machine === 'multi-skill')
+                            )
+                            .map((item) => (
+                            <option key={item.id} value={item.id}>
+                              #{item.bundleNumber || item.id.slice(-4)} - {item.color} ({item.pieces}pcs)
+                            </option>
+                          ))}
+                        </select>
+                        
+                        <button
+                          className="w-full px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                          onClick={() => {
+                            const selectElement = document.getElementById(`quick-assign-${column.operator.id}`);
+                            const selectedItemId = selectElement.value;
+                            if (selectedItemId) {
+                              const item = workItems.find(w => w.id === selectedItemId);
+                              if (item) {
+                                const assignment = {
+                                  workItemId: item.id,
+                                  operatorId: column.operator.id,
+                                  assignedAt: new Date(),
+                                  method: 'kanban-quick-assign'
+                                };
+                                console.log('⚡ Quick Assignment:', assignment);
+                                onAssignmentComplete([assignment]);
+                                selectElement.value = '';
+                              }
+                            }
+                          }}
+                        >
+                          ✅ {currentLanguage === 'np' ? 'असाइन गर्नुहोस्' : 'Assign'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : column.items.length === 0 ? (
                 <div className="text-center py-8 text-gray-400">
                   <div className="text-2xl mb-2">📦</div>
                   <p className="text-xs">
@@ -335,7 +509,7 @@ const KanbanBoardAssignment = ({ workItems, operators, onAssignmentComplete }) =
                     }
                   </p>
                 </div>
-              )}
+              ) : null}
             </div>
           ))}
         </div>

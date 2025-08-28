@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
 import { getMachineTypeIcon } from '../../../constants';
+import { MachineCompatibilityValidator } from '../../../utils/machineCompatibility';
 
 const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const { currentLanguage } = useLanguage();
@@ -27,9 +28,9 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
   };
 
   const getCompatibleWorkItems = (operator) => {
-    return workItems.filter(item => 
-      item.status === 'ready' && 
-      (operator.machine === item.machineType || operator.machine === 'multi-skill')
+    return MachineCompatibilityValidator.getCompatibleWorkItems(
+      workItems.filter(item => item.status === 'ready'), 
+      operator
     );
   };
 
@@ -46,15 +47,72 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
     }
 
     try {
-      const assignments = Array.from(selectedItems).map(itemId => ({
-        workItemId: itemId,
-        operatorId: selectedOperator.id,
-        assignedAt: new Date(),
-        method: 'user-profile-view'
-      }));
+      // Validate all selected assignments before proceeding
+      const assignmentValidations = [];
+      const validAssignments = [];
+      
+      for (const itemId of selectedItems) {
+        const workItem = workItems.find(item => item.id === itemId);
+        if (!workItem) continue;
+        
+        const validation = MachineCompatibilityValidator.validateAssignment(selectedOperator, workItem, {
+          checkWorkload: true,
+          checkAvailability: true
+        });
+        
+        if (validation.valid) {
+          validAssignments.push({
+            workItemId: itemId,
+            operatorId: selectedOperator.id,
+            assignedAt: new Date(),
+            method: 'user-profile-view',
+            workItem,
+            validation
+          });
+        } else {
+          assignmentValidations.push({
+            workItemId: itemId,
+            workItem,
+            validation,
+            valid: false
+          });
+        }
+      }
 
-      await onAssignmentComplete(assignments);
-      setSelectedItems(new Set());
+      // Show errors for invalid assignments
+      if (assignmentValidations.length > 0) {
+        const invalidCount = assignmentValidations.length;
+        const errorMessage = currentLanguage === 'np'
+          ? `${invalidCount} काम असाइन गर्न सकिएन - मेसिन बेमेल`
+          : `${invalidCount} work items cannot be assigned - machine incompatibility`;
+        
+        addError({
+          message: errorMessage,
+          component: 'UserProfileAssignment',
+          action: 'Assignment Validation Failed',
+          data: { invalidAssignments: assignmentValidations }
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.MEDIUM);
+      }
+
+      // Proceed with valid assignments only
+      if (validAssignments.length > 0) {
+        await onAssignmentComplete(validAssignments.map(a => ({
+          workItemId: a.workItemId,
+          operatorId: a.operatorId,
+          assignedAt: a.assignedAt,
+          method: a.method
+        })));
+        
+        setSelectedItems(new Set());
+        
+        addError({
+          message: currentLanguage === 'np'
+            ? `${validAssignments.length} काम सफलतापूर्वक असाइन गरियो`
+            : `${validAssignments.length} work items successfully assigned`,
+          component: 'UserProfileAssignment',
+          action: 'Assignment Success'
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+      }
       
     } catch (error) {
       addError({
@@ -98,9 +156,9 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with Batch Assignment */}
       <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-xl font-semibold text-gray-800 mb-2">
               👤 {currentLanguage === 'np' ? 'यूजर प्रोफाइल असाइनमेन्ट व्यू' : 'User Profile Assignment View'}
@@ -136,6 +194,7 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
             </button>
           </div>
         </div>
+
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
@@ -145,7 +204,7 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
             {currentLanguage === 'np' ? 'अपरेटरहरू' : 'Operators'}
           </h3>
           
-          <div className={viewMode === 'grid' ? 'space-y-3' : 'space-y-2'}>
+          <div className={`${viewMode === 'grid' ? 'space-y-3' : 'space-y-2'} max-h-[600px] overflow-y-auto pr-2`}>
             {operators.map((operator) => {
               const stats = getOperatorStats(operator);
               const isSelected = selectedOperator?.id === operator.id;
@@ -192,14 +251,29 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
                   </div>
                   
                   <div className="mt-3 pt-3 border-t border-gray-100">
-                    <div className="flex justify-between text-xs text-gray-500">
+                    {/* Simple Stats Row */}
+                    <div className="flex justify-between text-xs text-gray-600">
                       <span>
-                        {currentLanguage === 'np' ? 'उपलब्ध काम:' : 'Available Work:'} {stats.compatibleWork}
+                        {currentLanguage === 'np' ? 'उपलब्ध काम:' : 'Available:'} {stats.compatibleWork}
                       </span>
                       <span>
-                        {currentLanguage === 'np' ? 'जम्मा टुक्रा:' : 'Total Pieces:'} {stats.totalPieces}
+                        {currentLanguage === 'np' ? 'जम्मा:' : 'Total:'} {stats.totalPieces} pcs
+                      </span>
+                      <span className={`px-2 py-1 rounded text-xs ${getWorkloadColor(stats.workloadPercentage)}`}>
+                        {stats.workloadPercentage}% Load
                       </span>
                     </div>
+                    
+                    {/* Simple Quick Assign Button */}
+                    {stats.compatibleWork > 0 && (
+                      <button
+                        className="w-full mt-2 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+                        onClick={() => handleOperatorSelect(operator)}
+                      >
+                        <span>👤</span>
+                        <span>{currentLanguage === 'np' ? 'काम असाइन गर्नुहोस्' : 'Assign Work'}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               );

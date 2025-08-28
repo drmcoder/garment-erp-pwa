@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
 import { getMachineTypeIcon } from '../../../constants';
+import { MachineCompatibilityValidator } from '../../../utils/machineCompatibility';
 
 // Nepali date utilities
 const getNepaliDateTime = () => {
@@ -89,18 +90,64 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
     dragCounterRef.current = 0;
     setDragOverOperator(null);
 
-    if (!draggedItem || !isCompatibleOperator(draggedItem, operatorId)) {
-      addError({
-        message: currentLanguage === 'np'
+    if (!draggedItem) return;
+
+    // Detailed validation with specific error messages
+    const operator = operators.find(op => op.id === operatorId);
+    const validation = MachineCompatibilityValidator.validateAssignment(operator, draggedItem, {
+      checkWorkload: true,
+      checkAvailability: true
+    });
+
+    if (!validation.valid) {
+      const error = validation.errors[0]; // Get the first error
+      let errorMessage;
+      
+      if (error.type === 'MACHINE_INCOMPATIBLE') {
+        errorMessage = currentLanguage === 'np'
+          ? `मेसिन बेमेल: ${operator.name} (${operator.machine}) ले ${draggedItem.machineType} काम गर्न सक्दैन`
+          : `Machine mismatch: ${operator.name} (${operator.machine}) cannot handle ${draggedItem.machineType} work`;
+      } else if (error.type === 'OPERATOR_UNAVAILABLE') {
+        errorMessage = currentLanguage === 'np'
+          ? `अपरेटर उपलब्ध छैन: ${operator.name}`
+          : `Operator unavailable: ${operator.name}`;
+      } else {
+        errorMessage = currentLanguage === 'np'
           ? 'यो अपरेटर यस काम प्रकारको लागि उपयुक्त छैन'
-          : 'This operator is not compatible with this work type',
+          : 'This operator is not compatible with this work type';
+      }
+
+      addError({
+        message: errorMessage,
         component: 'DragDropAssignment',
-        action: 'Invalid Drop'
+        action: 'Invalid Drop',
+        data: { 
+          operatorMachine: operator.machine,
+          workMachine: draggedItem.machineType,
+          validationErrors: validation.errors
+        }
       }, ERROR_TYPES.USER, ERROR_SEVERITY.MEDIUM);
       return;
     }
 
-    const operator = operators.find(op => op.id === operatorId);
+    // Show warnings if any
+    if (validation.warnings.length > 0) {
+      validation.warnings.forEach(warning => {
+        let warningMessage = warning.message;
+        if (warning.type === 'OPERATOR_OVERLOADED') {
+          warningMessage = currentLanguage === 'np'
+            ? `चेतावनी: ${operator.name} ले पहिले नै धेरै काम छ`
+            : `Warning: ${operator.name} already has heavy workload`;
+        }
+        
+        addError({
+          message: warningMessage,
+          component: 'DragDropAssignment',
+          action: 'Assignment Warning'
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+      });
+    }
+
     const dateTime = getNepaliDateTime();
     const newAssignment = {
       workItemId: draggedItem.id,
@@ -142,7 +189,18 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
 
   const isCompatibleOperator = (item, operatorId) => {
     const operator = operators.find(op => op.id === operatorId);
-    return operator && (operator.machine === item.machineType || operator.machine === 'multi-skill');
+    if (!operator || !item) return false;
+    
+    // Use centralized validation
+    const compatibility = MachineCompatibilityValidator.isCompatible(operator, item);
+    
+    if (compatibility.compatible) {
+      console.log('✅ Machine compatibility:', compatibility.reason);
+    } else {
+      console.log('❌ Machine incompatibility:', compatibility.reason);
+    }
+    
+    return compatibility.compatible;
   };
 
   const handleBulkConfirm = async () => {

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
 import { getMachineTypeIcon } from '../../../constants';
+import { MachineCompatibilityValidator } from '../../../utils/machineCompatibility';
 
 const QuickActionAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const { currentLanguage } = useLanguage();
@@ -15,6 +16,35 @@ const QuickActionAssignment = ({ workItems, operators, onAssignmentComplete }) =
 
   const handleQuickAssign = async (workItem, operator) => {
     try {
+      // Validate assignment before proceeding
+      const validation = MachineCompatibilityValidator.validateAssignment(operator, workItem, {
+        checkWorkload: true,
+        checkAvailability: true
+      });
+
+      if (!validation.valid) {
+        const error = validation.errors[0];
+        let errorMessage;
+        
+        if (error.type === 'MACHINE_INCOMPATIBLE') {
+          errorMessage = currentLanguage === 'np'
+            ? `मेसिन बेमेल: ${operator.name} (${operator.machine}) ले ${workItem.machineType} काम गर्न सक्दैन`
+            : `Machine mismatch: ${operator.name} (${operator.machine}) cannot handle ${workItem.machineType} work`;
+        } else {
+          errorMessage = currentLanguage === 'np'
+            ? 'असाइनमेन्ट असफल भयो - अनुकूलता जाँच गर्नुहोस्'
+            : 'Assignment failed - check compatibility';
+        }
+
+        addError({
+          message: errorMessage,
+          component: 'QuickActionAssignment',
+          action: 'Quick Assign Validation Failed',
+          data: { validation }
+        }, ERROR_TYPES.USER, ERROR_SEVERITY.MEDIUM);
+        return;
+      }
+
       const assignment = {
         workItemId: workItem.id,
         operatorId: operator.id,
@@ -64,9 +94,7 @@ const QuickActionAssignment = ({ workItems, operators, onAssignmentComplete }) =
       const availableOperators = operators.filter(op => op.status === 'available');
       
       urgentItems.forEach(item => {
-        const compatibleOps = availableOperators.filter(op => 
-          op.machine === item.machineType || op.machine === 'multi-skill'
-        );
+        const compatibleOps = MachineCompatibilityValidator.getCompatibleOperators(availableOperators, item);
         
         if (compatibleOps.length > 0) {
           // Find best operator based on efficiency and workload
@@ -76,15 +104,23 @@ const QuickActionAssignment = ({ workItems, operators, onAssignmentComplete }) =
             return currentScore > bestScore ? current : best;
           });
 
-          assignments.push({
-            workItemId: item.id,
-            operatorId: bestOp.id,
-            assignedAt: new Date(),
-            method: 'bulk-quick-action'
+          // Final validation before adding to assignments
+          const validation = MachineCompatibilityValidator.validateAssignment(bestOp, item, {
+            checkWorkload: true,
+            checkAvailability: true
           });
 
-          // Update operator load for next assignment
-          bestOp.currentLoad += 1;
+          if (validation.valid) {
+            assignments.push({
+              workItemId: item.id,
+              operatorId: bestOp.id,
+              assignedAt: new Date(),
+              method: 'bulk-quick-action'
+            });
+
+            // Update operator load for next assignment
+            bestOp.currentLoad += 1;
+          }
         }
       });
 
@@ -212,6 +248,23 @@ const QuickActionAssignment = ({ workItems, operators, onAssignmentComplete }) =
     }
   };
 
+  // Helper function to get color value for display
+  const getColorValue = (colorName) => {
+    const colorMap = {
+      'red': '#ef4444',
+      'blue': '#3b82f6', 
+      'green': '#10b981',
+      'yellow': '#f59e0b',
+      'black': '#374151',
+      'white': '#f3f4f6',
+      'gray': '#6b7280',
+      'pink': '#ec4899',
+      'purple': '#8b5cf6',
+      'orange': '#f97316'
+    };
+    return colorMap[colorName?.toLowerCase()] || '#d1d5db';
+  };
+
   const filteredItems = getFilteredItems();
 
   return (
@@ -313,39 +366,69 @@ const QuickActionAssignment = ({ workItems, operators, onAssignmentComplete }) =
       </div>
 
       {/* Quick Assignment Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredItems.map((item) => {
+      <div className="max-h-[800px] overflow-y-auto pr-2">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredItems.map((item) => {
           const compatibleOps = getCompatibleOperators(item);
           
           return (
             <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                  <span className="text-xl">{getMachineTypeIcon(item.machineType)}</span>
-                  <div>
-                    <div className="font-medium text-gray-800">
-                      Bundle #{item.bundleNumber}
-                    </div>
-                    <div className="text-sm text-gray-600">
-                      {item.articleName} - {item.size}
+              {/* Enhanced Bundle Header */}
+              <div className="border-b border-gray-100 pb-3 mb-3">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex items-center space-x-3">
+                    <span className="text-xl">{getMachineTypeIcon(item.machineType)}</span>
+                    <div>
+                      <div className="font-bold text-gray-800 text-lg">
+                        #{item.bundleNumber || item.id?.slice(-4) || 'N/A'}
+                      </div>
+                      <div className="text-sm text-gray-600 font-medium">
+                        {item.articleName || item.article || 'Unknown Article'}
+                      </div>
                     </div>
                   </div>
+                  <span className={`px-2 py-1 text-xs font-medium rounded ${getPriorityColor(item.priority)}`}>
+                    {item.priority || 'medium'}
+                  </span>
                 </div>
-                <span className={`px-2 py-1 text-xs font-medium rounded ${getPriorityColor(item.priority)}`}>
-                  {item.priority}
-                </span>
+
+                {/* Color and Size */}
+                <div className="flex items-center space-x-4 mb-2">
+                  <div className="flex items-center space-x-2">
+                    <div className="w-4 h-4 rounded-full border-2 border-gray-300" 
+                         style={{backgroundColor: getColorValue(item.color)}}
+                         title={item.color}
+                    ></div>
+                    <span className="text-sm font-medium text-gray-700">
+                      {item.color || 'N/A'}
+                    </span>
+                  </div>
+                  <span className="text-sm text-gray-600">
+                    Size: {item.size || 'N/A'}
+                  </span>
+                </div>
+
+                {/* Operation - Most Important */}
+                <div className="bg-blue-50 border border-blue-200 rounded px-3 py-2">
+                  <div className="text-sm font-bold text-blue-800">
+                    ⚙️ {item.operation || item.currentOperation || 'No Operation Specified'}
+                  </div>
+                  <div className="text-xs text-blue-600">
+                    Machine: {item.machineType || 'Unknown'}
+                  </div>
+                </div>
               </div>
 
-              <div className="text-sm text-gray-600 mb-3 space-y-1">
-                <div className="flex justify-between">
-                  <span>🔢 Pieces:</span>
-                  <span className="font-medium">{item.pieces}</span>
+              {/* Work Details */}
+              <div className="grid grid-cols-2 gap-3 mb-4 text-sm">
+                <div className="bg-gray-50 rounded px-3 py-2 text-center">
+                  <div className="text-lg font-bold text-gray-800">🔢 {item.pieces || 0}</div>
+                  <div className="text-xs text-gray-600">Pieces</div>
                 </div>
-                <div className="flex justify-between">
-                  <span>⏱️ Time:</span>
-                  <span className="font-medium">{item.estimatedTime}min</span>
+                <div className="bg-gray-50 rounded px-3 py-2 text-center">
+                  <div className="text-lg font-bold text-gray-800">⏱️ {item.estimatedTime || 0}</div>
+                  <div className="text-xs text-gray-600">Minutes</div>
                 </div>
-                <div className="text-xs text-gray-500">{item.operation}</div>
               </div>
 
               {/* Quick Assignment Buttons */}
@@ -412,6 +495,7 @@ const QuickActionAssignment = ({ workItems, operators, onAssignmentComplete }) =
             </div>
           );
         })}
+        </div>
       </div>
 
       {filteredItems.length === 0 && (

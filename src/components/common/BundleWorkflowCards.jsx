@@ -13,8 +13,8 @@ const BundleWorkflowCards = ({
   const { currentLanguage } = useLanguage();
   const [expandedCard, setExpandedCard] = useState(null);
   
-  // Get operations from template or work items
-  const operations = workItems.length > 0 
+  // Get operations from template or work items - ensure always defined
+  const operations = (workItems && workItems.length > 0) 
     ? workItems.map(item => ({
         id: item.operationId || item.operation?.id,
         name: currentLanguage === 'np' 
@@ -24,15 +24,20 @@ const BundleWorkflowCards = ({
         status: item.status || 'pending',
         sequence: item.operation?.sequence || item.sequence || 1,
         machineType: item.machineType || item.operation?.machineType,
-        estimatedTime: item.estimatedTime || item.operation?.estimatedTimePerPiece * bundle.pieces,
+        estimatedTime: item.estimatedTime || (item.operation?.estimatedTimePerPiece && bundle?.pieces ? item.operation.estimatedTimePerPiece * bundle.pieces : 0),
         assignedOperator: item.assignedOperator,
         completedPieces: item.completedPieces || 0,
-        totalPieces: item.pieces || bundle.pieces,
+        totalPieces: item.pieces || bundle?.pieces || 0,
         skillLevel: item.operation?.skillLevel || item.skillLevel,
-        rate: item.operation?.rate || item.rate,
+        rate: item.operation?.rate || item.rate || 0,
         dependencies: item.dependencies || []
       }))
     : [];
+
+  // Early return if no bundle provided
+  if (!bundle) {
+    return <div className="text-gray-500 text-center p-4">No bundle data available</div>;
+  }
 
   const getStatusIcon = (status) => {
     const icons = {
@@ -89,11 +94,11 @@ const BundleWorkflowCards = ({
         <div className="bg-white rounded-lg shadow-sm border p-3 mb-3">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">
-              <span className="text-base font-bold text-gray-800">{bundle.bundleId}</span>
+              <span className="text-base font-bold text-gray-800">{bundle.bundleId || bundle.id || 'N/A'}</span>
               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                 {typeof bundle.articleNumber === 'string' 
                   ? bundle.articleNumber 
-                  : bundle.articleNumber?.name || bundle.articleNumber?.en || bundle.articleNumber || 'Unknown'} • {bundle.color} • {bundle.size}
+                  : bundle.articleNumber?.name || bundle.articleNumber?.en || bundle.articleNumber || 'Unknown'} • {bundle.color || 'N/A'} • {bundle.size || 'N/A'}
               </span>
             </div>
             <div className="flex items-center space-x-2">
@@ -128,7 +133,7 @@ const BundleWorkflowCards = ({
           </div>
           
           <div className="text-xs text-gray-500 text-center">
-            {bundle.pieces} {currentLanguage === 'np' ? 'पिस' : 'pieces'} • {operations.length} {currentLanguage === 'np' ? 'चरणहरू' : 'steps'}
+            {bundle.pieces || 0} {currentLanguage === 'np' ? 'पिस' : 'pieces'} • {operations.length} {currentLanguage === 'np' ? 'चरणहरू' : 'steps'}
           </div>
         </div>
       )}

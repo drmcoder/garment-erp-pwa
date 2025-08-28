@@ -522,11 +522,8 @@ const ProcessTemplateManager = ({ onTemplateSelect, onClose }) => {
         const combinedTemplates = [...availableDefaultTemplates, ...allCustomTemplates];
         setTemplates(combinedTemplates);
         
-        addError({
-          message: `Loaded ${allCustomTemplates.length} custom templates (${firestoreTemplates.length} from Firestore), ${availableDefaultTemplates.length} default templates`,
-          component: 'ProcessTemplateManager',
-          action: 'Load Templates'
-        }, ERROR_TYPES.USER, ERROR_SEVERITY.LOW);
+        // Log success message to console instead of showing persistent dialog
+        console.log(`✅ Loaded ${allCustomTemplates.length} custom templates (${firestoreTemplates.length} from Firestore), ${availableDefaultTemplates.length} default templates`);
         
       } catch (error) {
         console.error('Error loading custom templates:', error);
