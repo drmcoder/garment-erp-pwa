@@ -23,6 +23,15 @@ const SelfAssignmentApproval = () => {
     try {
       console.log('🔍 Loading pending self-assignments for supervisor approval...');
       
+      // First, load all operators to get names
+      const operatorsQuery = query(collection(db, COLLECTIONS.OPERATORS));
+      const operatorsSnapshot = await getDocs(operatorsQuery);
+      const operatorsMap = {};
+      operatorsSnapshot.forEach(doc => {
+        const operatorData = doc.data();
+        operatorsMap[doc.id] = operatorData.name || operatorData.nameEn || operatorData.username || 'Unknown Operator';
+      });
+      
       const assignments = [];
       
       // Check workItems collection for self-assignments
@@ -32,8 +41,17 @@ const SelfAssignmentApproval = () => {
       );
       
       const workItemsSnapshot = await getDocs(workItemsQuery);
+      console.log(`🔍 Found ${workItemsSnapshot.docs.length} work items with status 'self_assigned'`);
+      
       workItemsSnapshot.forEach((doc) => {
         const workData = doc.data();
+        console.log(`🔍 Checking work item ${doc.id}:`, {
+          status: workData.status,
+          assignedOperator: workData.assignedOperator,
+          assignedBy: workData.assignedBy,
+          isSelfAssignment: workData.assignedOperator === workData.assignedBy
+        });
+        
         // Check if this is a self-assignment (assignedOperator === assignedBy)
         if (workData.assignedOperator === workData.assignedBy) {
           const bundleWithReadableId = updateBundleWithReadableId(workData);
@@ -49,7 +67,7 @@ const SelfAssignmentApproval = () => {
               workData.assignedAt instanceof Date ? workData.assignedAt : 
               new Date(workData.assignedAt)
             ) : new Date(),
-            operatorName: workData.operatorName || 'Unknown Operator'
+            operatorName: operatorsMap[workData.assignedOperator] || 'Unknown Operator'
           });
         }
       });
@@ -78,7 +96,7 @@ const SelfAssignmentApproval = () => {
               workData.assignedAt instanceof Date ? workData.assignedAt : 
               new Date(workData.assignedAt)
             ) : new Date(),
-            operatorName: workData.operatorName || 'Unknown Operator'
+            operatorName: operatorsMap[workData.assignedOperator] || 'Unknown Operator'
           });
         }
       });

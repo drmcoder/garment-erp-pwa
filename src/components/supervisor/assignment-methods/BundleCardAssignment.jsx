@@ -212,6 +212,9 @@ const BundleCardAssignment = ({ workItems, operators, onAssignmentComplete }) =>
                         <div>📦 {item.articleName} - {item.size}</div>
                         <div>🔢 {item.pieces} pieces | ⏱️ {item.estimatedTime}min</div>
                         <div>🏷️ {item.operation}</div>
+                        <div>🎨 {item.color}</div>
+                        <div>📋 Article: {item.article}</div>
+                        <div>🏭 Lot: {item.lotNumber}</div>
                       </div>
                     </div>
                   </div>

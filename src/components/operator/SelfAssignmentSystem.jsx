@@ -136,7 +136,10 @@ const SelfAssignmentSystem = () => {
               englishPriority: bundle.priority || 'medium',
               difficulty: calculateDifficulty(bundle),
               englishDifficulty: calculateDifficulty(bundle),
-              recommendations: generateRecommendations(bundle, user)
+              recommendations: generateRecommendations(bundle, user),
+              // Preserve WIP identification fields for assignment logic
+              wipEntryId: bundle.wipEntryId,
+              currentOperation: bundle.currentOperation
             };
           });
 
@@ -349,20 +352,21 @@ const SelfAssignmentSystem = () => {
         );
       }
 
-      // Pre-validate bundle exists by checking current available bundles
-      const currentBundles = await BundleService.getAvailableBundles();
-      if (currentBundles.success) {
-        const bundleExists = currentBundles.bundles.some(bundle => bundle.id === selectedWork.id);
-        if (!bundleExists) {
-          throw new Error(`Bundle ${selectedWork.id} not found in Firestore - it may have been assigned to another operator`);
-        }
-      }
+      // Pre-validate work item exists by checking current available work (includes both bundles and WIP items)
+      // Skip this validation for now as getAvailableBundles only checks traditional bundles, not WIP items
+      // TODO: Implement a unified validation that checks both bundles and WIP work items
 
       // Self-assign work using appropriate service based on work item type
       let assignResult;
       
       // Check if this is a WIP work item (has wipEntryId) or traditional bundle
       const isWIPWorkItem = selectedWork.wipEntryId || selectedWork.currentOperation;
+      console.log(`🔍 Work item check:`, {
+        id: selectedWork.id,
+        wipEntryId: selectedWork.wipEntryId,
+        currentOperation: selectedWork.currentOperation,
+        isWIPWorkItem
+      });
       
       if (isWIPWorkItem) {
         console.log(`🔄 Self-assigning WIP work item: ${selectedWork.currentOperation} on ${selectedWork.machineType}`);
@@ -372,6 +376,7 @@ const SelfAssignmentSystem = () => {
           user.id, // Self-assignment, so assignedBy is the operator themselves
           'self_assigned' // Set special status for supervisor approval
         );
+        console.log(`🔍 WIP assignment result:`, assignResult);
       } else {
         console.log(`🔄 Self-assigning traditional bundle: ${selectedWork.id}`);
         assignResult = await BundleService.assignBundle(
@@ -380,6 +385,7 @@ const SelfAssignmentSystem = () => {
           user.id, // Self-assignment, so assignedBy is the operator themselves
           'self_assigned' // Set special status for supervisor approval
         );
+        console.log(`🔍 Bundle assignment result:`, assignResult);
       }
 
       if (!assignResult.success) {
@@ -406,35 +412,21 @@ const SelfAssignmentSystem = () => {
 
       console.log(`✅ Successfully assigned bundle ${selectedWork.id} to ${user.id}`);
 
-      // Automatically start the work and update status to 'working'
-      try {
-        let startResult;
-        
-        if (isWIPWorkItem) {
-          // Start WIP work item - update status to 'in_progress' (working)
-          startResult = await WIPService.startWorkItem(selectedWork.id, user.id);
-        } else {
-          // Start traditional bundle work
-          startResult = await BundleService.startWork(selectedWork.id, user.id);
-        }
+      // For self-assignments, DO NOT auto-start - leave in 'self_assigned' status for supervisor approval
+      console.log(`📋 Self-assignment completed - work item stays in 'self_assigned' status for supervisor approval`);
+      
+      // Skip auto-starting for self-assignments to allow supervisor approval process
 
-        if (startResult && startResult.success) {
-          console.log(`✅ Work automatically started - status updated to 'working'`);
-        }
-      } catch (startError) {
-        console.warn('⚠️ Work assigned but failed to auto-start:', startError.message);
-      }
-
-      // Update operator status to 'working' in the operators collection
+      // Update operator status to 'pending_approval' since work is self-assigned but not started
       try {
         await updateDoc(doc(db, COLLECTIONS.OPERATORS, user.id), {
-          status: 'working',
+          status: 'pending_approval',
           currentWork: selectedWork.id,
           currentWorkType: isWIPWorkItem ? 'wip_item' : 'bundle',
-          workStartedAt: new Date().toISOString(),
+          selfAssignedAt: new Date().toISOString(),
           lastUpdated: new Date().toISOString()
         });
-        console.log(`✅ Operator status updated to 'working'`);
+        console.log(`✅ Operator status updated to 'pending_approval' for self-assignment`);
       } catch (operatorUpdateError) {
         console.warn('⚠️ Failed to update operator status:', operatorUpdateError.message);
       }
@@ -511,28 +503,28 @@ const SelfAssignmentSystem = () => {
       // Update the work item status in the selectedWork object for UI display
       const updatedWorkItem = {
         ...selectedWork,
-        status: isWIPWorkItem ? 'in_progress' : 'in-progress',
+        status: 'self_assigned',
         assignedOperator: user.id,
         assignedAt: new Date().toISOString(),
-        startedAt: new Date().toISOString()
+        // No startedAt since work hasn't started yet - waiting for approval
       };
 
-      // Send work assignment and start data to parent component or context
+      // Send work assignment (NOT started) data to parent component or context
       try {
-        // Trigger a custom event to notify other components that work has started
-        const workStartedEvent = new CustomEvent('workStarted', {
+        // Trigger a custom event to notify other components that work has been self-assigned
+        const workAssignedEvent = new CustomEvent('workSelfAssigned', {
           detail: {
             workItem: updatedWorkItem,
             operatorId: user.id,
             operatorName: user.name,
-            status: 'working',
-            startedAt: new Date().toISOString()
+            status: 'pending_approval',
+            assignedAt: new Date().toISOString()
           }
         });
-        window.dispatchEvent(workStartedEvent);
-        console.log('🔄 Work started event dispatched to update dashboard');
+        window.dispatchEvent(workAssignedEvent);
+        console.log('🔄 Work self-assigned event dispatched - awaiting supervisor approval');
       } catch (eventError) {
-        console.warn('⚠️ Failed to dispatch work started event:', eventError.message);
+        console.warn('⚠️ Failed to dispatch work assigned event:', eventError.message);
       }
 
       // Reset selection and reload available work

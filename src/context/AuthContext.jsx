@@ -304,7 +304,9 @@ export const AuthProvider = ({ children }) => {
         });
       }
       
-      // No storage to clear - session only exists in memory
+      // Clear saved session from localStorage
+      localStorage.removeItem('tsaAuthSession');
+      console.log('🗑️ Saved session cleared from localStorage');
       
       setUser(null);
       setIsAuthenticated(false);

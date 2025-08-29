@@ -371,7 +371,18 @@ export class BundleService {
         }
         
         // Format work items to match expected bundle structure
-        const bundles = filteredWorkItems.map(workItem => ({
+        const bundles = filteredWorkItems.map((workItem, index) => {
+          // Debug first few items during formatting
+          if (index < 2) {
+            console.log(`🔍 Formatting work item ${index}:`, {
+              id: workItem.id,
+              wipEntryId: workItem.wipEntryId,
+              currentOperation: workItem.currentOperation,
+              beforeFormatting: 'Has these fields'
+            });
+          }
+          
+          return {
           id: workItem.id,
           article: workItem.article,
           articleNumber: workItem.article,
@@ -392,7 +403,18 @@ export class BundleService {
           rollNumber: workItem.rollNumber,
           wipEntryId: workItem.wipEntryId,
           createdAt: workItem.createdAt
-        }));
+        };
+        });
+        
+        // Debug: check first formatted bundle
+        if (bundles.length > 0) {
+          console.log(`🔍 First formatted bundle:`, {
+            id: bundles[0].id,
+            wipEntryId: bundles[0].wipEntryId,
+            currentOperation: bundles[0].currentOperation,
+            afterFormatting: 'Final result'
+          });
+        }
         
         console.log(`✅ Returning ${bundles.length} formatted work items as bundles`);
         return { success: true, bundles };
@@ -1297,12 +1319,39 @@ export class WIPService {
       );
       
       const snapshot = await getDocs(q);
-      const workItems = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const workItems = snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Debug: log a sample work item to see what fields it has
+        if (snapshot.docs.indexOf(doc) === 0) {
+          console.log('🔍 Sample work item from WIP:', {
+            id: doc.id,
+            wipEntryId: data.wipEntryId,
+            currentOperation: data.currentOperation,
+            operation: data.operation,
+            machineType: data.machineType,
+            allFields: Object.keys(data)
+          });
+        }
+        return {
+          id: doc.id,
+          ...data
+        };
+      });
       
       console.log(`✅ Loaded ${workItems.length} work items from WIP`);
+      
+      // Debug: show field names of first work item
+      if (workItems.length > 0) {
+        console.log('🔍 First work item fields:', Object.keys(workItems[0]));
+        console.log('🔍 First work item sample data:', {
+          id: workItems[0].id,
+          wipEntryId: workItems[0].wipEntryId,
+          currentOperation: workItems[0].currentOperation,
+          operation: workItems[0].operation,
+          machineType: workItems[0].machineType
+        });
+      }
+      
       return { success: true, workItems };
     } catch (error) {
       console.error('❌ Error loading work items:', error);
@@ -1352,7 +1401,7 @@ export class WIPService {
   }
 
   // Assign work item to operator (handles WIP-generated work items)
-  static async assignWorkItem(workItemId, operatorId, supervisorId) {
+  static async assignWorkItem(workItemId, operatorId, supervisorId, status = 'assigned') {
     try {
       console.log(`🔄 Assigning work item ${workItemId} to operator ${operatorId}`);
       
@@ -1431,7 +1480,7 @@ export class WIPService {
 
       // Update work item with assignment
       await updateDoc(workItemRef, {
-        status: 'assigned',
+        status: status,
         assignedOperator: operatorId,
         assignedAt: serverTimestamp(),
         assignedBy: supervisorId,

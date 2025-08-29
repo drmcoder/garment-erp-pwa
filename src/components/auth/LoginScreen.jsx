@@ -35,7 +35,7 @@ const LoginScreen = () => {
                 username: userData.username,
                 name: userData.name || userData.nameEn || userData.username,
                 role: 'operator',
-                lastLogin: userData.lastLogin?.toDate() || null
+                lastLogin: userData.lastLogin?.toDate ? userData.lastLogin.toDate() : (userData.lastLogin ? new Date(userData.lastLogin) : null)
               });
             }
           });
@@ -48,7 +48,7 @@ const LoginScreen = () => {
                 username: userData.username,
                 name: userData.name || userData.nameEn || userData.username,
                 role: 'supervisor',
-                lastLogin: userData.lastLogin?.toDate() || null
+                lastLogin: userData.lastLogin?.toDate ? userData.lastLogin.toDate() : (userData.lastLogin ? new Date(userData.lastLogin) : null)
               });
             }
           });
@@ -61,7 +61,7 @@ const LoginScreen = () => {
                 username: userData.username,
                 name: userData.name || userData.nameEn || userData.username,
                 role: 'management',
-                lastLogin: userData.lastLogin?.toDate() || null
+                lastLogin: userData.lastLogin?.toDate ? userData.lastLogin.toDate() : (userData.lastLogin ? new Date(userData.lastLogin) : null)
               });
             }
           });
