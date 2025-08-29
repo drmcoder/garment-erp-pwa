@@ -32,6 +32,9 @@ const SupervisorDashboard = () => {
     t,
     currentLanguage,
     formatTime,
+    formatDate,
+    formatDateTime,
+    formatRelativeTime,
     formatNumber,
     getSizeLabel,
   } = useLanguage();

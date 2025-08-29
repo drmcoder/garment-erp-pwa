@@ -15,10 +15,13 @@ import {
   Package,
   BarChart3,
   RefreshCw,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useNotifications } from "../../context/NotificationContext";
+import { useConnectionStatus } from "../../hooks/useRealtimeData";
 import WorkCompletion from "./WorkCompletion";
 import QualityReport from "./QualityReport";
 
@@ -30,7 +33,7 @@ import {
 } from "../../services/firebase-services";
 
 const OperatorDashboard = () => {
-  const { user, getUserDisplayName, getUserRoleDisplay, getUserSpecialityDisplay } = useAuth();
+  const { user, getUserDisplayName, getUserRoleDisplay, getUserSpecialityDisplay, isOnline } = useAuth();
   const {
     t,
     currentLanguage,
@@ -40,6 +43,9 @@ const OperatorDashboard = () => {
     getSizeLabel,
   } = useLanguage();
   const { addNotification } = useNotifications();
+  
+  // Connection status monitoring
+  const { isConnected: realtimeConnected } = useConnectionStatus();
 
   // State management
   const [currentWork, setCurrentWork] = useState(null);
@@ -689,12 +695,44 @@ const OperatorDashboard = () => {
               <span>{formatTime(currentTime)}</span>
             </p>
           </div>
-          <div className="text-right">
-            <div className="text-2xl font-bold">
-              {formatNumber(dailyStats.piecesCompleted)}
+          
+          <div className="flex items-center space-x-4">
+            {/* Connection Status */}
+            <div className="flex items-center space-x-2">
+              {/* Firestore Status */}
+              <div
+                className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${
+                  isOnline
+                    ? "bg-blue-800 text-blue-100"
+                    : "bg-red-800 text-red-100"
+                }`}
+                title="Firestore Connection"
+              >
+                <span>📚</span>
+                <span>{isOnline ? "FS" : "FS❌"}</span>
+              </div>
+              
+              {/* Realtime DB Status */}
+              <div
+                className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${
+                  realtimeConnected
+                    ? "bg-green-800 text-green-100"
+                    : "bg-orange-800 text-orange-100"
+                }`}
+                title="Realtime Database Connection"
+              >
+                <span>🔥</span>
+                <span>{realtimeConnected ? "RT" : "RT⚠️"}</span>
+              </div>
             </div>
-            <div className="text-blue-100 text-sm">
-              {t("pieces")} {t("today")}
+
+            <div className="text-right">
+              <div className="text-2xl font-bold">
+                {formatNumber(dailyStats.piecesCompleted)}
+              </div>
+              <div className="text-blue-100 text-sm">
+                {t("pieces")} {t("today")}
+              </div>
             </div>
           </div>
         </div>

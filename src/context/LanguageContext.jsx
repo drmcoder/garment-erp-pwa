@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { formatBSDate, formatTimeAgo, getCurrentBSDate } from '../utils/nepaliDate';
 
 // Complete language translations for TSA Production Management System with flexible sizing
 export const languages = {
@@ -698,13 +699,58 @@ export const LanguageProvider = ({ children }) => {
     return date.toLocaleTimeString('en-US');
   };
 
-  // Format date in selected language
-  const formatDate = (date) => {
+  // Format date in selected language (using Bikram Sambat for Nepali)
+  const formatDate = (date, format = 'date') => {
+    if (!date) return 'N/A';
+    
     if (currentLanguage === 'np') {
-      // Nepali date format
-      return date.toLocaleDateString('ne-NP');
+      // Use Bikram Sambat (BS) date format
+      return formatBSDate(date, format, 'np');
     }
-    return date.toLocaleDateString('en-US');
+    
+    // English AD date format
+    const dateObj = new Date(date);
+    return dateObj.toLocaleDateString('en-US');
+  };
+  
+  // Format date with time in selected language
+  const formatDateTime = (date, includeTime = false) => {
+    if (!date) return 'N/A';
+    
+    if (currentLanguage === 'np') {
+      // Use BS date with time
+      const bsDate = formatBSDate(date, 'full', 'np');
+      if (includeTime) {
+        const time = new Date(date).toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        return `${bsDate}, ${time}`;
+      }
+      return bsDate;
+    }
+    
+    // English format
+    const dateObj = new Date(date);
+    if (includeTime) {
+      return dateObj.toLocaleString('en-US');
+    }
+    return dateObj.toLocaleDateString('en-US');
+  };
+  
+  // Format relative time (time ago)
+  const formatRelativeTime = (date) => {
+    if (!date) return '';
+    return formatTimeAgo(date, currentLanguage);
+  };
+  
+  // Get current date in appropriate format
+  const getCurrentDate = (format = 'full') => {
+    if (currentLanguage === 'np') {
+      return getCurrentBSDate(format, 'np');
+    }
+    return new Date().toLocaleDateString('en-US');
   };
 
   // Convert numbers to Nepali numerals
@@ -754,6 +800,9 @@ export const LanguageProvider = ({ children }) => {
     getTimeBasedGreeting,
     formatTime,
     formatDate,
+    formatDateTime,
+    formatRelativeTime,
+    getCurrentDate,
     formatNumber,
     formatCurrency,
     getSizeLabel,

@@ -3,14 +3,14 @@
 
 import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../contexts/AuthContext";
-import { LanguageContext } from "../../contexts/LanguageContext";
+import { useLanguage } from "../../context/LanguageContext";
 import { NotificationContext } from "../../contexts/NotificationContext";
 import { db, collection, getDocs, query, where, orderBy, COLLECTIONS } from "../../config/firebase";
 
 const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
   const { user } = useContext(AuthContext);
-  const { t, isNepali, formatNumber, formatCurrency } =
-    useContext(LanguageContext);
+  const { t, currentLanguage, formatNumber, formatCurrency, formatRelativeTime, formatDate } =
+    useLanguage();
   const { showNotification } = useContext(NotificationContext);
 
   const [workQueue, setWorkQueue] = useState([]);

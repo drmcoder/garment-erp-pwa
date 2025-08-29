@@ -21,7 +21,7 @@ const Header = ({
   showMenuButton = true,
 }) => {
   const { user, userRole, logout, getUserDisplayInfo } = useAuth();
-  const { t, currentLanguage, getTimeBasedGreeting, formatTime } =
+  const { t, currentLanguage, getTimeBasedGreeting, formatTime, formatRelativeTime } =
     useLanguage();
 
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -178,10 +178,7 @@ const Header = ({
                                   : notification.message}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
-                                {/* Use the getRelativeTime function from language context */}
-                                {new Date(
-                                  notification.time
-                                ).toLocaleTimeString()}
+                                {formatRelativeTime(notification.time)}
                               </p>
                             </div>
                           </div>

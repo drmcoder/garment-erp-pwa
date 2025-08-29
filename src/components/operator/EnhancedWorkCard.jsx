@@ -6,35 +6,11 @@ import { Clock, DollarSign, Palette, Shirt, Calendar } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 
 const EnhancedWorkCard = ({ workItem, index, onComplete, onStart, showTimeInfo = true }) => {
-  const { t, currentLanguage, formatNumber, formatCurrency } = useLanguage();
+  const { t, currentLanguage, formatNumber, formatCurrency, formatRelativeTime } = useLanguage();
 
-  // Calculate time ago
+  // Use centralized time formatting from LanguageContext
   const getTimeAgo = (date) => {
-    if (!date) return '';
-    
-    const now = new Date();
-    const workDate = new Date(date);
-    const diffMs = now - workDate;
-    
-    const minutes = Math.floor(diffMs / 60000);
-    const hours = Math.floor(diffMs / 3600000);
-    const days = Math.floor(diffMs / 86400000);
-    
-    if (days > 0) {
-      return currentLanguage === 'np' 
-        ? `${days} दिन अगाडी`
-        : `${days} day${days > 1 ? 's' : ''} ago`;
-    } else if (hours > 0) {
-      return currentLanguage === 'np'
-        ? `${hours} घन्टा अगाडी` 
-        : `${hours} hr${hours > 1 ? 's' : ''} ago`;
-    } else if (minutes > 0) {
-      return currentLanguage === 'np'
-        ? `${minutes} मिनेट अगाडी`
-        : `${minutes} min${minutes > 1 ? 's' : ''} ago`;
-    } else {
-      return currentLanguage === 'np' ? 'अहिले' : 'just now';
-    }
+    return formatRelativeTime(date);
   };
 
   // Get color indicator

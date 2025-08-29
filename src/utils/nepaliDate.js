@@ -1,7 +1,31 @@
-// Nepali Date (Bikram Sambat) Utility Functions
-// Simple conversion from Gregorian (AD) to Bikram Sambat (BS)
+// File: src/utils/nepaliDate.js
+// Complete Nepali Date (Bikram Sambat) conversion and formatting system
 
-// Approximate BS year calculation (Bikram Sambat is about 56-57 years ahead)
+// Nepali month names
+export const NEPALI_MONTHS = {
+  np: [
+    'बैशाख', 'जेठ', 'असार', 'साउन', 'भदौ', 'असोज',
+    'कातिक', 'मंसिर', 'पौष', 'माघ', 'फागुन', 'चैत'
+  ],
+  en: [
+    'Baisakh', 'Jestha', 'Ashar', 'Shrawan', 'Bhadra', 'Ashoj',
+    'Kartik', 'Mangsir', 'Paush', 'Magh', 'Falgun', 'Chaitra'
+  ]
+};
+
+// Nepali day names
+export const NEPALI_DAYS = {
+  np: ['आइतबार', 'सोमबार', 'मंगलबार', 'बुधबार', 'बिहिबार', 'शुक्रबार', 'शनिबार'],
+  en: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+};
+
+// Nepali numerals
+export const NEPALI_NUMERALS = {
+  '0': '०', '1': '१', '2': '२', '3': '३', '4': '४',
+  '5': '५', '6': '६', '7': '७', '8': '८', '9': '९'
+};
+
+// Convert AD date to BS (simplified approximation)
 export const convertADtoBS = (adDate) => {
   if (!adDate) return null;
   
@@ -27,6 +51,7 @@ export const convertADtoBS = (adDate) => {
     year: bsYear,
     month: adMonth,
     day: adDay,
+    dayOfWeek: date.getDay(),
     formatted: `${bsYear}/${adMonth.toString().padStart(2, '0')}/${adDay.toString().padStart(2, '0')}`
   };
 };
@@ -111,6 +136,138 @@ export const getRelativeTimeNepali = (adDate) => {
   } else {
     return formatNepaliDate(date);
   }
+};
+
+// Convert numbers to Nepali numerals
+export const toNepaliNumerals = (number) => {
+  if (number === null || number === undefined) return '';
+  return number.toString().split('').map(digit => NEPALI_NUMERALS[digit] || digit).join('');
+};
+
+// Format BS date with different options
+export const formatBSDate = (adDate, format = 'full', language = 'np') => {
+  if (!adDate) return language === 'np' ? 'मिति उपलब्ध छैन' : 'Date not available';
+  
+  const date = new Date(adDate);
+  const bsDate = convertADtoBS(date);
+  if (!bsDate) return 'N/A';
+
+  const monthNames = NEPALI_MONTHS[language];
+  const dayNames = NEPALI_DAYS[language];
+  
+  const formatNumber = (num) => {
+    return language === 'np' ? toNepaliNumerals(num) : num.toString();
+  };
+
+  switch (format) {
+    case 'full':
+      return language === 'np' 
+        ? `${dayNames[bsDate.dayOfWeek]}, ${formatNumber(bsDate.day)} ${monthNames[bsDate.month - 1]} ${formatNumber(bsDate.year)}`
+        : `${dayNames[bsDate.dayOfWeek]}, ${bsDate.day} ${monthNames[bsDate.month - 1]} ${bsDate.year}`;
+    
+    case 'date':
+      return language === 'np'
+        ? `${formatNumber(bsDate.day)} ${monthNames[bsDate.month - 1]} ${formatNumber(bsDate.year)}`
+        : `${bsDate.day} ${monthNames[bsDate.month - 1]} ${bsDate.year}`;
+    
+    case 'short':
+      return language === 'np'
+        ? `${formatNumber(bsDate.year)}/${formatNumber(bsDate.month)}/${formatNumber(bsDate.day)}`
+        : `${bsDate.year}/${bsDate.month}/${bsDate.day}`;
+    
+    case 'month-year':
+      return language === 'np'
+        ? `${monthNames[bsDate.month - 1]} ${formatNumber(bsDate.year)}`
+        : `${monthNames[bsDate.month - 1]} ${bsDate.year}`;
+    
+    default:
+      return `${bsDate.day} ${monthNames[bsDate.month - 1]} ${bsDate.year}`;
+  }
+};
+
+// Format time ago in both languages
+export const formatTimeAgo = (date, language = 'np') => {
+  if (!date) return '';
+  
+  const now = new Date();
+  const inputDate = new Date(date);
+  const diffMs = now - inputDate;
+  
+  const minutes = Math.floor(diffMs / 60000);
+  const hours = Math.floor(diffMs / 3600000);
+  const days = Math.floor(diffMs / 86400000);
+  const months = Math.floor(days / 30);
+  const years = Math.floor(days / 365);
+
+  const formatNum = (num) => {
+    return language === 'np' ? toNepaliNumerals(num) : num.toString();
+  };
+
+  if (language === 'np') {
+    if (years > 0) {
+      return `${formatNum(years)} वर्ष अगाडी`;
+    } else if (months > 0) {
+      return `${formatNum(months)} महिना अगाडी`;
+    } else if (days > 0) {
+      return `${formatNum(days)} दिन अगाडी`;
+    } else if (hours > 0) {
+      return `${formatNum(hours)} घन्टा अगाडी`;
+    } else if (minutes > 0) {
+      return `${formatNum(minutes)} मिनेट अगाडी`;
+    } else {
+      return 'अहिले';
+    }
+  } else {
+    if (years > 0) {
+      return `${years} year${years > 1 ? 's' : ''} ago`;
+    } else if (months > 0) {
+      return `${months} month${months > 1 ? 's' : ''} ago`;
+    } else if (days > 0) {
+      return `${days} day${days > 1 ? 's' : ''} ago`;
+    } else if (hours > 0) {
+      return `${hours} hr${hours > 1 ? 's' : ''} ago`;
+    } else if (minutes > 0) {
+      return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
+    } else {
+      return 'just now';
+    }
+  }
+};
+
+// Get current BS date
+export const getCurrentBSDate = (format = 'full', language = 'np') => {
+  return formatBSDate(new Date(), format, language);
+};
+
+// Get BS fiscal year (starts from Shrawan - month 4)
+export const getBSFiscalYear = (date = new Date()) => {
+  const bsDate = convertADtoBS(date);
+  if (!bsDate) return null;
+  
+  // Fiscal year starts from Shrawan (month 4 in BS calendar)
+  if (bsDate.month >= 4) {
+    return {
+      year: bsDate.year,
+      display: `${bsDate.year}/${(bsDate.year + 1).toString().slice(-2)}`
+    };
+  } else {
+    return {
+      year: bsDate.year - 1,
+      display: `${bsDate.year - 1}/${bsDate.year.toString().slice(-2)}`
+    };
+  }
+};
+
+export default {
+  convertADtoBS,
+  formatBSDate,
+  formatTimeAgo,
+  getCurrentBSDate,
+  getBSFiscalYear,
+  toNepaliNumerals,
+  NEPALI_MONTHS,
+  NEPALI_DAYS,
+  NEPALI_NUMERALS
 };
 
 // Get relative time in English
