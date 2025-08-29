@@ -13,18 +13,21 @@ import {
   Bell,
   Zap,
   X,
+  Wifi,
+  WifiOff,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { 
-  ProductionService,
-  OperatorService,
-  BundleService
-} from "../../services/firebase-services";
+  useHybridDashboard,
+  useOperatorStatus,
+  useLiveMetrics,
+  useConnectionStatus
+} from "../../hooks/useRealtimeData";
 import { CompactLoader } from "../common/BrandedLoader";
 
 const SupervisorDashboard = () => {
-  const { getUserDisplayInfo } = useAuth();
+  const { getUserDisplayInfo, isOnline } = useAuth();
   const {
     t,
     currentLanguage,
@@ -35,14 +38,26 @@ const SupervisorDashboard = () => {
 
   const [activeTab, setActiveTab] = useState("monitoring");
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [lineData, setLineData] = useState([]);
-  const [productionStats, setProductionStats] = useState({});
-  const [efficiencyAlerts, setEfficiencyAlerts] = useState([]);
   const [selectedStation, setSelectedStation] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
 
   const userInfo = getUserDisplayInfo();
+
+  // Use hybrid real-time data approach
+  const {
+    dashboardData,
+    loading: hybridLoading,
+    error: hybridError,
+    lastUpdated
+  } = useHybridDashboard();
+
+  // Real-time operator status
+  const { operatorStatuses, connected: rtdbConnected } = useOperatorStatus();
+
+  // Live production metrics
+  const { metrics: liveMetrics } = useLiveMetrics();
+
+  // Connection monitoring
+  const { isConnected: realtimeConnected, connectionStats } = useConnectionStatus();
 
   // Update current time
   useEffect(() => {
@@ -52,180 +67,73 @@ const SupervisorDashboard = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // Load real-time data from Firestore
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        // Fetch data in parallel
-        const [operatorsResult, bundlesResult, statsResult] = await Promise.all([
-          OperatorService.getActiveOperators(),
-          BundleService.getAllBundles(),
-          ProductionService.getTodayStats()
-        ]);
-        
-        if (!operatorsResult.success) {
-          throw new Error(`Failed to load operators: ${operatorsResult.error}`);
-        }
-        
-        if (!bundlesResult.success) {
-          throw new Error(`Failed to load bundles: ${bundlesResult.error}`);
-        }
-        
-        if (!statsResult.success) {
-          throw new Error(`Failed to load stats: ${statsResult.error}`);
-        }
-        
-        const operators = operatorsResult.operators || [];
-        const bundles = bundlesResult.bundles || [];
-        const stats = statsResult.stats || {};
-        
-        // Process operators into station format
-        const stationsMap = new Map();
-        
-        operators.forEach(operator => {
-          const stationKey = `${operator.machineType}-${operator.station || '1'}`;
-          if (!stationsMap.has(stationKey)) {
-            stationsMap.set(stationKey, {
-              id: stationKey,
-              station: operator.machineType === 'overlock' ? 'ओभरलक स्टेसन' :
-                     operator.machineType === 'flatlock' ? 'फ्ल्यालक स्टेसन' :
-                     operator.machineType === 'single-needle' ? 'एकल सुई स्टेसन' :
-                     operator.machineType,
-              stationEn: operator.machineType === 'overlock' ? 'Overlock Station' :
-                        operator.machineType === 'flatlock' ? 'Flatlock Station' :
-                        operator.machineType === 'single-needle' ? 'Single Needle Station' :
-                        operator.machineType,
-              operator: operator.name,
-              operatorEn: operator.nameEn || operator.name,
-              status: operator.active ? 'active' : 'idle',
-              efficiency: operator.efficiency || 0,
-              currentWork: null,
-              nextWork: null
-            });
-          }
-          
-          // Find current bundle for this operator
-          const currentBundle = bundles.find(b => 
-            b.assignedOperator === operator.id && 
-            (b.status === 'assigned' || b.status === 'in-progress')
-          );
-          
-          if (currentBundle) {
-            const station = stationsMap.get(stationKey);
-            station.currentWork = {
-              article: currentBundle.article,
-              articleName: currentBundle.articleName || currentBundle.article,
-              color: currentBundle.color || 'N/A',
-              size: currentBundle.size,
-              operation: currentBundle.currentOperation || 'sewing',
-              pieces: currentBundle.pieces,
-              completed: currentBundle.completedPieces || 0,
-              estimatedTime: Math.max(1, Math.round((currentBundle.pieces - (currentBundle.completedPieces || 0)) * 0.5))
-            };
-            
-            if (currentBundle.status === 'in-progress') {
-              station.status = 'active';
-            } else {
-              station.status = 'idle';
-            }
-          }
-        });
-        
-        const lineDataArray = Array.from(stationsMap.values());
-        
-        // Calculate production statistics
-        const totalOperators = operators.length;
-        const activeOperators = operators.filter(op => op.active).length;
-        const totalBundles = bundles.length;
-        const completedBundles = bundles.filter(b => b.status === 'completed').length;
-        const inProgressBundles = bundles.filter(b => b.status === 'in-progress').length;
-        const assignedBundles = bundles.filter(b => b.status === 'assigned').length;
-        
-        const totalProduction = bundles.reduce((sum, b) => sum + (b.completedPieces || 0), 0);
-        const targetProduction = bundles.reduce((sum, b) => sum + (b.pieces || 0), 0);
-        
-        const calculatedStats = {
-          totalProduction,
-          targetProduction: targetProduction || 5000,
-          efficiency: targetProduction > 0 ? Math.round((totalProduction / targetProduction) * 100) : 0,
-          qualityScore: stats.qualityScore || 95,
-          activeOperators,
-          totalOperators,
-          completedBundles,
-          pendingBundles: totalBundles - completedBundles - inProgressBundles - assignedBundles
-        };
-        
-        // Generate efficiency alerts based on real data
-        const alerts = [];
-        let alertId = 1;
-        
-        // Find idle stations
-        lineDataArray.forEach(station => {
-          if (station.status === 'idle' && !station.currentWork) {
-            alerts.push({
-              id: alertId++,
-              type: 'idle-station',
-              station: station.station,
-              stationEn: station.stationEn,
-              operator: station.operator,
-              idleTime: 15, // This would come from real-time tracking
-              priority: 'high'
-            });
-          }
-          
-          // Find low efficiency stations
-          if (station.efficiency > 0 && station.efficiency < 80) {
-            alerts.push({
-              id: alertId++,
-              type: 'efficiency-drop',
-              station: station.station,
-              stationEn: station.stationEn,
-              operator: station.operator,
-              currentEfficiency: station.efficiency,
-              targetEfficiency: 85,
-              suggestedAction: 'training',
-              priority: 'medium'
-            });
-          }
-        });
-        
-        // Update state
-        setLineData(lineDataArray);
-        setProductionStats(calculatedStats);
-        setEfficiencyAlerts(alerts);
-        
-      } catch (error) {
-        console.error('Error loading dashboard data:', error);
-        setError(error.message);
-        
-        // Set empty data on error
-        setLineData([]);
-        setProductionStats({
-          totalProduction: 0,
-          targetProduction: 0,
-          efficiency: 0,
-          qualityScore: 0,
-          activeOperators: 0,
-          totalOperators: 0,
-          completedBundles: 0,
-          pendingBundles: 0,
-        });
-        setEfficiencyAlerts([]);
-      } finally {
-        setLoading(false);
-      }
+  // Process hybrid data into component-ready format
+  const { lineData, productionStats, efficiencyAlerts } = React.useMemo(() => {
+    const { operatorProfiles, operatorStatuses, liveMetrics, stationStatuses } = dashboardData;
+    
+    // Merge static profiles with real-time status
+    const processedLineData = operatorProfiles.map(operator => {
+      const liveStatus = operatorStatuses[operator.id] || {};
+      const stationKey = `${operator.machineType}-${operator.station || '1'}`;
+      
+      return {
+        id: stationKey,
+        station: operator.machineType === 'overlock' ? 'ओभरलक स्टेसन' :
+               operator.machineType === 'flatlock' ? 'फ्ल्यालक स्टेसन' :
+               operator.machineType === 'single-needle' ? 'एकल सुई स्टेसन' :
+               operator.machineType,
+        stationEn: operator.machineType === 'overlock' ? 'Overlock Station' :
+                  operator.machineType === 'flatlock' ? 'Flatlock Station' :
+                  operator.machineType === 'single-needle' ? 'Single Needle Station' :
+                  operator.machineType,
+        operator: operator.name,
+        operatorEn: operator.nameEn || operator.name,
+        status: liveStatus.status || (operator.active ? 'active' : 'idle'),
+        efficiency: liveStatus.efficiency || operator.efficiency || 0,
+        currentWork: liveStatus.currentWork || null,
+        nextWork: null
+      };
+    });
+
+    // Use live metrics if available, otherwise calculate from static data
+    const stats = {
+      totalProduction: liveMetrics.totalProduction || 0,
+      targetProduction: liveMetrics.targetProduction || 5000,
+      efficiency: liveMetrics.averageEfficiency || 0,
+      qualityScore: liveMetrics.qualityScore || 95,
+      activeOperators: liveMetrics.activeOperators || operatorProfiles.filter(op => op.active).length,
+      totalOperators: operatorProfiles.length,
+      completedBundles: liveMetrics.completedBundles || 0,
+      pendingBundles: 0
     };
+
+    // Generate efficiency alerts from real-time data
+    const alerts = [];
+    let alertId = 1;
     
-    loadDashboardData();
-    
-    // Set up auto-refresh every 30 seconds
-    const refreshInterval = setInterval(loadDashboardData, 30000);
-    
-    return () => clearInterval(refreshInterval);
-  }, []);
+    Object.values(operatorStatuses).forEach(status => {
+      if (status.status === 'idle' && !status.currentWork) {
+        const operator = operatorProfiles.find(op => op.id === status.id);
+        if (operator) {
+          alerts.push({
+            id: alertId++,
+            type: 'idle-station',
+            station: operator.machineType,
+            stationEn: operator.machineType,
+            operator: operator.name,
+            idleTime: 15,
+            priority: 'high'
+          });
+        }
+      }
+    });
+
+    return {
+      lineData: processedLineData,
+      productionStats: stats,
+      efficiencyAlerts: alerts
+    };
+  }, [dashboardData, operatorStatuses, liveMetrics]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -264,15 +172,15 @@ const SupervisorDashboard = () => {
   };
 
   const LineMonitoringView = () => {
-    if (loading) {
+    if (hybridLoading) {
       return <CompactLoader message="Loading line data..." />;
     }
 
-    if (error) {
+    if (hybridError) {
       return (
         <div className="text-center py-8">
           <div className="text-red-600 mb-2">⚠️ Error loading data</div>
-          <p className="text-gray-600">{error}</p>
+          <p className="text-gray-600">{hybridError}</p>
         </div>
       );
     }
@@ -711,6 +619,35 @@ const EfficiencyAlertsView = () => (
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Hybrid Connection Status */}
+            <div className="flex items-center space-x-2">
+              {/* Firestore Status */}
+              <div
+                className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${
+                  isOnline
+                    ? "bg-blue-100 text-blue-700"
+                    : "bg-red-100 text-red-700"
+                }`}
+                title="Firestore Connection"
+              >
+                <span>📚</span>
+                <span>{isOnline ? "FS" : "FS❌"}</span>
+              </div>
+              
+              {/* Realtime DB Status */}
+              <div
+                className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${
+                  realtimeConnected && rtdbConnected
+                    ? "bg-green-100 text-green-700"
+                    : "bg-orange-100 text-orange-700"
+                }`}
+                title="Realtime Database Connection"
+              >
+                <span>🔥</span>
+                <span>{realtimeConnected && rtdbConnected ? "RT" : "RT⚠️"}</span>
+              </div>
+            </div>
+
             <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
               <Bell className="w-5 h-5" />
             </button>

@@ -5,7 +5,7 @@ import React, { useState, useEffect, useContext, useCallback } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
-import { BundleService, WIPService } from "../../services/firebase-services";
+import { BundleService, WIPService, ActivityLogService } from "../../services/firebase-services";
 import { db, collection, getDocs, setDoc, doc, updateDoc, COLLECTIONS } from "../../config/firebase";
 import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
 import MachineSpecialitySelector from './MachineSpecialitySelector';
@@ -433,7 +433,7 @@ const SelfAssignmentSystem = () => {
 
       // Report to supervisor
       try {
-        await BundleService.logActivity(user.id, 'SELF_ASSIGN_AND_START_WORK', {
+        await ActivityLogService.logActivity(user.id, 'SELF_ASSIGN_AND_START_WORK', {
           bundleId: selectedWork.id,
           articleNumber: selectedWork.articleNumber,
           articleName: selectedWork.articleName,

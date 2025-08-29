@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Wifi, WifiOff } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
-import { db, collection, getDocs, COLLECTIONS } from '../../config/firebase';
+import { useAllUsers } from '../../hooks/useOptimizedData';
 
 const LoginScreen = () => {
-  const { login, loading } = useAuth();
+  const { login, loading, isOnline } = useAuth();
   const { showNotification } = useNotifications();
   const [credentials, setCredentials] = useState({
     username: "",
@@ -15,118 +16,69 @@ const LoginScreen = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
   const [clickCount, setClickCount] = useState(0);
-  const [availableUsers, setAvailableUsers] = useState([]);
-  const [loadingUsers, setLoadingUsers] = useState(false);
+  // Use optimized data fetching with caching
+  const { 
+    data: allUsers, 
+    loading: loadingUsers, 
+    error: usersError 
+  } = useAllUsers({ 
+    immediate: true,
+    autoRefresh: false // Don't auto-refresh on login screen
+  });
 
-  // Load available users from Firestore with fallback to demo data
-  useEffect(() => {
-    const loadUsers = async () => {
-      setLoadingUsers(true);
-      try {
-        const usersData = [];
-        
-        try {
-          // Try loading from Firestore first
-          const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
-          operatorsSnapshot.forEach((doc) => {
-            const userData = doc.data();
-            if (userData.username) {
-              usersData.push({
-                username: userData.username,
-                name: userData.name || userData.nameEn || userData.username,
-                role: 'operator',
-                lastLogin: userData.lastLogin?.toDate ? userData.lastLogin.toDate() : (userData.lastLogin ? new Date(userData.lastLogin) : null)
-              });
-            }
-          });
-
-          const supervisorsSnapshot = await getDocs(collection(db, COLLECTIONS.SUPERVISORS));
-          supervisorsSnapshot.forEach((doc) => {
-            const userData = doc.data();
-            if (userData.username) {
-              usersData.push({
-                username: userData.username,
-                name: userData.name || userData.nameEn || userData.username,
-                role: 'supervisor',
-                lastLogin: userData.lastLogin?.toDate ? userData.lastLogin.toDate() : (userData.lastLogin ? new Date(userData.lastLogin) : null)
-              });
-            }
-          });
-
-          const managementSnapshot = await getDocs(collection(db, COLLECTIONS.MANAGEMENT));
-          managementSnapshot.forEach((doc) => {
-            const userData = doc.data();
-            if (userData.username) {
-              usersData.push({
-                username: userData.username,
-                name: userData.name || userData.nameEn || userData.username,
-                role: 'management',
-                lastLogin: userData.lastLogin?.toDate ? userData.lastLogin.toDate() : (userData.lastLogin ? new Date(userData.lastLogin) : null)
-              });
-            }
-          });
-        } catch (firestoreError) {
-          console.log('Firestore unavailable, using demo data:', firestoreError.message);
+  // Process and filter users for login dropdown
+  const availableUsers = React.useMemo(() => {
+    if (allUsers.length === 0) {
+      // Fallback demo users
+      return [
+        {
+          username: 'ram.singh',
+          name: 'Ram Singh', 
+          role: 'operator',
+          lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000)
+        },
+        {
+          username: 'sita.devi',
+          name: 'Sita Devi',
+          role: 'operator', 
+          lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000)
+        },
+        {
+          username: 'hari.supervisor',
+          name: 'Hari Pokharel',
+          role: 'supervisor',
+          lastLogin: new Date(Date.now() - 1 * 60 * 60 * 1000) 
+        },
+        {
+          username: 'admin.manager',
+          name: 'Admin Manager',
+          role: 'management',
+          lastLogin: new Date(Date.now() - 30 * 60 * 1000)
         }
+      ];
+    }
 
-        // If no Firestore data, use demo/mock data
-        if (usersData.length === 0) {
-          const mockUsers = [
-            {
-              username: 'ram.singh',
-              name: 'Ram Singh',
-              role: 'operator',
-              lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
-            },
-            {
-              username: 'sita.devi',  
-              name: 'Sita Devi',
-              role: 'operator',
-              lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000) // 4 hours ago
-            },
-            {
-              username: 'hari.supervisor',
-              name: 'Hari Pokharel',
-              role: 'supervisor', 
-              lastLogin: new Date(Date.now() - 1 * 60 * 60 * 1000) // 1 hour ago
-            },
-            {
-              username: 'admin.manager',
-              name: 'Admin Manager',
-              role: 'management',
-              lastLogin: new Date(Date.now() - 30 * 60 * 1000) // 30 minutes ago
-            }
-          ];
-          usersData.push(...mockUsers);
-        }
-
+    // Process real users data
+    const usersData = allUsers
+      .filter(user => user.username) // Only users with usernames
+      .map(user => ({
+        username: user.username,
+        name: user.name || user.nameEn || user.username,
+        role: user.role,
+        lastLogin: user.lastLogin?.toDate ? user.lastLogin.toDate() : 
+                  (user.lastLogin ? new Date(user.lastLogin) : null)
+      }))
+      .sort((a, b) => {
         // Sort by most recently logged in
-        usersData.sort((a, b) => {
-          if (!a.lastLogin && !b.lastLogin) return 0;
-          if (!a.lastLogin) return 1;
-          if (!b.lastLogin) return -1;
-          return b.lastLogin.getTime() - a.lastLogin.getTime();
-        });
+        if (!a.lastLogin && !b.lastLogin) return 0;
+        if (!a.lastLogin) return 1;
+        if (!b.lastLogin) return -1;
+        return b.lastLogin.getTime() - a.lastLogin.getTime();
+      })
+      .slice(0, 8); // Show top 8 users
 
-        setAvailableUsers(usersData.slice(0, 8)); // Show top 8 users
-      } catch (error) {
-        console.error('Failed to load users:', error);
-        // Fallback to basic demo data even on complete failure
-        setAvailableUsers([
-          {
-            username: 'ram.singh',
-            name: 'Ram Singh',
-            role: 'operator',
-            lastLogin: new Date()
-          }
-        ]);
-      } finally {
-        setLoadingUsers(false);
-      }
-    };
-
-    loadUsers();
-  }, []);
+    return usersData;
+  }, [allUsers]);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -226,6 +178,24 @@ const LoginScreen = () => {
       </div>
 
       <div className="max-w-md w-full space-y-8 relative z-10">
+        {/* Connection Status */}
+        <div className="mb-4">
+          <div
+            className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-full text-sm font-medium ${
+              isOnline
+                ? "bg-green-100 text-green-700 border border-green-200"
+                : "bg-red-100 text-red-700 border border-red-200"
+            }`}
+          >
+            {isOnline ? (
+              <Wifi className="w-4 h-4" />
+            ) : (
+              <WifiOff className="w-4 h-4" />
+            )}
+            <span>{isOnline ? "🟢 Connected" : "🔴 Offline Mode"}</span>
+          </div>
+        </div>
+
         {/* Header with enhanced branding */}
         <div className="text-center">
           <div className="mx-auto w-20 h-20 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-xl transform rotate-3 hover:rotate-0 transition-transform duration-300 p-2">
