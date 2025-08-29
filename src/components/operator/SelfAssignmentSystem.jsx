@@ -477,16 +477,8 @@ const SelfAssignmentSystem = () => {
           }
         });
 
-        // Add beep sound for supervisor notification
-        if (supervisorNotification && 'Audio' in window) {
-          try {
-            const beep = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0E');
-            beep.volume = 0.3;
-            beep.play().catch(() => {}); // Silent fail if audio doesn't work
-          } catch (audioError) {
-            console.log('Audio notification failed:', audioError.message);
-          }
-        }
+        // Audio notification disabled due to CSP restrictions with data: URLs
+        // Visual notifications are sufficient for supervisor alerts
 
         console.log('✅ Supervisor notification sent for self-assignment');
       } catch (notificationError) {
@@ -543,6 +535,10 @@ const SelfAssignmentSystem = () => {
         errorMessage = isNepali
           ? "यो काम अर्को व्यक्तिले पहिले नै लिएको छ।"
           : "This work has already been taken by another operator.";
+      } else if (errorMessage.includes('machine mismatch') || errorMessage.includes('Machine mismatch')) {
+        errorMessage = isNepali 
+          ? "यो काम तपाईंको मेसिनसँग मेल खाँदैन।"
+          : "This work doesn't match your machine type.";
       } else {
         errorMessage = isNepali ? "काम असाइन गर्न समस्या भयो" : "Failed to assign work";
       }

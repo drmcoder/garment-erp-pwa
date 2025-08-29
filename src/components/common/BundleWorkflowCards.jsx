@@ -15,11 +15,11 @@ const BundleWorkflowCards = ({
   
   // Get operations from template or work items - ensure always defined
   const operations = (workItems && workItems.length > 0) 
-    ? workItems.map(item => ({
-        id: item.operationId || item.operation?.id,
+    ? workItems.map((item, index) => ({
+        id: item.operationId || item.operation?.id || item.id || `operation-${index}`,
         name: currentLanguage === 'np' 
-          ? item.operation?.nameNp || item.operationName 
-          : item.operation?.nameEn || item.operation?.name || item.operationName,
+          ? (item.operation?.nameNp || item.operationName || item.currentOperation || 'Unknown Operation')
+          : (item.operation?.nameEn || item.operation?.name || item.operationName || item.currentOperation || 'Unknown Operation'),
         icon: item.operation?.icon || item.icon || '🧵',
         status: item.status || 'pending',
         sequence: item.operation?.sequence || item.sequence || 1,
@@ -180,7 +180,7 @@ const BundleWorkflowCards = ({
                 <div className="flex flex-col items-center justify-center text-center">
                   <div className="text-2xl mb-1">{operation.icon}</div>
                   <div className="text-xs font-medium text-gray-700 leading-tight">
-                    {operation.name.length > 8 ? operation.name.substring(0, 6) + '..' : operation.name}
+                    {operation.name && operation.name.length > 8 ? operation.name.substring(0, 6) + '..' : (operation.name || 'N/A')}
                   </div>
                 </div>
 

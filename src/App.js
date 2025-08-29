@@ -117,9 +117,16 @@ const NotificationBell = () => {
                           {notification.message}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {new Date(
-                            notification.timestamp
-                          ).toLocaleTimeString()}
+                          {(() => {
+                            try {
+                              const date = notification.timestamp?.toDate ? 
+                                notification.timestamp.toDate() : 
+                                new Date(notification.timestamp);
+                              return isNaN(date.getTime()) ? 'Just now' : date.toLocaleTimeString();
+                            } catch (error) {
+                              return 'Just now';
+                            }
+                          })()}
                         </p>
                       </div>
                       {!notification.read && (

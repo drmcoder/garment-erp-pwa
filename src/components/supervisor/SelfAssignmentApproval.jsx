@@ -43,6 +43,16 @@ const SelfAssignmentApproval = () => {
       const workItemsSnapshot = await getDocs(workItemsQuery);
       console.log(`🔍 Found ${workItemsSnapshot.docs.length} work items with status 'self_assigned'`);
       
+      // Debug: check what statuses exist in the work items collection
+      const allWorkItemsQuery = query(collection(db, COLLECTIONS.WORK_ITEMS));
+      const allWorkItemsSnapshot = await getDocs(allWorkItemsQuery);
+      const statuses = {};
+      allWorkItemsSnapshot.forEach(doc => {
+        const status = doc.data().status;
+        statuses[status] = (statuses[status] || 0) + 1;
+      });
+      console.log(`🔍 All work item statuses in database:`, statuses);
+      
       workItemsSnapshot.forEach((doc) => {
         const workData = doc.data();
         console.log(`🔍 Checking work item ${doc.id}:`, {

@@ -352,22 +352,29 @@ export class BundleService {
         
         // Filter by machine type if specified
         let filteredWorkItems = wipWorkItems.workItems.filter(item => {
-          // Include unassigned work that's available for assignment
-          const isAvailable = (item.status === 'pending' || item.status === 'ready' || item.status === 'waiting') && !item.assignedOperator;
+          // For self-assignment, only include unassigned work that's available for assignment
+          // Exclude all completed, in_progress, or assigned statuses
+          const excludedStatuses = ['operator_completed', 'completed', 'in_progress', 'assigned', 'self_assigned'];
+          const isAvailable = !excludedStatuses.includes(item.status) && !item.assignedOperator;
           
-          // Also include assigned work (so operators can see their own work and track progress)
-          const isAssigned = item.status === 'assigned';
+          // Debug logging to see what's being filtered
+          if (!isAvailable) {
+            console.log(`🚫 Filtering out work item ${item.id}: status=${item.status}, assignedOperator=${item.assignedOperator}`);
+          }
           
-          // Include in-progress work (working status) so operators can see their current work
-          const isInProgress = item.status === 'in_progress' || item.status === 'in-progress';
-          
-          return isAvailable || isAssigned || isInProgress;
+          return isAvailable;
         });
         
         if (machineType && machineType !== 'all') {
-          filteredWorkItems = filteredWorkItems.filter(item => 
-            item.machineType === machineType
-          );
+          const beforeCount = filteredWorkItems.length;
+          filteredWorkItems = filteredWorkItems.filter(item => {
+            const machineMatch = item.machineType === machineType;
+            if (!machineMatch) {
+              console.log(`🚫 Machine mismatch for ${item.id}: expected=${machineType}, actual=${item.machineType}`);
+            }
+            return machineMatch;
+          });
+          console.log(`🔧 Machine filter: ${beforeCount} → ${filteredWorkItems.length} items (machine: ${machineType})`);
         }
         
         // Format work items to match expected bundle structure
@@ -1452,9 +1459,12 @@ export class WIPService {
           // Check if operator's machines are compatible with work item machine type
           const isCompatible = operatorMachines.includes(workItemData.machineType) || 
                                operatorMachines.includes('multi-machine') ||
+                               (workItemData.machineType === 'single-needle' && operatorMachines.includes('singleNeedle')) ||
                                (workItemData.machineType === 'single-needle' && operatorMachines.includes('single_needle')) ||
                                (workItemData.machineType === 'overlock' && operatorMachines.includes('overlock')) ||
-                               (workItemData.machineType === 'flatlock' && operatorMachines.includes('flatlock'));
+                               (workItemData.machineType === 'flatlock' && operatorMachines.includes('flatlock')) ||
+                               (workItemData.machineType === 'buttonAttach' && operatorMachines.includes('buttonAttach')) ||
+                               (workItemData.machineType === 'buttonhole' && operatorMachines.includes('buttonhole'));
 
           if (!isCompatible) {
             const operatorName = operatorData.name || operatorId;

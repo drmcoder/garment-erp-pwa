@@ -58,11 +58,15 @@ const OperatorWorkDashboardNew = () => {
       });
 
       // Categorize work by status
-      const inProgress = workList.find(w => w.status === 'in_progress');
+      const inProgress = workList.filter(w => w.status === 'in_progress');
       const assigned = workList.filter(w => ['assigned', 'self_assigned'].includes(w.status));
       const completed = workList.filter(w => ['completed', 'operator_completed'].includes(w.status)).slice(0, 5);
       
-      setCurrentWork(inProgress || null);
+      // Combine in-progress and assigned work for "Currently Working On" section
+      // Show up to 10 items
+      const currentWorkItems = [...inProgress, ...assigned].slice(0, 10);
+      
+      setCurrentWork(currentWorkItems);
       setReadyWork(assigned);
       setCompletedWork(completed);
       
@@ -280,54 +284,113 @@ const OperatorWorkDashboardNew = () => {
           </div>
         </div>
 
-        {/* Current Work - Hero Section */}
-        {currentWork ? (
+        {/* Current Work - Multiple Work Buckets Section */}
+        {currentWork && currentWork.length > 0 ? (
           <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-2xl p-8 text-white shadow-lg">
-            <div className="flex justify-between items-start">
-              <div className="flex-1">
-                <div className="flex items-center space-x-3 mb-4">
-                  <span className="text-4xl">🚀</span>
-                  <div>
-                    <h2 className="text-2xl font-bold">
-                      {isNepali ? 'हाल गरिरहेको काम' : 'Currently Working On'}
-                    </h2>
-                    <p className="text-green-100 text-sm">
-                      {isNepali ? 'प्रगतिमा रहेको काम' : 'Work in progress'}
-                    </p>
-                  </div>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center space-x-3">
+                <span className="text-4xl">🚀</span>
+                <div>
+                  <h2 className="text-2xl font-bold">
+                    {isNepali ? 'हाल गरिरहेको काम' : 'Currently Working On'}
+                  </h2>
+                  <p className="text-green-100 text-sm">
+                    {isNepali ? `${currentWork.length} वटा काम बकेट सक्रिय` : `${currentWork.length} work buckets active`}
+                  </p>
                 </div>
-
-                <div className="bg-white/10 rounded-xl p-6 backdrop-blur-sm">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div>
-                      <h3 className="text-xl font-bold mb-2">
-                        {currentWork.readableId || `Work #${currentWork.id.slice(-6)}`}
-                      </h3>
-                      <div className="space-y-2 text-sm">
-                        <p><span className="font-medium">{isNepali ? 'ऑपरेसन:' : 'Operation:'}</span> {currentWork.currentOperation || 'N/A'}</p>
-                        <p><span className="font-medium">{isNepali ? 'रंग:' : 'Color:'}</span> {currentWork.color || 'N/A'}</p>
-                        <p><span className="font-medium">{isNepali ? 'साइज:' : 'Size:'}</span> {currentWork.size || 'N/A'}</p>
-                        <p><span className="font-medium">{isNepali ? 'टुक्राहरू:' : 'Pieces:'}</span> {currentWork.pieces || 0}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex flex-col justify-center">
-                      <div className="text-center mb-4">
-                        <div className="text-3xl font-bold">Rs. {currentWork.rate || 0}</div>
-                        <div className="text-green-100 text-sm">{isNepali ? 'दर प्रति टुक्रा' : 'Rate per piece'}</div>
-                      </div>
-                      
-                      <button
-                        onClick={() => handleCompleteWork(currentWork)}
-                        className="w-full bg-white text-green-600 font-bold py-4 rounded-xl hover:bg-green-50 transition-all transform hover:scale-105 shadow-lg"
-                      >
-                        🏁 {isNepali ? 'काम पूरा गर्नुहोस्' : 'Complete Work'}
-                      </button>
-                    </div>
-                  </div>
+              </div>
+              
+              {/* Work Load Indicator */}
+              <div className="bg-white/20 rounded-lg px-4 py-2">
+                <div className="text-xs text-green-100">{isNepali ? 'वर्कलोड' : 'Workload'}</div>
+                <div className="text-sm font-bold">
+                  {currentWork.length}/4 {isNepali ? 'बकेट' : 'Buckets'}
                 </div>
               </div>
             </div>
+
+            {/* Optimized Grid for 3-4 Work Buckets */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {currentWork.map((work, index) => (
+                <div key={work.id} className="bg-white/10 rounded-xl p-5 backdrop-blur-sm hover:bg-white/20 transition-all border border-white/20 hover:border-white/40">
+                  {/* Work Bucket Header */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-lg font-bold mb-1">
+                        {work.readableId || `#${work.id.slice(-6)}`}
+                      </h3>
+                      <div className="text-xs text-green-100 bg-white/10 rounded-full px-2 py-1 inline-block">
+                        {isNepali ? 'बकेट' : 'Bucket'} #{index + 1}
+                      </div>
+                    </div>
+                    {/* Status Indicator */}
+                    <div className={`w-3 h-3 rounded-full ${work.status === 'in_progress' ? 'bg-yellow-300 animate-pulse' : 'bg-blue-300'}`}></div>
+                  </div>
+
+                  {/* Work Details Cards */}
+                  <div className="space-y-2 mb-4">
+                    <div className="bg-white/15 rounded-lg p-2">
+                      <div className="text-xs text-green-100">{isNepali ? 'ऑपरेसन' : 'Operation'}</div>
+                      <div className="font-semibold text-sm truncate">{work.currentOperation || 'N/A'}</div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="bg-white/15 rounded-lg p-2 text-center">
+                        <div className="text-xs text-green-100">{isNepali ? 'टुक्रा' : 'Pieces'}</div>
+                        <div className="font-bold">{work.pieces || 0}</div>
+                      </div>
+                      <div className="bg-white/15 rounded-lg p-2 text-center">
+                        <div className="text-xs text-green-100">{isNepali ? 'दर' : 'Rate'}</div>
+                        <div className="font-bold">₹{work.rate || 0}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-white/15 rounded-lg p-2 text-center">
+                      <div className="text-xs text-green-100">💰 {isNepali ? 'कमाई' : 'Earnings'}</div>
+                      <div className="font-bold text-yellow-200">₹{((work.pieces || 0) * (work.rate || 0)).toFixed(2)}</div>
+                    </div>
+                  </div>
+                  
+                  {/* Action Button */}
+                  <button
+                    onClick={() => handleCompleteWork(work)}
+                    className="w-full bg-white text-green-600 font-bold py-2 px-3 rounded-lg hover:bg-green-50 transition-all text-sm flex items-center justify-center space-x-1"
+                  >
+                    <span>🏁</span>
+                    <span>{isNepali ? 'पूरा गर्नुहोस्' : 'Complete'}</span>
+                  </button>
+                  
+                  {/* Additional Info */}
+                  <div className="mt-2 text-xs text-green-100 text-center opacity-80">
+                    {work.color && <span>{work.color}</span>}
+                    {work.color && work.size && <span> • </span>}
+                    {work.size && <span>{work.size}</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {/* Quick Stats Footer */}
+            {currentWork.length > 0 && (
+              <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white/10 rounded-lg p-3 text-center">
+                  <div className="text-xs text-green-100">{isNepali ? 'कुल टुक्रा' : 'Total Pieces'}</div>
+                  <div className="font-bold">{currentWork.reduce((sum, w) => sum + (w.pieces || 0), 0)}</div>
+                </div>
+                <div className="bg-white/10 rounded-lg p-3 text-center">
+                  <div className="text-xs text-green-100">{isNepali ? 'कुल कमाई' : 'Total Value'}</div>
+                  <div className="font-bold">₹{currentWork.reduce((sum, w) => sum + ((w.pieces || 0) * (w.rate || 0)), 0).toFixed(2)}</div>
+                </div>
+                <div className="bg-white/10 rounded-lg p-3 text-center">
+                  <div className="text-xs text-green-100">{isNepali ? 'औसत दर' : 'Avg Rate'}</div>
+                  <div className="font-bold">₹{(currentWork.reduce((sum, w) => sum + (w.rate || 0), 0) / currentWork.length).toFixed(2)}</div>
+                </div>
+                <div className="bg-white/10 rounded-lg p-3 text-center">
+                  <div className="text-xs text-green-100">{isNepali ? 'कार्यभार' : 'Capacity'}</div>
+                  <div className="font-bold">{currentWork.length}/4</div>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="bg-gradient-to-r from-gray-100 to-gray-200 rounded-2xl p-8 text-center">
