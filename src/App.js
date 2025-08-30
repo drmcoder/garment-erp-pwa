@@ -21,7 +21,9 @@ import MachineManagement from "./components/admin/MachineManagement";
 import TemplateBuilder from "./components/supervisor/TemplateBuilder";
 import AIProductionAnalytics from "./components/analytics/AIProductionAnalytics";
 import PayrollSystem from "./components/management/PayrollSystem";
-import { PermissionGate, usePermissions, PermissionsProvider } from "./context/PermissionsContext";
+import LocationManagement from "./components/admin/LocationManagement";
+import AdvancedManagementDashboard from "./components/management/ManagementDashboard";
+import { PermissionGate, PermissionsProvider } from "./context/PermissionsContext";
 import { PERMISSIONS } from "./services/permissions-service";
 import { FullScreenLoader } from "./components/common/BrandedLoader";
 import LoginScreen from "./components/auth/LoginScreen";
@@ -395,11 +397,12 @@ const AppContent = () => {
       switch (currentView) {
         case "self-assignment":
           return <SelfAssignmentSystem />;
+        case "old-dashboard":
+          return <OperatorDashboard onNavigate={setCurrentView} />;
         case "work-dashboard":
-          return <OperatorWorkDashboard />;
         case "dashboard":
         default:
-          return <OperatorDashboard onNavigate={setCurrentView} />;
+          return <OperatorWorkDashboard />;
       }
     }
 
@@ -440,8 +443,8 @@ const AppContent = () => {
       }
     }
 
-    // Manager and admin views
-    if (user.role === "management" || user.role === "manager") {
+    // Management views (includes all admin capabilities)
+    if (user.role === "management" || user.role === "manager" || user.role === "admin") {
       switch (currentView) {
         case "settings":
           return (
@@ -455,6 +458,10 @@ const AppContent = () => {
           return (
             <PayrollSystem onBack={() => setCurrentView("dashboard")} />
           );
+        case "location":
+          return (
+            <LocationManagement onBack={() => setCurrentView("dashboard")} />
+          );
         case "users":
           return (
             <UserManagement onBack={() => setCurrentView("dashboard")} />
@@ -465,80 +472,7 @@ const AppContent = () => {
           );
         case "dashboard":
         default:
-          return (
-            <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-              <div className="px-4 py-6 sm:px-0">
-                <div className="text-center mb-8">
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    Management Dashboard 👔
-                  </h1>
-                  <p className="mt-2 text-gray-600">
-                    System Overview and Administration
-                  </p>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
-                  {/* First Row - Main Features */}
-                  <button
-                    onClick={() => setCurrentView("settings")}
-                    className="bg-primary-600 text-white p-6 rounded-lg hover:bg-primary-700 transition-colors text-left"
-                  >
-                    <div className="text-3xl mb-2">⚙️</div>
-                    <div className="text-xl font-semibold">System Settings</div>
-                    <div className="text-primary-200 mt-1">
-                      Configure production line and targets
-                    </div>
-                  </button>
-                  
-                  <button
-                    onClick={() => setCurrentView("analytics")}
-                    className="bg-success-600 text-white p-6 rounded-lg hover:bg-success-700 transition-colors text-left"
-                  >
-                    <div className="text-3xl mb-2">🧠</div>
-                    <div className="text-xl font-semibold">AI Analytics</div>
-                    <div className="text-success-200 mt-1">
-                      Production insights and predictions
-                    </div>
-                  </button>
-
-                  <button
-                    onClick={() => setCurrentView("payroll")}
-                    className="bg-green-600 text-white p-6 rounded-lg hover:bg-green-700 transition-colors text-left"
-                  >
-                    <div className="text-3xl mb-2">💰</div>
-                    <div className="text-xl font-semibold">Payroll System</div>
-                    <div className="text-green-200 mt-1">
-                      Manage operator payments and incentives
-                    </div>
-                  </button>
-                  
-                  <button
-                    onClick={() => setCurrentView("users")}
-                    className="bg-orange-600 text-white p-6 rounded-lg hover:bg-orange-700 transition-colors text-left"
-                  >
-                    <div className="text-3xl mb-2">👥</div>
-                    <div className="text-xl font-semibold">User Management</div>
-                    <div className="text-orange-200 mt-1">
-                      Manage operators and assign machines
-                    </div>
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <button
-                    onClick={() => setCurrentView("machines")}
-                    className="bg-primary-600 text-white p-6 rounded-lg hover:bg-primary-700 transition-colors text-left"
-                  >
-                    <div className="text-3xl mb-2">🔧</div>
-                    <div className="text-xl font-semibold">Machine Management</div>
-                    <div className="text-primary-200 mt-1">
-                      Add, edit and configure machines
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
+          return <AdvancedManagementDashboard />;
       }
     }
 
@@ -643,7 +577,7 @@ const AppContent = () => {
       )}
 
       {/* Navigation Tabs for Management */}
-      {user.role === "management" && (
+      {(user.role === "management" || user.role === "manager" || user.role === "admin") && (
         <div className="bg-white border-b sticky top-0 z-40">
           <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
             <nav className="flex space-x-1 sm:space-x-6 overflow-x-auto scrollbar-hide">
@@ -686,6 +620,16 @@ const AppContent = () => {
                 }`}
               >
                 ⚙️ Settings
+              </button>
+              <button
+                onClick={() => setCurrentView("location")}
+                className={`py-3 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
+                  currentView === "location"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                📍 Location
               </button>
             </nav>
           </div>

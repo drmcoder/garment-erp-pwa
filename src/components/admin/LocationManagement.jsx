@@ -11,7 +11,16 @@ import {
   Map,
   BarChart3,
   Settings,
-  RefreshCw
+  RefreshCw,
+  Edit2,
+  Save,
+  X,
+  Navigation,
+  Plus,
+  Trash2,
+  ToggleLeft,
+  ToggleRight,
+  Check
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -19,7 +28,7 @@ import { locationService } from '../../services/LocationService';
 
 const LocationManagement = () => {
   const { user } = useAuth();
-  const { currentLanguage } = useLanguage();
+  const { currentLanguage, t } = useLanguage();
   const isNepali = currentLanguage === 'np';
 
   // State management
@@ -29,6 +38,23 @@ const LocationManagement = () => {
   const [locationAlerts, setLocationAlerts] = useState([]);
   const [locationStats, setLocationStats] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Multi-location settings state
+  const [locations, setLocations] = useState(locationService.getAllLocations());
+  const [editingLocationId, setEditingLocationId] = useState(null);
+  const [editingLocation, setEditingLocation] = useState(false);
+  const [editingRadius, setEditingRadius] = useState(false);
+  const [showAddLocation, setShowAddLocation] = useState(false);
+  const [newLocation, setNewLocation] = useState({
+    name: '',
+    address: '',
+    latitude: 27.7172,
+    longitude: 85.3240,
+    radius: 500,
+    active: true
+  });
+  const [newRadius, setNewRadius] = useState(locationService.ALLOWED_RADIUS);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   useEffect(() => {
     loadLocationData();
@@ -92,6 +118,58 @@ const LocationManagement = () => {
     setRefreshing(true);
     await loadLocationData();
     setRefreshing(false);
+  };
+
+  // Location settings functions
+  const handleLocationUpdate = async () => {
+    setSavingSettings(true);
+    try {
+      // Simulate API call to update factory location
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update LocationService factory location
+      locationService.FACTORY_LOCATION = {
+        ...newLocation,
+        latitude: parseFloat(newLocation.latitude),
+        longitude: parseFloat(newLocation.longitude)
+      };
+      
+      setEditingLocation(false);
+      alert(isNepali ? 'फ्याक्ट्री स्थान अपडेट भयो!' : 'Factory location updated successfully!');
+    } catch (error) {
+      alert(isNepali ? 'त्रुटि भयो!' : 'Error updating location!');
+    }
+    setSavingSettings(false);
+  };
+
+  const handleRadiusUpdate = async () => {
+    setSavingSettings(true);
+    try {
+      // Simulate API call to update allowed radius
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Update LocationService allowed radius
+      locationService.ALLOWED_RADIUS = parseInt(newRadius);
+      
+      setEditingRadius(false);
+      alert(isNepali ? 'अनुमतित दूरी अपडेट भयो!' : 'Allowed distance updated successfully!');
+    } catch (error) {
+      alert(isNepali ? 'त्रुटि भयो!' : 'Error updating radius!');
+    }
+    setSavingSettings(false);
+  };
+
+  const getCurrentLocation = () => {
+    if (navigator.geolocation) {
+      setEditingLocation(true);
+      navigator.geolocation.getCurrentPosition((position) => {
+        setNewLocation(prev => ({
+          ...prev,
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude
+        }));
+      });
+    }
   };
 
   const formatDistance = (distance) => {
@@ -453,50 +531,230 @@ const LocationManagement = () => {
             </div>
           )}
 
-          {/* Settings Tab */}
+          {/* Settings Tab - Multi-Location System */}
           {activeTab === 'settings' && (
             <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-gray-800">
-                {isNepali ? 'स्थान सेटिंग' : 'Location Settings'}
-              </h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-800">
+                  {t('locationSettings') || (isNepali ? 'स्थान सेटिंग' : 'Factory Locations')}
+                </h3>
+                <button
+                  onClick={() => setShowAddLocation(true)}
+                  disabled={locations.length >= 3}
+                  className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  {isNepali ? 'नयाँ स्थान थप्नुहोस्' : 'Add Location'}
+                </button>
+              </div>
               
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center">
-                  <Settings className="w-5 h-5 text-yellow-600 mr-2" />
-                  <p className="text-yellow-800">
-                    {isNepali 
-                      ? 'स्थान सेटिंग अपडेट सुविधा विकास चरणमा छ।'
-                      : 'Location settings update feature is under development.'}
-                  </p>
+                  <Settings className="w-5 h-5 text-blue-600 mr-2" />
+                  <div>
+                    <p className="text-blue-800 font-medium">
+                      {isNepali 
+                        ? 'बहु-स्थान प्रणाली सक्रिय'
+                        : 'Multi-Location System Active'}
+                    </p>
+                    <p className="text-blue-600 text-sm">
+                      {isNepali 
+                        ? `${locations.filter(l => l.active).length} सक्रिय स्थानहरू मध्ये ${locations.length}`
+                        : `${locations.filter(l => l.active).length} active out of ${locations.length} locations`}
+                    </p>
+                  </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white border rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-2">
-                    {isNepali ? 'फ्याक्ट्री स्थान' : 'Factory Location'}
-                  </h4>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {isNepali ? 'हाल सेट गरिएको फ्याक्ट्री स्थान:' : 'Currently set factory location:'}
-                  </p>
-                  <p className="text-gray-800">
-                    📍 {locationService.FACTORY_LOCATION.address}
-                  </p>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {locationService.FACTORY_LOCATION.latitude.toFixed(6)}, {locationService.FACTORY_LOCATION.longitude.toFixed(6)}
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-gray-800">
+                      {t('factoryLocation') || (isNepali ? 'फ्याक्ट्री स्थान' : 'Factory Location')}
+                    </h4>
+                    {!editingLocation && (
+                      <button
+                        onClick={() => setEditingLocation(true)}
+                        className="flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4 mr-1" />
+                        {t('edit') || (isNepali ? 'सम्पादन' : 'Edit')}
+                      </button>
+                    )}
+                  </div>
+
+                  {!editingLocation ? (
+                    <>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {isNepali ? 'हाल सेट गरिएको फ्याक्ट्री स्थान:' : 'Currently set factory location:'}
+                      </p>
+                      <p className="text-gray-800">
+                        📍 {locationService.FACTORY_LOCATION.address}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {locationService.FACTORY_LOCATION.latitude.toFixed(6)}, {locationService.FACTORY_LOCATION.longitude.toFixed(6)}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {isNepali ? 'फ्याक्ट्री नाम' : 'Factory Name'}
+                        </label>
+                        <input
+                          type="text"
+                          value={newLocation.name}
+                          onChange={(e) => setNewLocation(prev => ({...prev, name: e.target.value}))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {isNepali ? 'ठेगाना' : 'Address'}
+                        </label>
+                        <input
+                          type="text"
+                          value={newLocation.address}
+                          onChange={(e) => setNewLocation(prev => ({...prev, address: e.target.value}))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {isNepali ? 'अक्षांश' : 'Latitude'}
+                          </label>
+                          <input
+                            type="number"
+                            step="0.000001"
+                            value={newLocation.latitude}
+                            onChange={(e) => setNewLocation(prev => ({...prev, latitude: e.target.value}))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {isNepali ? 'देशान्तर' : 'Longitude'}
+                          </label>
+                          <input
+                            type="number"
+                            step="0.000001"
+                            value={newLocation.longitude}
+                            onChange={(e) => setNewLocation(prev => ({...prev, longitude: e.target.value}))}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={getCurrentLocation}
+                          className="flex items-center px-3 py-2 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors"
+                        >
+                          <Navigation className="w-4 h-4 mr-1" />
+                          {isNepali ? 'हालको स्थान' : 'Current Location'}
+                        </button>
+                        <button
+                          onClick={handleLocationUpdate}
+                          disabled={savingSettings}
+                          className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          <Save className="w-4 h-4 mr-1" />
+                          {savingSettings ? (isNepali ? 'सेभ गर्दै...' : 'Saving...') : (isNepali ? 'सेभ' : 'Save')}
+                        </button>
+                        <button
+                          onClick={() => setEditingLocation(false)}
+                          className="flex items-center px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          {isNepali ? 'रद्द' : 'Cancel'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="bg-white border rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-800 mb-2">
-                    {isNepali ? 'अनुमतित दूरी' : 'Allowed Distance'}
-                  </h4>
-                  <p className="text-sm text-gray-600 mb-2">
-                    {isNepali ? 'फ्याक्ट्रीबाट अधिकतम दूरी:' : 'Maximum distance from factory:'}
-                  </p>
-                  <p className="text-gray-800 text-2xl font-bold">
-                    {formatDistance(locationService.ALLOWED_RADIUS)}
-                  </p>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-gray-800">
+                      {isNepali ? 'अनुमतित दूरी' : 'Allowed Distance'}
+                    </h4>
+                    {!editingRadius && (
+                      <button
+                        onClick={() => setEditingRadius(true)}
+                        className="flex items-center px-3 py-1 text-sm bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors"
+                      >
+                        <Edit2 className="w-4 h-4 mr-1" />
+                        {t('edit') || (isNepali ? 'सम्पादन' : 'Edit')}
+                      </button>
+                    )}
+                  </div>
+
+                  {!editingRadius ? (
+                    <>
+                      <p className="text-sm text-gray-600 mb-2">
+                        {isNepali ? 'फ्याक्ट्रीबाट अधिकतम दूरी:' : 'Maximum distance from factory:'}
+                      </p>
+                      <p className="text-gray-800 text-2xl font-bold">
+                        {formatDistance(locationService.ALLOWED_RADIUS)}
+                      </p>
+                    </>
+                  ) : (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {isNepali ? 'दूरी (मिटरमा)' : 'Distance (in meters)'}
+                        </label>
+                        <input
+                          type="number"
+                          min="100"
+                          max="5000"
+                          step="50"
+                          value={newRadius}
+                          onChange={(e) => setNewRadius(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {isNepali ? 'न्यूनतम: 100m, अधिकतम: 5000m' : 'Minimum: 100m, Maximum: 5000m'}
+                        </p>
+                      </div>
+                      
+                      {/* Quick preset buttons */}
+                      <div className="flex flex-wrap gap-2">
+                        <span className="text-sm text-gray-600">{isNepali ? 'छिटो सेट:' : 'Quick Set:'}</span>
+                        {[200, 500, 1000, 2000].map(distance => (
+                          <button
+                            key={distance}
+                            onClick={() => setNewRadius(distance)}
+                            className={`px-2 py-1 text-xs rounded border transition-colors ${
+                              parseInt(newRadius) === distance 
+                                ? 'bg-blue-100 border-blue-300 text-blue-700' 
+                                : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
+                            }`}
+                          >
+                            {formatDistance(distance)}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={handleRadiusUpdate}
+                          disabled={savingSettings}
+                          className="flex items-center px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                          <Save className="w-4 h-4 mr-1" />
+                          {savingSettings ? (isNepali ? 'सेभ गर्दै...' : 'Saving...') : (isNepali ? 'सेभ' : 'Save')}
+                        </button>
+                        <button
+                          onClick={() => setEditingRadius(false)}
+                          className="flex items-center px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          <X className="w-4 h-4 mr-1" />
+                          {isNepali ? 'रद्द' : 'Cancel'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

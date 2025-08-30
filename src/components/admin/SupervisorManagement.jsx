@@ -163,7 +163,7 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
   };
 
   const handleDeleteSupervisor = (supervisorId) => {
-    if (confirm('Are you sure you want to delete this supervisor?')) {
+    if (window.confirm('Are you sure you want to delete this supervisor?')) {
       const updatedSupervisors = supervisors.filter(sup => sup.id !== supervisorId);
       saveSupervisors(updatedSupervisors);
     }
@@ -512,7 +512,7 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900">
-                      {supervisor.assignedOperators.length > 0 ? (
+                      {supervisor.assignedOperators && supervisor.assignedOperators.length > 0 ? (
                         <div className="space-y-1">
                           {supervisor.assignedOperators.slice(0, 2).map(operatorId => (
                             <div key={operatorId} className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">

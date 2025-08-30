@@ -2,10 +2,9 @@
 // System Settings Component for Line Configuration
 
 import React, { useState, useContext, useEffect } from 'react';
-import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
-import { db, collection, doc, getDoc, setDoc, COLLECTIONS } from '../../config/firebase';
+import { db, doc, getDoc, setDoc, COLLECTIONS } from '../../config/firebase';
 import BackButton from '../common/BackButton';
 
 const SystemSettings = ({ onBack }) => {

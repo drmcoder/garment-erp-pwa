@@ -5,19 +5,121 @@ import { db, collection, addDoc, getDocs, query, where, orderBy, updateDoc, doc 
 
 class LocationService {
   constructor() {
-    // Factory location coordinates (Kathmandu, Nepal - example)
-    this.FACTORY_LOCATION = {
-      latitude: 27.7172,
-      longitude: 85.3240,
-      name: "TSA Garment Factory",
-      address: "Industrial Area, Kathmandu, Nepal"
-    };
+    // Multiple factory locations (up to 3 locations)
+    this.FACTORY_LOCATIONS = [
+      {
+        id: 1,
+        latitude: 27.7172,
+        longitude: 85.3240,
+        name: "TSA Garment Factory - Main",
+        address: "Industrial Area, Kathmandu, Nepal",
+        radius: 500, // Individual radius for each location
+        active: true
+      },
+      {
+        id: 2,
+        latitude: 27.7100,
+        longitude: 85.3300,
+        name: "TSA Garment Factory - Branch",
+        address: "Patan Industrial Area, Nepal",
+        radius: 300,
+        active: true
+      },
+      {
+        id: 3,
+        latitude: 27.7050,
+        longitude: 85.3350,
+        name: "TSA Warehouse",
+        address: "Bhaktapur Industrial Zone, Nepal",
+        radius: 200,
+        active: false // Can be activated/deactivated
+      }
+    ];
     
-    // Allowed radius from factory (in meters)
-    this.ALLOWED_RADIUS = 500; // 500 meters radius
+    // Backward compatibility - use first active location as primary
+    this.FACTORY_LOCATION = this.FACTORY_LOCATIONS.find(loc => loc.active) || this.FACTORY_LOCATIONS[0];
+    this.ALLOWED_RADIUS = this.FACTORY_LOCATION.radius;
     
     // Location accuracy threshold
     this.MIN_ACCURACY = 100; // meters
+  }
+
+  // Get all factory locations
+  getAllLocations() {
+    return this.FACTORY_LOCATIONS;
+  }
+
+  // Get active factory locations only
+  getActiveLocations() {
+    return this.FACTORY_LOCATIONS.filter(loc => loc.active);
+  }
+
+  // Add new factory location
+  addLocation(location) {
+    const newId = Math.max(...this.FACTORY_LOCATIONS.map(l => l.id)) + 1;
+    const newLocation = {
+      id: newId,
+      ...location,
+      active: location.active !== false // Default to true unless explicitly false
+    };
+    this.FACTORY_LOCATIONS.push(newLocation);
+    return newLocation;
+  }
+
+  // Update existing location
+  updateLocation(id, updates) {
+    const index = this.FACTORY_LOCATIONS.findIndex(loc => loc.id === id);
+    if (index !== -1) {
+      this.FACTORY_LOCATIONS[index] = { ...this.FACTORY_LOCATIONS[index], ...updates };
+      
+      // Update backward compatibility references if primary location changed
+      if (this.FACTORY_LOCATIONS[index].active) {
+        this.FACTORY_LOCATION = this.FACTORY_LOCATIONS[index];
+        this.ALLOWED_RADIUS = this.FACTORY_LOCATION.radius;
+      }
+      
+      return this.FACTORY_LOCATIONS[index];
+    }
+    return null;
+  }
+
+  // Toggle location active status
+  toggleLocation(id) {
+    const location = this.FACTORY_LOCATIONS.find(loc => loc.id === id);
+    if (location) {
+      location.active = !location.active;
+      
+      // Ensure at least one location remains active
+      const activeCount = this.FACTORY_LOCATIONS.filter(loc => loc.active).length;
+      if (activeCount === 0) {
+        // Reactivate this location
+        location.active = true;
+      }
+      
+      return location;
+    }
+    return null;
+  }
+
+  // Delete location (if more than 1 exists)
+  deleteLocation(id) {
+    if (this.FACTORY_LOCATIONS.length <= 1) {
+      return { success: false, message: 'Cannot delete the last remaining location' };
+    }
+    
+    const index = this.FACTORY_LOCATIONS.findIndex(loc => loc.id === id);
+    if (index !== -1) {
+      const deleted = this.FACTORY_LOCATIONS.splice(index, 1)[0];
+      
+      // Update primary location if deleted location was primary
+      if (this.FACTORY_LOCATION.id === id) {
+        this.FACTORY_LOCATION = this.FACTORY_LOCATIONS.find(loc => loc.active) || this.FACTORY_LOCATIONS[0];
+        this.ALLOWED_RADIUS = this.FACTORY_LOCATION.radius;
+      }
+      
+      return { success: true, deleted };
+    }
+    return { success: false, message: 'Location not found' };
   }
 
   // Get current location with high accuracy
@@ -82,21 +184,55 @@ class LocationService {
     return R * c; // Distance in meters
   }
 
-  // Check if location is within factory bounds
+  // Check if location is within any active factory bounds
   isLocationValid(userLocation) {
-    const distance = this.calculateDistance(
-      userLocation.latitude,
-      userLocation.longitude,
-      this.FACTORY_LOCATION.latitude,
-      this.FACTORY_LOCATION.longitude
-    );
+    const activeLocations = this.FACTORY_LOCATIONS.filter(loc => loc.active);
+    let closestValidLocation = null;
+    let minDistance = Infinity;
+    let isValid = false;
+
+    // Check against all active factory locations
+    for (const factoryLocation of activeLocations) {
+      const distance = this.calculateDistance(
+        userLocation.latitude,
+        userLocation.longitude,
+        factoryLocation.latitude,
+        factoryLocation.longitude
+      );
+
+      // Update closest location regardless of validity
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestValidLocation = factoryLocation;
+      }
+
+      // Check if within this location's radius
+      if (distance <= factoryLocation.radius) {
+        isValid = true;
+        // If valid, use this as the closest location
+        closestValidLocation = factoryLocation;
+        minDistance = distance;
+        break; // Found a valid location, no need to check others
+      }
+    }
 
     return {
-      isValid: distance <= this.ALLOWED_RADIUS,
-      distance: Math.round(distance),
-      allowedRadius: this.ALLOWED_RADIUS,
+      isValid,
+      distance: Math.round(minDistance),
+      allowedRadius: closestValidLocation?.radius || this.ALLOWED_RADIUS,
+      factoryLocation: closestValidLocation || this.FACTORY_LOCATION,
       accuracy: userLocation.accuracy,
-      isAccurate: userLocation.accuracy <= this.MIN_ACCURACY
+      isAccurate: userLocation.accuracy <= this.MIN_ACCURACY,
+      checkedLocations: activeLocations.length,
+      allLocations: activeLocations.map(loc => ({
+        name: loc.name,
+        distance: Math.round(this.calculateDistance(
+          userLocation.latitude,
+          userLocation.longitude,
+          loc.latitude,
+          loc.longitude
+        ))
+      }))
     };
   }
 

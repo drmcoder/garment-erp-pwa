@@ -4,57 +4,33 @@
 import React, { useState, useEffect } from "react";
 import BackButton from '../common/BackButton';
 import {
-  BarChart,
-  Bar,
   LineChart,
   Line,
-  AreaChart,
-  Area,
-  ScatterChart,
-  Scatter,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  RadarChart,
-  PolarGrid,
-  PolarAngleAxis,
-  PolarRadiusAxis,
-  Radar,
 } from "recharts";
 import {
   Brain,
   TrendingUp,
   AlertTriangle,
   Target,
-  Clock,
-  Zap,
-  Users,
-  Package,
   Award,
   DollarSign,
-  Activity,
-  Settings,
-  Filter,
-  Download,
   RefreshCw,
   Eye,
-  Calendar,
-  BarChart3,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 
 const AIProductionAnalytics = ({ onBack }) => {
-  const { t, currentLanguage, formatNumber } = useLanguage();
+  const { t, currentLanguage } = useLanguage();
 
   // State Management
   const [selectedTimeframe, setSelectedTimeframe] = useState("week");
-  const [selectedMetric, setSelectedMetric] = useState("efficiency");
+  const selectedMetric = "efficiency";
   const [activeInsight, setActiveInsight] = useState("predictions");
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -526,7 +502,7 @@ const AIProductionAnalytics = ({ onBack }) => {
                 }`}
               >
                 {opportunity.type === "efficiency" ? (
-                  <Zap className="w-5 h-5 text-blue-600" />
+                  <TrendingUp className="w-5 h-5 text-blue-600" />
                 ) : opportunity.type === "quality" ? (
                   <Award className="w-5 h-5 text-purple-600" />
                 ) : (

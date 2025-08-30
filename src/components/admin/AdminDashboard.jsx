@@ -7,6 +7,8 @@ import SupervisorManagement from './SupervisorManagement';
 import OperatorTemplates from './OperatorTemplates';
 import MachineManagement from './MachineManagement';
 import WorkflowTemplateManagement from './WorkflowTemplateManagement';
+import LocationManagement from './LocationManagement';
+import DamageAnalyticsDashboard from '../management/DamageAnalyticsDashboard';
 import OperatorAvatar from '../common/OperatorAvatar';
 import { 
   Users, 
@@ -26,7 +28,8 @@ import {
   LogOut,
   ChevronDown,
   Bell,
-  User
+  User,
+  MapPin
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { createMissingUsers } from '../../utils/createUsers';
@@ -159,6 +162,20 @@ const AdminDashboard = () => {
       icon: GitBranch,
       count: stats.totalWorkflowTemplates,
       color: 'indigo'
+    },
+    {
+      id: 'location',
+      label: currentLanguage === 'en' ? 'Location Management' : 'स्थान प्रबन्धन',
+      icon: MapPin,
+      count: 0, // Will be updated with pending approvals count
+      color: 'red'
+    },
+    {
+      id: 'damage',
+      label: currentLanguage === 'en' ? 'Damage Analytics' : 'क्षति विश्लेषण',
+      icon: AlertCircle,
+      count: 0,
+      color: 'yellow'
     }
   ];
 
@@ -174,6 +191,10 @@ const AdminDashboard = () => {
         return <OperatorTemplates onStatsUpdate={loadStats} />;
       case 'workflows':
         return <WorkflowTemplateManagement onStatsUpdate={loadStats} />;
+      case 'location':
+        return <LocationManagement onStatsUpdate={loadStats} />;
+      case 'damage':
+        return <DamageAnalyticsDashboard />;
       default:
         return <OperatorManagement onStatsUpdate={loadStats} />;
     }
@@ -215,6 +236,13 @@ const AdminDashboard = () => {
         text: 'text-indigo-600',
         icon: 'text-indigo-500',
         stat: 'text-indigo-700'
+      },
+      red: {
+        bg: 'bg-red-50',
+        border: 'border-red-200',
+        text: 'text-red-600',
+        icon: 'text-red-500',
+        stat: 'text-red-700'
       }
     };
     return colorMap[color] || colorMap.blue;

@@ -162,7 +162,7 @@ const OperatorManagement = ({ onStatsUpdate }) => {
   };
 
   const handleDeleteOperator = async (operatorId) => {
-    if (confirm('Are you sure you want to delete this operator?')) {
+    if (window.confirm('Are you sure you want to delete this operator?')) {
       try {
         // Delete from Firestore
         const result = await OperatorService.deleteOperator(operatorId);
@@ -561,7 +561,7 @@ const OperatorManagement = ({ onStatsUpdate }) => {
                       <div className="text-sm font-bold text-gray-900">{operator.name}</div>
                       <div className="text-xs text-gray-500 mb-1">{operator.employeeId}</div>
                       <div className="flex flex-wrap gap-1">
-                        {operator.assignedMachines.length > 0 ? (
+                        {operator.assignedMachines && operator.assignedMachines.length > 0 ? (
                           operator.assignedMachines.slice(0, 2).map(machineId => {
                             const machine = machines.find(m => m.id === machineId);
                             const machineType = machine?.type || 'Unknown';

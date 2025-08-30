@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAllUsers } from '../../hooks/useOptimizedData';
+import { locationService } from '../../services/LocationService';
+import { loginControlService } from '../../services/LoginControlService';
 
 const LoginScreen = () => {
   const { login, loading, isOnline } = useAuth();
@@ -16,6 +18,7 @@ const LoginScreen = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
   const [clickCount, setClickCount] = useState(0);
+  const [locationStatus, setLocationStatus] = useState('unchecked'); // unchecked, checking, valid, invalid, pending
   // Use optimized data fetching with caching
   const { 
     data: allUsers, 
@@ -28,26 +31,25 @@ const LoginScreen = () => {
 
   // Process and filter users for login dropdown
   const availableUsers = React.useMemo(() => {
-    if (allUsers.length === 0) {
+    if (loadingUsers) {
+      // Show loading state
+      return [];
+    }
+    
+    if (allUsers.length === 0 || usersError) {
       // Fallback demo users
       return [
+        {
+          username: 'button',
+          name: 'Button Operator', 
+          role: 'supervisor',
+          lastLogin: new Date(Date.now() - 1 * 60 * 60 * 1000)
+        },
         {
           username: 'ram.singh',
           name: 'Ram Singh', 
           role: 'operator',
           lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000)
-        },
-        {
-          username: 'sita.devi',
-          name: 'Sita Devi',
-          role: 'operator', 
-          lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000)
-        },
-        {
-          username: 'hari.supervisor',
-          name: 'Hari Pokharel',
-          role: 'supervisor',
-          lastLogin: new Date(Date.now() - 1 * 60 * 60 * 1000) 
         },
         {
           username: 'admin.manager',
@@ -80,11 +82,47 @@ const LoginScreen = () => {
     return usersData;
   }, [allUsers]);
 
+  const checkLocationAccess = async () => {
+    setLocationStatus('checking');
+    try {
+      const result = await locationService.validateLocation();
+      
+      if (result.success) {
+        setLocationStatus('valid');
+        return true;
+      } else if (result.requiresApproval) {
+        setLocationStatus('pending');
+        showNotification("Location outside factory. Admin approval requested.", "warning");
+        return false;
+      } else {
+        setLocationStatus('invalid');
+        showNotification(result.message || "Location access denied", "error");
+        return false;
+      }
+    } catch (error) {
+      setLocationStatus('invalid');
+      showNotification("Location check failed: " + error.message, "error");
+      return false;
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginLoading(true);
 
     try {
+      // First check location for operators
+      const isOperatorLogin = credentials.username && !credentials.username.includes('admin');
+      
+      if (isOperatorLogin) {
+        const locationValid = await checkLocationAccess();
+        if (!locationValid) {
+          setLoginLoading(false);
+          return; // Don't proceed with login if location invalid
+        }
+      }
+
+      // Proceed with login if location is valid or user is admin
       await login(
         credentials.username,
         credentials.password,
@@ -388,6 +426,29 @@ const LoginScreen = () => {
                   </label>
                 </div>
               </div>
+
+              {/* Location Status Indicator */}
+              {credentials.username && !credentials.username.includes('admin') && locationStatus !== 'unchecked' && (
+                <div className={`flex items-center justify-center p-3 rounded-lg border-2 ${
+                  locationStatus === 'valid' ? 'bg-green-50 border-green-200 text-green-800' :
+                  locationStatus === 'checking' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+                  locationStatus === 'pending' ? 'bg-orange-50 border-orange-200 text-orange-800' :
+                  'bg-red-50 border-red-200 text-red-800'
+                }`}>
+                  <div className="flex items-center">
+                    {locationStatus === 'valid' && <CheckCircle className="w-5 h-5 mr-2" />}
+                    {locationStatus === 'checking' && <Clock className="w-5 h-5 mr-2 animate-spin" />}
+                    {locationStatus === 'pending' && <AlertTriangle className="w-5 h-5 mr-2" />}
+                    {locationStatus === 'invalid' && <XCircle className="w-5 h-5 mr-2" />}
+                    <span className="text-sm font-medium">
+                      {locationStatus === 'valid' && '📍 Location verified - Factory premises'}
+                      {locationStatus === 'checking' && '📍 Checking location...'}
+                      {locationStatus === 'pending' && '📍 Location outside factory - Approval requested'}
+                      {locationStatus === 'invalid' && '📍 Location access denied'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <button
                 type="submit"

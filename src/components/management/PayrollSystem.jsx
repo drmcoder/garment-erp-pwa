@@ -7,27 +7,17 @@ import {
   Calculator,
   Download,
   Printer,
-  Filter,
   Search,
-  Calendar,
   DollarSign,
   TrendingUp,
   Award,
-  Clock,
   Users,
   FileText,
-  AlertCircle,
-  CheckCircle,
   Eye,
-  Edit,
-  Plus,
-  Trash2,
 } from "lucide-react";
 import { useLanguage } from "../../context/LanguageContext";
 import {
   format,
-  startOfMonth,
-  endOfMonth,
   subMonths,
   addMonths,
 } from "date-fns";

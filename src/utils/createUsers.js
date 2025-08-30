@@ -23,24 +23,6 @@ const createMissingUsers = async () => {
         efficiency: 88,
         qualityScore: 95,
         profileColor: '#8B5CF6'
-      },
-      {
-        username: 'dinesh',
-        name: 'Dinesh Kumar',
-        nameEn: 'Dinesh Kumar',
-        nameNepali: 'दिनेश कुमार',
-        role: 'operator',
-        machine: 'single-needle',
-        station: 'Station-1',
-        speciality: 'single-needle',
-        active: true,
-        status: 'active',
-        password: '123456', // Default password
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        efficiency: 92,
-        qualityScore: 96,
-        profileColor: '#10B981'
       }
     ];
 

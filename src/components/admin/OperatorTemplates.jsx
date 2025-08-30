@@ -103,7 +103,7 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
   };
 
   const handleCreateTemplate = () => {
-    if (!newTemplate.name || newTemplate.operations.length === 0) {
+    if (!newTemplate.name || !newTemplate.operations || newTemplate.operations.length === 0) {
       alert('Template name and at least one operation are required');
       return;
     }
@@ -142,7 +142,7 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
   };
 
   const handleDeleteTemplate = (templateId) => {
-    if (confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
+    if (window.confirm('Are you sure you want to delete this template? This action cannot be undone.')) {
       const updatedTemplates = templates.filter(temp => temp.id !== templateId);
       saveTemplates(updatedTemplates);
     }
@@ -175,7 +175,7 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
 
   const updateOperation = (operationId, field, value) => {
     const updateOperations = (operations) => 
-      operations.map(op => op.id === operationId ? { ...op, [field]: value } : op);
+      (operations || []).map(op => op.id === operationId ? { ...op, [field]: value } : op);
 
     if (editingTemplate) {
       setEditingTemplate(prev => ({
@@ -322,7 +322,7 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {currentData.operations.map((operation, index) => (
+                  {(currentData.operations || []).map((operation, index) => (
                     <tr key={operation.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3">
                         <input
@@ -341,8 +341,8 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
                         >
                           <option value="">Select Machine</option>
                           {machines
-                            .filter(m => !operation.availableMachines.length || 
-                                        operation.availableMachines.includes(m.type))
+                            .filter(m => !operation.availableMachines?.length || 
+                                        operation.availableMachines?.includes(m.type))
                             .map(machine => (
                             <option key={machine.id} value={machine.id}>
                               {machine.name} ({machine.type})
@@ -391,7 +391,7 @@ const OperatorTemplates = ({ onStatsUpdate }) => {
               </table>
             </div>
 
-            {currentData.operations.length === 0 && (
+            {(!currentData.operations || currentData.operations.length === 0) && (
               <div className="text-center py-8 text-gray-500">
                 <p>No operations added yet</p>
                 <p className="text-sm">Click "Load Standard Operations" to get started with common operations</p>

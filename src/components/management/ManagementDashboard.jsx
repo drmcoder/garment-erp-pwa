@@ -41,13 +41,27 @@ import {
   BarChart3,
   Activity,
   Settings,
-  Tool,
+  Wrench,
+  MapPin,
+  UserCheck,
+  Cog,
+  FileText,
+  GitBranch,
+  Shield,
+  Menu,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import DamageAnalyticsDashboard from './DamageAnalyticsDashboard';
+import AIProductionAnalytics from '../analytics/AIProductionAnalytics';
+import OperatorManagement from '../admin/OperatorManagement';
+import SupervisorManagement from '../admin/SupervisorManagement';
+import MachineManagement from '../admin/MachineManagement';
+import OperatorTemplates from '../admin/OperatorTemplates';
+import LoginControlPanel from '../admin/LoginControlPanel';
 
 const AdvancedManagementDashboard = () => {
   const { user } = useAuth();
@@ -59,6 +73,9 @@ const AdvancedManagementDashboard = () => {
   const [selectedMetric, setSelectedMetric] = useState("production");
   const [timeFilter, setTimeFilter] = useState("daily");
   const [isLoading, setIsLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadNotificationsCount] = useState(3);
 
   // Data States
   const [dashboardData, setDashboardData] = useState({
@@ -248,7 +265,7 @@ const AdvancedManagementDashboard = () => {
   const OverviewDashboard = () => (
     <div className="space-y-6">
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
         <KPICard
           title={
             currentLanguage === "np" ? "आजको उत्पादन" : "Today's Production"
@@ -292,7 +309,7 @@ const AdvancedManagementDashboard = () => {
       </div>
 
       {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 sm:gap-6">
         {/* Production Trends */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-4">
@@ -371,7 +388,7 @@ const AdvancedManagementDashboard = () => {
       </div>
 
       {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
         {/* Quality Issues */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
@@ -570,30 +587,35 @@ const AdvancedManagementDashboard = () => {
 
   // Main Render
   return (
-    <div className="min-h-screen bg-gray-50 p-4 lg:p-6">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto p-3 sm:p-4 lg:p-6">
         {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
-          <div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
-              {currentLanguage === "np"
-                ? "व्यवस्थापन ड्यासबोर्ड"
-                : "Management Dashboard"}
-            </h1>
-            <p className="text-gray-600">
-              {currentLanguage === "np" ? "स्वागत छ" : "Welcome"},{" "}
-              {user?.name || "Manager"}!
-              {currentLanguage === "np"
-                ? " आजको प्रदर्शन देख्नुहोस्।"
-                : " View today's performance."}
-            </p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 sm:mb-6 gap-4">
+          <div className="flex items-center space-x-3 min-w-0 flex-1">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 truncate">
+                {currentLanguage === "np"
+                  ? "व्यवस्थापन ड्यासबोर्ड"
+                  : "Management Dashboard"}
+              </h1>
+              <p className="text-sm sm:text-base text-gray-600 truncate">
+                {currentLanguage === "np" ? "स्वागत छ" : "Welcome"},{" "}
+                {user?.name || "Manager"}!
+                {currentLanguage === "np"
+                  ? " आजको प्रदर्शन देख्नुहोस्।"
+                  : " View today's performance."}
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-4 mt-4 lg:mt-0">
+          <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 w-full sm:w-auto">
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500"
+              className="px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
             >
               <option value="today">
                 {currentLanguage === "np" ? "आज" : "Today"}
@@ -612,7 +634,7 @@ const AdvancedManagementDashboard = () => {
             <button
               onClick={loadDashboardData}
               disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
+              className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center text-sm w-full sm:w-auto"
             >
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`}
@@ -623,7 +645,7 @@ const AdvancedManagementDashboard = () => {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
+        <div className="flex overflow-x-auto space-x-1 mb-4 sm:mb-6 bg-gray-100 p-1 rounded-lg scrollbar-hide">
           {[
             {
               key: "overview",
@@ -643,13 +665,38 @@ const AdvancedManagementDashboard = () => {
             {
               key: "damage",
               label: currentLanguage === "np" ? "क्षति विश्लेषण" : "Damage Analytics",
-              icon: Tool,
+              icon: Wrench,
+            },
+            {
+              key: "operators",
+              label: currentLanguage === "np" ? "अपरेटरहरू" : "Operators",
+              icon: Users,
+            },
+            {
+              key: "supervisors", 
+              label: currentLanguage === "np" ? "सुपरभाइजरहरू" : "Supervisors",
+              icon: UserCheck,
+            },
+            {
+              key: "machines",
+              label: currentLanguage === "np" ? "मेसिनहरू" : "Machines",
+              icon: Cog,
+            },
+            {
+              key: "templates",
+              label: currentLanguage === "np" ? "टेम्प्लेट र वर्कफ्लो" : "Templates & Workflows",
+              icon: GitBranch,
+            },
+            {
+              key: "logincontrol",
+              label: currentLanguage === "np" ? "लगइन नियन्त्रण" : "Login Control",
+              icon: Shield,
             },
           ].map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveView(tab.key)}
-              className={`flex items-center px-4 py-2 rounded-md transition-all ${
+              className={`flex items-center px-2 sm:px-4 py-2 rounded-md transition-all whitespace-nowrap text-xs sm:text-sm ${
                 activeView === tab.key
                   ? "bg-white text-blue-600 shadow-sm"
                   : "text-gray-600 hover:text-gray-900"
@@ -677,8 +724,48 @@ const AdvancedManagementDashboard = () => {
           <>
             {activeView === "overview" && <OverviewDashboard />}
             {activeView === "production" && <ProductionAnalytics />}
-            {activeView === "analytics" && <ProductionAnalytics />}
+            {activeView === "analytics" && <AIProductionAnalytics />}
             {activeView === "damage" && <DamageAnalyticsDashboard />}
+            {activeView === "operators" && <OperatorManagement />}
+            {activeView === "supervisors" && <SupervisorManagement />}
+            {activeView === "machines" && <MachineManagement />}
+            {activeView === "templates" && (
+              <div className="space-y-6">
+                {/* Unified Template Management Header */}
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                    <GitBranch className="w-5 h-5 mr-2 text-blue-600" />
+                    {currentLanguage === "np" ? "एकीकृत टेम्प्लेट व्यवस्थापन" : "Unified Template Management"}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {currentLanguage === "np" 
+                      ? "अपरेटर टेम्प्लेट र वर्कफ्लो टेम्प्लेट दुबै यहाँ व्यवस्थापन गर्नुहोस्"
+                      : "Manage both Operator Templates and Workflow Templates in one place"}
+                  </p>
+                </div>
+
+                {/* Tabbed Interface for Templates */}
+                <div className="bg-white border rounded-lg">
+                  <div className="border-b border-gray-200">
+                    <nav className="flex space-x-8 px-6">
+                      <button className="flex items-center space-x-2 py-4 px-2 border-b-2 border-blue-500 text-blue-600 font-medium text-sm">
+                        <Users className="w-4 h-4" />
+                        <span>{currentLanguage === "np" ? "अपरेटर टेम्प्लेट" : "Operator Templates"}</span>
+                      </button>
+                      <button className="flex items-center space-x-2 py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
+                        <GitBranch className="w-4 h-4" />
+                        <span>{currentLanguage === "np" ? "वर्कफ्लो टेम्प्लेट" : "Workflow Templates"}</span>
+                      </button>
+                    </nav>
+                  </div>
+                  
+                  <div className="p-6">
+                    <OperatorTemplates />
+                  </div>
+                </div>
+              </div>
+            )}
+            {activeView === "logincontrol" && <LoginControlPanel />}
           </>
         )}
       </div>

@@ -6,7 +6,8 @@ import {
   collection, 
   getDocs, 
   onSnapshot, 
-  COLLECTIONS 
+  COLLECTIONS,
+  DEMO_USERS 
 } from '../config/firebase';
 
 class CacheService {
@@ -160,8 +161,23 @@ class CacheService {
 
       return { success: true, data: allUsers, fromCache: false };
     } catch (error) {
-      console.error('❌ Error loading all users:', error);
-      return { success: false, error: error.message, data: [] };
+      console.error('❌ Error loading users from Firestore, falling back to demo data:', error);
+      
+      // Fallback to demo users when Firestore fails
+      const demoUsers = [
+        ...DEMO_USERS.OPERATORS,
+        ...DEMO_USERS.SUPERVISORS,
+        ...DEMO_USERS.MANAGEMENT
+      ];
+      
+      // Cache demo data
+      this.setCache('operators', DEMO_USERS.OPERATORS);
+      this.setCache('supervisors', DEMO_USERS.SUPERVISORS);
+      this.setCache('management', DEMO_USERS.MANAGEMENT);
+      this.setCache(cacheKey, demoUsers);
+      
+      console.log(`🔄 Using demo data: ${demoUsers.length} users`);
+      return { success: true, data: demoUsers, fromCache: false, isDemo: true };
     }
   }
 

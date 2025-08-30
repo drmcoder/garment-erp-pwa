@@ -120,10 +120,8 @@ export const ROLE_PERMISSIONS = {
   
   production_manager: productionManagerPermissions,
   
-  management: managementPermissions,
-  
-  admin: [
-    // Admin has all permissions
+  management: [
+    // Management now has all admin permissions
     ...Object.values(PERMISSIONS)
   ]
 };

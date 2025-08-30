@@ -36,9 +36,9 @@ export const AuthProvider = ({ children }) => {
               monthlyEarnings: 0
             };
           }
-          // Ensure consistent role names
-          if (userData.role === 'management') {
-            userData.role = 'manager';
+          // Normalize all admin/manager roles to 'management' 
+          if (userData.role === 'admin' || userData.role === 'manager') {
+            userData.role = 'management';
           }
           return userData;
         });

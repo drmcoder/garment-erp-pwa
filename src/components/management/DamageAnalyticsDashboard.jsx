@@ -5,14 +5,22 @@ import React, { useState, useEffect, useContext } from 'react';
 import { LanguageContext } from '../../context/LanguageContext';
 import { damageReportService } from '../../services/DamageReportService';
 import { getDamageTypeById } from '../../config/damageTypesConfig';
+import { convertADtoBS, formatBSDate } from '../../utils/nepaliDate';
 
 const DamageAnalyticsDashboard = () => {
   const { currentLanguage } = useContext(LanguageContext);
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [dateRange, setDateRange] = useState({
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days ago
-    endDate: new Date().toISOString().split('T')[0]
+  const [dateRange, setDateRange] = useState(() => {
+    const endDate = new Date();
+    const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+    
+    return {
+      startDate: startDate.toISOString().split('T')[0],
+      endDate: endDate.toISOString().split('T')[0],
+      startDateBS: convertADtoBS(startDate),
+      endDateBS: convertADtoBS(endDate)
+    };
   });
   const [selectedTab, setSelectedTab] = useState('overview');
 
@@ -194,19 +202,49 @@ const DamageAnalyticsDashboard = () => {
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
                 <label className="text-sm text-gray-600">{t.dateRange}:</label>
-                <input
-                  type="date"
-                  value={dateRange.startDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                  className="px-3 py-1 border rounded-md text-sm"
-                />
+                <div className="flex flex-col">
+                  <input
+                    type="date"
+                    value={dateRange.startDate}
+                    onChange={(e) => {
+                      const newStartDate = new Date(e.target.value);
+                      setDateRange(prev => ({ 
+                        ...prev, 
+                        startDate: e.target.value,
+                        startDateBS: convertADtoBS(newStartDate)
+                      }));
+                    }}
+                    className="px-3 py-1 border rounded-md text-sm"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    {currentLanguage === 'np' && dateRange.startDateBS ? 
+                      formatBSDate(new Date(dateRange.startDate), 'short', 'np') : 
+                      formatBSDate(new Date(dateRange.startDate), 'short', 'en')
+                    }
+                  </div>
+                </div>
                 <span>-</span>
-                <input
-                  type="date"
-                  value={dateRange.endDate}
-                  onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                  className="px-3 py-1 border rounded-md text-sm"
-                />
+                <div className="flex flex-col">
+                  <input
+                    type="date"
+                    value={dateRange.endDate}
+                    onChange={(e) => {
+                      const newEndDate = new Date(e.target.value);
+                      setDateRange(prev => ({ 
+                        ...prev, 
+                        endDate: e.target.value,
+                        endDateBS: convertADtoBS(newEndDate)
+                      }));
+                    }}
+                    className="px-3 py-1 border rounded-md text-sm"
+                  />
+                  <div className="text-xs text-gray-500 mt-1">
+                    {currentLanguage === 'np' && dateRange.endDateBS ? 
+                      formatBSDate(new Date(dateRange.endDate), 'short', 'np') : 
+                      formatBSDate(new Date(dateRange.endDate), 'short', 'en')
+                    }
+                  </div>
+                </div>
               </div>
             </div>
           </div>
