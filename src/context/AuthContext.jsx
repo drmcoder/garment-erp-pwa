@@ -4,7 +4,8 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { LanguageContext } from './LanguageContext';
 import { ActivityLogService } from '../services/firebase-services';
-import { db, collection, getDocs, doc, updateDoc, COLLECTIONS } from '../config/firebase';
+import { db, collection, getDocs, doc, updateDoc, COLLECTIONS, DEMO_USERS } from '../config/firebase';
+import { cacheService } from '../services/CacheService';
 
 export const AuthContext = createContext();
 
@@ -17,71 +18,81 @@ export const AuthProvider = ({ children }) => {
   // Load users from Firestore
   const [allUsers, setAllUsers] = useState([]);
 
-  // Function to load users from Firestore
+  // Function to load users from Firestore using CacheService
   const loadUsersFromFirestore = async () => {
     try {
-      const usersData = [];
+      const result = await cacheService.getAllUsers();
       
-      // Load operators
-      const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
-      operatorsSnapshot.forEach((doc) => {
-        const userData = { ...doc.data(), id: doc.id, role: 'operator' };
-        // Ensure stats object exists
-        if (!userData.stats) {
-          userData.stats = {
+      if (result.success && result.data.length > 0) {
+        // Ensure stats object exists for all users
+        const usersWithStats = result.data.map(userData => {
+          if (!userData.stats) {
+            userData.stats = {
+              todayPieces: 0,
+              todayEarnings: 0,
+              weeklyPieces: 0,
+              weeklyEarnings: 0,
+              monthlyPieces: 0,
+              monthlyEarnings: 0
+            };
+          }
+          // Ensure consistent role names
+          if (userData.role === 'management') {
+            userData.role = 'manager';
+          }
+          return userData;
+        });
+        
+        setAllUsers(usersWithStats);
+        console.log(`✅ Loaded ${usersWithStats.length} users from Firestore`);
+        return usersWithStats;
+      } else {
+        console.warn('⚠️ No users in Firestore, using demo users as fallback');
+        
+        // Use demo users as fallback
+        const demoUsers = [
+          ...DEMO_USERS.OPERATORS,
+          ...DEMO_USERS.SUPERVISORS, 
+          ...DEMO_USERS.MANAGEMENT
+        ].map(user => ({
+          ...user,
+          stats: {
             todayPieces: 0,
             todayEarnings: 0,
             weeklyPieces: 0,
             weeklyEarnings: 0,
             monthlyPieces: 0,
             monthlyEarnings: 0
-          };
-        }
-        usersData.push(userData);
-      });
-
-      // Load supervisors
-      const supervisorsSnapshot = await getDocs(collection(db, COLLECTIONS.SUPERVISORS));
-      supervisorsSnapshot.forEach((doc) => {
-        const userData = { ...doc.data(), id: doc.id, role: 'supervisor' };
-        // Ensure stats object exists
-        if (!userData.stats) {
-          userData.stats = {
-            todayPieces: 0,
-            todayEarnings: 0,
-            weeklyPieces: 0,
-            weeklyEarnings: 0,
-            monthlyPieces: 0,
-            monthlyEarnings: 0
-          };
-        }
-        usersData.push(userData);
-      });
-
-      // Load management
-      const managementSnapshot = await getDocs(collection(db, COLLECTIONS.MANAGEMENT));
-      managementSnapshot.forEach((doc) => {
-        const userData = { ...doc.data(), id: doc.id, role: 'manager' };
-        // Ensure stats object exists
-        if (!userData.stats) {
-          userData.stats = {
-            todayPieces: 0,
-            todayEarnings: 0,
-            weeklyPieces: 0,
-            weeklyEarnings: 0,
-            monthlyPieces: 0,
-            monthlyEarnings: 0
-          };
-        }
-        usersData.push(userData);
-      });
-
-      setAllUsers(usersData);
-      return usersData;
+          }
+        }));
+        
+        setAllUsers(demoUsers);
+        console.log(`✅ Using ${demoUsers.length} demo users`);
+        return demoUsers;
+      }
     } catch (error) {
-      console.error('Error loading users from Firestore:', error);
-      setAllUsers([]); // No fallback - use empty array
-      return [];
+      console.error('❌ Error loading users, using demo fallback:', error);
+      
+      // Emergency demo users fallback
+      const demoUsers = [
+        ...DEMO_USERS.OPERATORS,
+        ...DEMO_USERS.SUPERVISORS, 
+        ...DEMO_USERS.MANAGEMENT
+      ].map(user => ({
+        ...user,
+        stats: {
+          todayPieces: 0,
+          todayEarnings: 0,
+          weeklyPieces: 0,
+          weeklyEarnings: 0,
+          monthlyPieces: 0,
+          monthlyEarnings: 0
+        }
+      }));
+      
+      setAllUsers(demoUsers);
+      console.log(`✅ Emergency: ${demoUsers.length} demo users loaded`);
+      return demoUsers;
     }
   };
 

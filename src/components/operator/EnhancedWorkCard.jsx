@@ -1,12 +1,14 @@
 // File: src/components/operator/EnhancedWorkCard.jsx
 // Enhanced work card with prominent color, size, rate, earnings, and time info
 
-import React from 'react';
-import { Clock, DollarSign, Palette, Shirt, Calendar } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, DollarSign, Palette, Shirt, Calendar, AlertTriangle } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
+import DamageReportModal from './DamageReportModal';
 
-const EnhancedWorkCard = ({ workItem, index, onComplete, onStart, showTimeInfo = true }) => {
+const EnhancedWorkCard = ({ workItem, index, onComplete, onStart, onDamageReported, showTimeInfo = true }) => {
   const { t, currentLanguage, formatNumber, formatCurrency, formatRelativeTime } = useLanguage();
+  const [showDamageModal, setShowDamageModal] = useState(false);
 
   // Use centralized time formatting from LanguageContext
   const getTimeAgo = (date) => {
@@ -202,13 +204,25 @@ const EnhancedWorkCard = ({ workItem, index, onComplete, onStart, showTimeInfo =
           )}
           
           {workItem.status === 'in_progress' && (
-            <button
-              onClick={() => onComplete?.(workItem)}
-              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-            >
-              <span>🏁</span>
-              <span>{currentLanguage === 'np' ? 'पूरा गर्नुहोस्' : 'Complete'}</span>
-            </button>
+            <div className="space-y-2">
+              {/* Damage Reporting Button */}
+              <button
+                onClick={() => setShowDamageModal(true)}
+                className="w-full bg-red-500 text-white py-2 rounded-lg font-medium hover:bg-red-600 transition-colors flex items-center justify-center space-x-2 text-sm"
+              >
+                <AlertTriangle size={16} />
+                <span>{currentLanguage === 'np' ? '🔧 क्षति रिपोर्ट गर्नुहोस्' : '🔧 Report Damage'}</span>
+              </button>
+              
+              {/* Complete Work Button */}
+              <button
+                onClick={() => onComplete?.(workItem)}
+                className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
+              >
+                <span>🏁</span>
+                <span>{currentLanguage === 'np' ? 'पूरा गर्नुहोस्' : 'Complete'}</span>
+              </button>
+            </div>
           )}
           
           {workItem.status === 'completed' && (
@@ -223,6 +237,17 @@ const EnhancedWorkCard = ({ workItem, index, onComplete, onStart, showTimeInfo =
           )}
         </div>
       </div>
+      
+      {/* Damage Report Modal */}
+      <DamageReportModal
+        bundleData={workItem}
+        isOpen={showDamageModal}
+        onClose={() => setShowDamageModal(false)}
+        onDamageReported={(damageReport) => {
+          setShowDamageModal(false);
+          onDamageReported?.(damageReport);
+        }}
+      />
     </div>
   );
 };

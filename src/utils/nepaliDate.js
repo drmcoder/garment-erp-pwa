@@ -191,7 +191,22 @@ export const formatTimeAgo = (date, language = 'np') => {
   
   const now = new Date();
   const inputDate = new Date(date);
+  
+  // Validate the input date
+  if (isNaN(inputDate.getTime())) {
+    return language === 'np' ? 'अमान्य मिति' : 'Invalid date';
+  }
+  
   const diffMs = now - inputDate;
+  
+  // Handle negative differences (future dates) or zero/very small differences
+  if (diffMs < 0) {
+    return language === 'np' ? 'भविष्यमा' : 'In the future';
+  }
+  
+  if (diffMs < 60000) { // Less than 1 minute
+    return language === 'np' ? 'अहिले' : 'Just now';
+  }
   
   const minutes = Math.floor(diffMs / 60000);
   const hours = Math.floor(diffMs / 3600000);
@@ -212,10 +227,8 @@ export const formatTimeAgo = (date, language = 'np') => {
       return `${formatNum(days)} दिन अगाडी`;
     } else if (hours > 0) {
       return `${formatNum(hours)} घन्टा अगाडी`;
-    } else if (minutes > 0) {
-      return `${formatNum(minutes)} मिनेट अगाडी`;
     } else {
-      return 'अहिले';
+      return `${formatNum(minutes)} मिनेट अगाडी`;
     }
   } else {
     if (years > 0) {
@@ -226,10 +239,8 @@ export const formatTimeAgo = (date, language = 'np') => {
       return `${days} day${days > 1 ? 's' : ''} ago`;
     } else if (hours > 0) {
       return `${hours} hr${hours > 1 ? 's' : ''} ago`;
-    } else if (minutes > 0) {
-      return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
     } else {
-      return 'just now';
+      return `${minutes} min${minutes > 1 ? 's' : ''} ago`;
     }
   }
 };

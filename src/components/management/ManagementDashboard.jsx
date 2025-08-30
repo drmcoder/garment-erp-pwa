@@ -41,11 +41,13 @@ import {
   BarChart3,
   Activity,
   Settings,
+  Tool,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import DamageAnalyticsDashboard from './DamageAnalyticsDashboard';
 
 const AdvancedManagementDashboard = () => {
   const { user } = useAuth();
@@ -638,6 +640,11 @@ const AdvancedManagementDashboard = () => {
               label: currentLanguage === "np" ? "विश्लेषण" : "Analytics",
               icon: Activity,
             },
+            {
+              key: "damage",
+              label: currentLanguage === "np" ? "क्षति विश्लेषण" : "Damage Analytics",
+              icon: Tool,
+            },
           ].map((tab) => (
             <button
               key={tab.key}
@@ -671,6 +678,7 @@ const AdvancedManagementDashboard = () => {
             {activeView === "overview" && <OverviewDashboard />}
             {activeView === "production" && <ProductionAnalytics />}
             {activeView === "analytics" && <ProductionAnalytics />}
+            {activeView === "damage" && <DamageAnalyticsDashboard />}
           </>
         )}
       </div>

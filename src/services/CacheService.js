@@ -118,10 +118,18 @@ class CacheService {
     try {
       console.log('🔥 Firestore READ: Loading all users (operators, supervisors, management)');
       
-      const [operatorsSnapshot, supervisorsSnapshot, managementSnapshot] = await Promise.all([
-        getDocs(collection(db, COLLECTIONS.OPERATORS)),
-        getDocs(collection(db, COLLECTIONS.SUPERVISORS)),
-        getDocs(collection(db, COLLECTIONS.MANAGEMENT))
+      // Add timeout to prevent infinite loading
+      const timeout = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout - check network connection')), 15000)
+      );
+
+      const [operatorsSnapshot, supervisorsSnapshot, managementSnapshot] = await Promise.race([
+        Promise.all([
+          getDocs(collection(db, COLLECTIONS.OPERATORS)),
+          getDocs(collection(db, COLLECTIONS.SUPERVISORS)),
+          getDocs(collection(db, COLLECTIONS.MANAGEMENT))
+        ]),
+        timeout
       ]);
 
       const operators = operatorsSnapshot.docs.map(doc => ({ 

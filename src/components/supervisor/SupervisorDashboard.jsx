@@ -10,6 +10,8 @@ import WIPProgressTracker from './WIPProgressTracker';
 import ProcessTemplateManager from './ProcessTemplateManager';
 import WorkAssignmentManager from './WorkAssignmentManager';
 import SelfAssignmentApproval from './SelfAssignmentApproval';
+import DamageQueue from './DamageQueue';
+import DamageNotificationSystem from '../common/DamageNotificationSystem';
 import { 
   BarChart3, 
   Users, 
@@ -32,6 +34,7 @@ const SupervisorDashboard = () => {
   const [showWorkAssignment, setShowWorkAssignment] = useState(false);
   const [showWIPProgress, setShowWIPProgress] = useState(false);
   const [showSelfAssignmentApproval, setShowSelfAssignmentApproval] = useState(false);
+  const [showDamageQueue, setShowDamageQueue] = useState(false);
   const [stats, setStats] = useState({
     totalOperators: 0,
     activeOperators: 0,
@@ -206,15 +209,21 @@ const SupervisorDashboard = () => {
     <div className="min-h-screen bg-gray-50 p-4 lg:p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
-          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
-            {isNepali ? 'सुपरवाइजर ड्यासबोर्ड' : 'Supervisor Dashboard'}
-          </h1>
-          <p className="text-gray-600">
-            {isNepali 
-              ? `स्वागत छ, ${user?.name || 'सुपरवाइजर'}! आजको प्रगति र टोलीको कार्यसम्पादन हेर्नुहोस्।`
-              : `Welcome, ${user?.name || 'Supervisor'}! Monitor today's progress and team performance.`
-            }
-          </p>
+          <div className="flex justify-between items-start">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900 mb-2">
+                {isNepali ? 'सुपरवाइजर ड्यासबोर्ड' : 'Supervisor Dashboard'}
+              </h1>
+              <p className="text-gray-600">
+                {isNepali 
+                  ? `स्वागत छ, ${user?.name || 'सुपरवाइजर'}! आजको प्रगति र टोलीको कार्यसम्पादन हेर्नुहोस्।`
+                  : `Welcome, ${user?.name || 'Supervisor'}! Monitor today's progress and team performance.`
+                }
+              </p>
+            </div>
+            {/* Damage Notification System */}
+            <DamageNotificationSystem />
+          </div>
         </div>
 
         {/* Key Metrics */}
@@ -389,6 +398,20 @@ const SupervisorDashboard = () => {
               </div>
               <div className="text-xs text-gray-600 mt-1 text-center">
                 {isNepali ? 'लट र बन्डलको प्रगति हेर्नुहोस्' : 'Track lot and bundle progress'}
+              </div>
+            </button>
+
+            {/* Damage Queue Button - High Priority */}
+            <button 
+              onClick={() => setShowDamageQueue(true)}
+              className="flex flex-col items-center p-4 border-2 border-dashed border-red-300 rounded-lg hover:border-red-500 hover:bg-red-50 transition-colors"
+            >
+              <div className="text-3xl mb-2">🔧</div>
+              <div className="text-sm font-medium text-gray-900 text-center">
+                {isNepali ? 'क्षति र मर्मत सूची' : 'Damage & Rework Queue'}
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {isNepali ? 'क्षतिग्रस्त टुक्राहरू व्यवस्थापन गर्नुहोस्' : 'Manage damaged pieces and rework'}
               </div>
             </button>
 
@@ -579,6 +602,33 @@ const SupervisorDashboard = () => {
         <WorkAssignmentManager
           onClose={() => setShowWorkAssignment(false)}
         />
+      )}
+
+      {/* Damage Queue Modal - High Priority */}
+      {showDamageQueue && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl h-full max-h-[90vh] overflow-hidden">
+            <div className="h-full flex flex-col">
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <div className="flex items-center space-x-2">
+                  <span className="text-2xl">🔧</span>
+                  <h2 className="text-xl font-semibold text-gray-900">
+                    {isNepali ? 'क्षति र मर्मत सूची' : 'Damage & Rework Queue'}
+                  </h2>
+                </div>
+                <button
+                  onClick={() => setShowDamageQueue(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <DamageQueue />
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {showSelfAssignmentApproval && (

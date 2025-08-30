@@ -4,7 +4,10 @@ import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { db, collection, getDocs, query, where, orderBy, doc, updateDoc, addDoc, COLLECTIONS } from '../../config/firebase';
 import { updateBundleWithReadableId } from '../../utils/bundleIdGenerator';
-import { formatDateByLanguage } from '../../utils/nepaliDate';
+import { formatDateByLanguage, formatTimeAgo } from '../../utils/nepaliDate';
+import DamageReportModal from './DamageReportModal';
+import DamageNotificationSystem from '../common/DamageNotificationSystem';
+import { damageReportService } from '../../services/DamageReportService';
 
 const OperatorWorkDashboardNew = () => {
   const { user } = useContext(AuthContext);
@@ -19,8 +22,13 @@ const OperatorWorkDashboardNew = () => {
     todayPieces: 0,
     todayEarnings: 0,
     completedToday: 0,
-    totalAssigned: 0
+    totalAssigned: 0,
+    pendingReworkPieces: 0
   });
+
+  // Damage reporting state
+  const [showDamageModal, setShowDamageModal] = useState(false);
+  const [selectedWorkItem, setSelectedWorkItem] = useState(null);
 
   const isNepali = currentLanguage === 'np';
 
@@ -80,11 +88,15 @@ const OperatorWorkDashboardNew = () => {
         (w.completedAt >= today || w.operatorCompletedAt >= today)
       );
       
+      // Get pending rework pieces count
+      const pendingReworkResult = await damageReportService.getPendingReworkPieces(user.id);
+      
       setStats({
         todayPieces: todayCompleted.reduce((sum, w) => sum + (w.pieces || 0), 0),
         todayEarnings: todayCompleted.reduce((sum, w) => sum + (w.earnings || w.pieces * (w.rate || 0)), 0),
         completedToday: todayCompleted.length,
-        totalAssigned: assigned.length
+        totalAssigned: assigned.length,
+        pendingReworkPieces: pendingReworkResult.success ? pendingReworkResult.count : 0
       });
       
     } catch (error) {
@@ -176,7 +188,7 @@ const OperatorWorkDashboardNew = () => {
         // Still show success for work completion even if payroll fails
         showNotification(
           isNepali 
-            ? `🎉 काम पूरा! ${pieces} टुक्रा, Rs. ${earnings.toFixed(2)} कमाइयो।`
+            ? `🎉 काम पूरा! ${pieces} टuक्रा, Rs. ${earnings.toFixed(2)} कमाइयो।`
             : `🎉 Work completed! ${pieces} pieces, Rs. ${earnings.toFixed(2)} earned.`,
           'success'
         );
@@ -187,6 +199,36 @@ const OperatorWorkDashboardNew = () => {
       console.error('❌ Failed to complete work:', error);
       showNotification(
         isNepali ? 'काम पूरा गर्न असफल' : 'Failed to complete work',
+        'error'
+      );
+    }
+  };
+
+  // Handle damage report
+  const handleDamageReport = (workItem) => {
+    setSelectedWorkItem(workItem);
+    setShowDamageModal(true);
+  };
+
+  // Handle damage report submission
+  const handleDamageReportSubmit = async (damageData) => {
+    try {
+      // The DamageReportModal will handle the submission
+      // Just refresh the work data and close modal
+      setShowDamageModal(false);
+      setSelectedWorkItem(null);
+      loadWorkData();
+      
+      showNotification(
+        isNepali 
+          ? '🔧 क्षति रिपोर्ट सफलतापूर्वक पेश गरियो' 
+          : '🔧 Damage report submitted successfully',
+        'success'
+      );
+    } catch (error) {
+      console.error('❌ Failed to submit damage report:', error);
+      showNotification(
+        isNepali ? 'क्षति रिपोर्ट पेश गर्न असफल' : 'Failed to submit damage report',
         'error'
       );
     }
@@ -234,7 +276,7 @@ const OperatorWorkDashboardNew = () => {
 
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-white rounded-xl p-6 shadow-sm border">
             <div className="flex items-center">
               <div className="p-3 bg-green-100 rounded-lg">
@@ -279,6 +321,18 @@ const OperatorWorkDashboardNew = () => {
               <div className="ml-4">
                 <p className="text-sm text-gray-600">{isNepali ? 'बाँकी काम' : 'Pending Work'}</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.totalAssigned}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border">
+            <div className="flex items-center">
+              <div className="p-3 bg-red-100 rounded-lg">
+                <span className="text-2xl">🔧</span>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm text-gray-600">{isNepali ? 'रिवर्क पेन्डिङ' : 'Rework Pending'}</p>
+                <p className="text-2xl font-bold text-gray-900">{stats.pendingReworkPieces}</p>
               </div>
             </div>
           </div>
@@ -333,6 +387,20 @@ const OperatorWorkDashboardNew = () => {
                       <div className="text-xs text-green-100">{isNepali ? 'ऑपरेसन' : 'Operation'}</div>
                       <div className="font-semibold text-sm truncate">{work.currentOperation || 'N/A'}</div>
                     </div>
+
+                    {/* Lot, Size, Color Info */}
+                    <div className="bg-white/15 rounded-lg p-2">
+                      <div className="text-xs text-green-100">{isNepali ? 'विवरण' : 'Details'}</div>
+                      <div className="text-xs text-white">
+                        {work.lotNumber && `Lot: ${work.lotNumber} • `}
+                        {work.color || 'N/A'} • {work.size || 'N/A'}
+                      </div>
+                    </div>
+
+                    <div className="bg-white/15 rounded-lg p-2">
+                      <div className="text-xs text-green-100">{isNepali ? 'मेसिन' : 'Machine'}</div>
+                      <div className="text-xs text-white">⚙️ {work.machineType || 'N/A'}</div>
+                    </div>
                     
                     <div className="grid grid-cols-2 gap-2">
                       <div className="bg-white/15 rounded-lg p-2 text-center">
@@ -351,14 +419,45 @@ const OperatorWorkDashboardNew = () => {
                     </div>
                   </div>
                   
-                  {/* Action Button */}
-                  <button
-                    onClick={() => handleCompleteWork(work)}
-                    className="w-full bg-white text-green-600 font-bold py-2 px-3 rounded-lg hover:bg-green-50 transition-all text-sm flex items-center justify-center space-x-1"
-                  >
-                    <span>🏁</span>
-                    <span>{isNepali ? 'पूरा गर्नुहोस्' : 'Complete'}</span>
-                  </button>
+                  {/* Action Buttons */}
+                  <div className="space-y-2">
+                    {work.status === 'assigned' && (
+                      <button
+                        onClick={() => handleStartWork(work)}
+                        className="w-full bg-blue-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-blue-700 transition-all text-sm flex items-center justify-center space-x-1"
+                      >
+                        <span>🚀</span>
+                        <span>{isNepali ? 'काम सुरु गर्नुहोस्' : 'Start Work'}</span>
+                      </button>
+                    )}
+                    
+                    {work.status === 'in_progress' && (
+                      <>
+                        <button
+                          onClick={() => handleDamageReport(work)}
+                          className="w-full bg-red-500 text-white font-bold py-2 px-3 rounded-lg hover:bg-red-600 transition-all text-sm flex items-center justify-center space-x-1"
+                        >
+                          <span>🔧</span>
+                          <span>{isNepali ? 'क्षति रिपोर्ट' : 'Report Damage'}</span>
+                        </button>
+                        
+                        <button
+                          onClick={() => handleCompleteWork(work)}
+                          className="w-full bg-white text-green-600 font-bold py-2 px-3 rounded-lg hover:bg-green-50 transition-all text-sm flex items-center justify-center space-x-1"
+                        >
+                          <span>🏁</span>
+                          <span>{isNepali ? 'पूरा गर्नुहोस्' : 'Complete'}</span>
+                        </button>
+                      </>
+                    )}
+
+                    {work.status === 'operator_completed' && (
+                      <div className="w-full bg-purple-100 text-purple-600 font-bold py-2 px-3 rounded-lg text-sm text-center">
+                        <span>⏳</span>
+                        <span className="ml-1">{isNepali ? 'अनुमोदन पर्खाइमा' : 'Awaiting Approval'}</span>
+                      </div>
+                    )}
+                  </div>
                   
                   {/* Additional Info */}
                   <div className="mt-2 text-xs text-green-100 text-center opacity-80">
@@ -515,7 +614,7 @@ const OperatorWorkDashboardNew = () => {
 
                       {/* Assigned time */}
                       <div className="text-xs text-gray-500 text-center mt-2">
-                        {isNepali ? 'असाइन:' : 'Assigned:'} {workItem.assignedAt ? formatDateByLanguage(workItem.assignedAt, isNepali, true) : 'N/A'}
+                        {isNepali ? 'असाइन:' : 'Assigned:'} {workItem.assignedAt ? formatTimeAgo(workItem.assignedAt, isNepali ? 'np' : 'en') : 'N/A'}
                       </div>
                     </div>
                   </div>
@@ -549,7 +648,7 @@ const OperatorWorkDashboardNew = () => {
                     <div className="text-right">
                       <div className="text-green-600 font-bold">Rs. {(workItem.pieces || 0) * (workItem.rate || 0)}</div>
                       <div className="text-xs text-gray-500">
-                        {workItem.completedAt ? formatDateByLanguage(workItem.completedAt, isNepali) : 'N/A'}
+                        {workItem.completedAt ? formatTimeAgo(workItem.completedAt, isNepali ? 'np' : 'en') : 'N/A'}
                       </div>
                     </div>
                   </div>
@@ -559,6 +658,22 @@ const OperatorWorkDashboardNew = () => {
           </div>
         )}
       </div>
+
+      {/* Damage Notification System */}
+      <DamageNotificationSystem />
+
+      {/* Damage Report Modal */}
+      {showDamageModal && selectedWorkItem && (
+        <DamageReportModal
+          isOpen={showDamageModal}
+          onClose={() => {
+            setShowDamageModal(false);
+            setSelectedWorkItem(null);
+          }}
+          workItem={selectedWorkItem}
+          onSubmit={handleDamageReportSubmit}
+        />
+      )}
     </div>
   );
 };

@@ -59,11 +59,11 @@ const SelfAssignmentApproval = () => {
           status: workData.status,
           assignedOperator: workData.assignedOperator,
           assignedBy: workData.assignedBy,
-          isSelfAssignment: workData.assignedOperator === workData.assignedBy
+          isSelfAssignment: workData.requestedBy === workData.assignedOperator
         });
         
-        // Check if this is a self-assignment (assignedOperator === assignedBy)
-        if (workData.assignedOperator === workData.assignedBy) {
+        // Check if this is a self-assignment (use requestedBy field which is set during self-assignment)
+        if (workData.requestedBy === workData.assignedOperator) {
           const bundleWithReadableId = updateBundleWithReadableId(workData);
           
           assignments.push({
@@ -91,8 +91,8 @@ const SelfAssignmentApproval = () => {
       const assignmentsSnapshot = await getDocs(workAssignmentsQuery);
       assignmentsSnapshot.forEach((doc) => {
         const workData = doc.data();
-        // Check if this is a self-assignment (operatorId === assignedBy)
-        if (workData.operatorId === workData.assignedBy) {
+        // Check if this is a self-assignment (use requestedBy field which is set during self-assignment)
+        if (workData.requestedBy === workData.operatorId) {
           const bundleWithReadableId = updateBundleWithReadableId(workData);
           
           assignments.push({

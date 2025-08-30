@@ -292,6 +292,11 @@ const LoginScreen = () => {
                         <div className="p-4 text-center text-gray-500">
                           <div className="animate-pulse">Loading available users...</div>
                         </div>
+                      ) : usersError ? (
+                        <div className="p-4 text-center text-red-500">
+                          <div>❌ Failed to load users</div>
+                          <div className="text-xs text-gray-500 mt-1">Using demo accounts below</div>
+                        </div>
                       ) : availableUsers.length > 0 ? (
                         availableUsers.map((user) => (
                           <button

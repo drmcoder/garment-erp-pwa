@@ -4,7 +4,10 @@ import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { db, collection, getDocs, query, where, orderBy, doc, updateDoc, COLLECTIONS } from '../../config/firebase';
 import { updateBundleWithReadableId } from '../../utils/bundleIdGenerator';
-import { formatDateByLanguage } from '../../utils/nepaliDate';
+import { formatDateByLanguage, formatTimeAgo } from '../../utils/nepaliDate';
+import EnhancedWorkCard from './EnhancedWorkCard';
+import DamageNotificationSystem from '../common/DamageNotificationSystem';
+import DamageReportModal from './DamageReportModal';
 
 const OperatorWorkDashboard = () => {
   const { user } = useContext(AuthContext);
@@ -24,6 +27,10 @@ const OperatorWorkDashboard = () => {
     monthPieces: 0
   });
   const [loading, setLoading] = useState(false);
+  
+  // Damage reporting state
+  const [showDamageModal, setShowDamageModal] = useState(false);
+  const [selectedWorkItem, setSelectedWorkItem] = useState(null);
 
   // Load present work (assigned but not completed by supervisor)
   const loadPresentWork = async () => {
@@ -240,6 +247,24 @@ const OperatorWorkDashboard = () => {
       console.error('❌ Failed to calculate earnings:', error);
     }
   };
+  
+  // Handle damage reporting
+  const handleDamageReport = (workItem) => {
+    setSelectedWorkItem(workItem);
+    setShowDamageModal(true);
+  };
+
+  const handleDamageReported = (damageReport) => {
+    console.log('Damage reported:', damageReport);
+    showNotification(
+      currentLanguage === 'np' 
+        ? `${damageReport.pieceNumbers?.length} टुक्रा क्षतिको रिपोर्ट पठाइयो` 
+        : `${damageReport.pieceNumbers?.length} pieces reported for damage`,
+      'info'
+    );
+    // Refresh work list
+    loadPresentWork();
+  };
 
   // Submit work as completed by operator (supervisor still needs to approve)
   const handleWorkSubmit = async (workItem) => {
@@ -381,11 +406,11 @@ const OperatorWorkDashboard = () => {
 
         <div className="mt-3 flex justify-between items-center text-xs text-gray-500">
           <div>
-            {currentLanguage === 'np' ? 'नियुक्त:' : 'Assigned:'} {workItem.assignedAt ? formatDateByLanguage(workItem.assignedAt, currentLanguage === 'np', true) : 'N/A'}
+            {currentLanguage === 'np' ? 'नियुक्त:' : 'Assigned:'} {workItem.assignedAt ? formatTimeAgo(workItem.assignedAt, currentLanguage === 'np' ? 'np' : 'en') : 'N/A'}
           </div>
           {isPast && workItem.completedAt && (
             <div>
-              {currentLanguage === 'np' ? 'पूरा:' : 'Completed:'} {formatDateByLanguage(workItem.completedAt, currentLanguage === 'np', true)}
+              {currentLanguage === 'np' ? 'पूरा:' : 'Completed:'} {formatTimeAgo(workItem.completedAt, currentLanguage === 'np' ? 'np' : 'en')}
             </div>
           )}
         </div>
@@ -402,10 +427,20 @@ const OperatorWorkDashboard = () => {
           </div>
         )}
         {!isPast && workItem.status === 'in_progress' && (
-          <div className="mt-4 flex space-x-2">
+          <div className="mt-4 space-y-2">
+            {/* Damage Reporting Button */}
+            <button
+              onClick={() => handleDamageReport(workItem)}
+              className="w-full bg-red-500 hover:bg-red-600 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+              <span>🔧</span>
+              <span>{currentLanguage === 'np' ? 'क्षति रिपोर्ट गर्नुहोस्' : 'Report Damage'}</span>
+            </button>
+            
+            {/* Complete Work Button */}
             <button
               onClick={() => handleWorkSubmit(workItem)}
-              className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
+              className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-medium py-2 px-4 rounded-lg transition-colors"
             >
               {currentLanguage === 'np' ? '🏁 काम पूरा गरियो' : '🏁 Mark Complete'}
             </button>
@@ -582,6 +617,26 @@ const OperatorWorkDashboard = () => {
             </div>
           )}
         </>
+      )}
+      
+      {/* Damage Report Modal */}
+      {showDamageModal && selectedWorkItem && (
+        <DamageReportModal
+          bundleData={{
+            id: selectedWorkItem.id,
+            bundleNumber: selectedWorkItem.bundleId || selectedWorkItem.id,
+            pieces: selectedWorkItem.pieces || selectedWorkItem.totalPieces || 0,
+            operation: selectedWorkItem.operation || 'Unknown',
+            assignedBy: selectedWorkItem.assignedBy || 'supervisor',
+            rate: selectedWorkItem.rate || 0
+          }}
+          isOpen={showDamageModal}
+          onClose={() => {
+            setShowDamageModal(false);
+            setSelectedWorkItem(null);
+          }}
+          onDamageReported={handleDamageReported}
+        />
       )}
     </div>
   );

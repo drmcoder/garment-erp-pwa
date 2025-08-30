@@ -82,7 +82,7 @@ const SelfAssignmentSystem = () => {
           .filter(bundle => {
             // Comprehensive bundle validation
             const hasValidId = bundle.id && typeof bundle.id === 'string' && bundle.id.trim().length > 0;
-            const hasValidStatus = bundle.status && ['pending', 'ready', 'assigned', 'waiting'].includes(bundle.status);
+            const hasValidStatus = bundle.status && ['pending', 'ready', 'assigned', 'waiting', 'in_progress', 'operator_completed', 'completed'].includes(bundle.status);
             const hasValidData = bundle.article || bundle.articleNumber || bundle.articleName;
             const hasValidMachine = bundle.machineType && bundle.machineType.trim().length > 0;
             const hasValidOperation = bundle.currentOperation && bundle.currentOperation.trim().length > 0;
@@ -755,7 +755,7 @@ const SelfAssignmentSystem = () => {
                 <div className="space-y-2 mb-3">
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-gray-600">
-                      {work.size} • {work.color}
+                      {work.lotNumber && `Lot: ${work.lotNumber} • `}{work.size} • {work.color}
                     </span>
                     <span className="text-sm font-medium text-gray-900">
                       {work.pieces} pcs
