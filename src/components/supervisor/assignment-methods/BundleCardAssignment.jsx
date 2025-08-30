@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
 import { getMachineTypeIcon } from '../../../constants';
+import OperatorAvatar from '../../common/OperatorAvatar';
 
 const BundleCardAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const { currentLanguage } = useLanguage();
@@ -257,13 +258,39 @@ const BundleCardAssignment = ({ workItems, operators, onAssignmentComplete }) =>
                     onChange={() => setSelectedOperator(operator)}
                     className="w-4 h-4 text-green-600 focus:ring-green-500"
                   />
+                  
+                  {/* Enhanced operator display with avatar */}
+                  <OperatorAvatar
+                    operator={{
+                      name: operator.name,
+                      avatar: {
+                        type: 'initials',
+                        bgColor: operator.profileColor || '#10B981',
+                        textColor: '#FFFFFF'
+                      },
+                      status: operator.status || 'available',
+                      currentWorkload: operator.currentLoad || 0
+                    }}
+                    size="md"
+                    showStatus={true}
+                    showWorkload={true}
+                  />
+                  
                   <div className="flex-1">
                     <div className="font-medium text-gray-800">{operator.name}</div>
-                    <div className="text-sm text-gray-600">
-                      {getMachineTypeIcon(operator.machine)} {operator.machine}
+                    <div className="text-sm text-gray-600 flex items-center space-x-1">
+                      <span>{getMachineTypeIcon(operator.machine)}</span>
+                      <span>{operator.machine?.replace('-', ' ').toUpperCase()}</span>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      ⚡ {operator.efficiency}% | 📊 {operator.currentLoad}/{operator.maxLoad}
+                    <div className="text-xs text-gray-500 flex items-center space-x-2">
+                      <span className="flex items-center space-x-1">
+                        <span>⚡</span>
+                        <span>{operator.efficiency || 85}%</span>
+                      </span>
+                      <span className="flex items-center space-x-1">
+                        <span>📊</span>
+                        <span>{operator.currentLoad || 0}/{operator.maxLoad || 10}</span>
+                      </span>
                     </div>
                   </div>
                 </div>

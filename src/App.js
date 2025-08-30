@@ -25,6 +25,7 @@ import { PermissionGate, usePermissions, PermissionsProvider } from "./context/P
 import { PERMISSIONS } from "./services/permissions-service";
 import { FullScreenLoader } from "./components/common/BrandedLoader";
 import LoginScreen from "./components/auth/LoginScreen";
+import OperatorAvatar from "./components/common/OperatorAvatar";
 
 // Inline Login Component removed - using modular LoginScreen from ./components/auth/LoginScreen.jsx
 
@@ -276,6 +277,30 @@ const OperatorDashboard = ({ onNavigate }) => {
     <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
       <div className="px-4 py-6 sm:px-0">
         <div className="text-center mb-8">
+          {/* Operator Avatar */}
+          <div className="flex justify-center mb-4">
+            <OperatorAvatar 
+              operator={{
+                name: user?.name || 'Operator',
+                avatar: {
+                  type: 'emoji',
+                  value: user?.machine === 'single-needle' ? '📍' : 
+                         user?.machine === 'overlock' ? '🔗' : 
+                         user?.machine === 'flatlock' ? '📎' : 
+                         user?.machine === 'buttonhole' ? '🕳️' : '⚙️',
+                  bgColor: '#3B82F6',
+                  textColor: '#FFFFFF'
+                },
+                status: user?.currentWork ? 'busy' : 'available',
+                currentWorkload: user?.currentWork ? 1 : 0,
+                visualBadges: user?.efficiency > 90 ? ['🏆', '⚡'] : ['💪']
+              }}
+              size="xl"
+              showStatus={true}
+              showWorkload={true}
+              showBadges={true}
+            />
+          </div>
           <h1 className="text-3xl font-bold text-gray-900">
             Welcome, {user.name}! 👋
           </h1>

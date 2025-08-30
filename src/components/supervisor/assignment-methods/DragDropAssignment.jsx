@@ -3,6 +3,7 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
 import { getMachineTypeIcon } from '../../../constants';
 import { MachineCompatibilityValidator } from '../../../utils/machineCompatibility';
+import OperatorAvatar from '../../common/OperatorAvatar';
 
 // Nepali date utilities
 const getNepaliDateTime = () => {
@@ -649,11 +650,28 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-2 min-w-0 flex-1">
-                          <span className="text-sm">{getMachineTypeIcon(operator.machine)}</span>
+                        <div className="flex items-center space-x-3 min-w-0 flex-1">
+                          <OperatorAvatar
+                            operator={{
+                              name: operator.name,
+                              avatar: {
+                                type: 'initials',
+                                bgColor: operator.profileColor || '#3B82F6',
+                                textColor: '#FFFFFF'
+                              },
+                              status: operator.status || 'available',
+                              currentWorkload: operator.currentLoad || 0
+                            }}
+                            size="sm"
+                            showStatus={true}
+                            showWorkload={true}
+                          />
                           <div className="min-w-0 flex-1">
                             <div className="font-medium text-gray-800 truncate">{operator.name}</div>
-                            <div className="text-xs text-gray-500 truncate">{operator.machine}</div>
+                            <div className="text-xs text-gray-500 truncate flex items-center space-x-1">
+                              <span>{getMachineTypeIcon(operator.machine)}</span>
+                              <span>{operator.machine}</span>
+                            </div>
                           </div>
                         </div>
                         <div className="text-right ml-2">
@@ -700,7 +718,21 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                          <span className="text-lg">{getMachineTypeIcon(operator.machine)}</span>
+                          <OperatorAvatar
+                            operator={{
+                              name: operator.name,
+                              avatar: {
+                                type: 'initials',
+                                bgColor: operator.profileColor || '#3B82F6',
+                                textColor: '#FFFFFF'
+                              },
+                              status: operator.status || 'available',
+                              currentWorkload: operator.currentLoad || 0
+                            }}
+                            size="md"
+                            showStatus={true}
+                            showWorkload={true}
+                          />
                           <div>
                             <div className="font-medium text-gray-800 flex items-center space-x-2">
                               <span>{operator.name}</span>
@@ -710,7 +742,10 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
                                 </span>
                               )}
                             </div>
-                            <div className="text-sm text-gray-600">{operator.machine}</div>
+                            <div className="text-sm text-gray-600 flex items-center space-x-1">
+                              <span>{getMachineTypeIcon(operator.machine)}</span>
+                              <span>{operator.machine}</span>
+                            </div>
                             <div className="flex items-center space-x-3 mt-1">
                               <div className={`text-xs ${getOperatorLoadColor(operator.currentLoad, operator.maxLoad)}`}>
                                 📊 {operator.currentLoad}/{operator.maxLoad}

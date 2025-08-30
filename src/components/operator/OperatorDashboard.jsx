@@ -17,6 +17,16 @@ import {
   RefreshCw,
   Wifi,
   WifiOff,
+  Activity,
+  Clock,
+  TrendingUp,
+  Award,
+  Zap,
+  LogOut,
+  ChevronDown,
+  Bell,
+  User,
+  Settings
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -24,6 +34,7 @@ import { useNotifications } from "../../context/NotificationContext";
 import { useConnectionStatus } from "../../hooks/useRealtimeData";
 import WorkCompletion from "./WorkCompletion";
 import QualityReport from "./QualityReport";
+import OperatorAvatar from "../common/OperatorAvatar";
 
 // Import Firebase services
 import {
@@ -31,9 +42,11 @@ import {
   ProductionService,
   NotificationService,
 } from "../../services/firebase-services";
+import { damageReportService } from "../../services/DamageReportService";
+import { db, collection, query, where, getDocs } from "../../config/firebase";
 
 const OperatorDashboard = () => {
-  const { user, getUserDisplayName, getUserRoleDisplay, getUserSpecialityDisplay, isOnline } = useAuth();
+  const { user, getUserDisplayName, getUserRoleDisplay, getUserSpecialityDisplay, isOnline, logout } = useAuth();
   const {
     t,
     currentLanguage,
@@ -67,6 +80,21 @@ const OperatorDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [reworkPieces, setReworkPieces] = useState([]);
+  const [pendingReworkPieces, setPendingReworkPieces] = useState(0);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (!event.target.closest('.user-menu')) {
+        setShowUserMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const userInfo = {
     displayName: user ? getUserDisplayName() : '',
@@ -189,6 +217,7 @@ const OperatorDashboard = () => {
         });
         
         console.log("📦 Loaded bundles:", bundles.length);
+        console.log("📦 Bundle details:", bundles.map(b => ({ id: b.id, status: b.status, assignedOperator: b.assignedOperator, article: b.article })));
 
         // Find current work (in-progress or assigned)
         const currentBundle = bundles.find(
@@ -198,10 +227,25 @@ const OperatorDashboard = () => {
         );
 
         if (currentBundle) {
-          setCurrentWork(currentBundle);
+          // Ensure current work has all required fields with fallbacks
+          const workWithDefaults = {
+            ...currentBundle,
+            article: currentBundle.article || currentBundle.articleNumber || 'N/A',
+            articleName: currentBundle.articleName || currentBundle.article || 'Unknown Article',
+            operation: currentBundle.operation || currentBundle.currentOperation || 'General',
+            pieces: currentBundle.pieces || 0,
+            completedPieces: currentBundle.completedPieces || 0,
+            bundleNumber: currentBundle.bundleNumber || currentBundle.id || 'N/A',
+            color: currentBundle.color || 'Default',
+            size: currentBundle.size || 'M',
+            priority: currentBundle.priority || 'medium'
+          };
+          
+          setCurrentWork(workWithDefaults);
           setIsWorkStarted(currentBundle.status === "in-progress");
-          console.log("🔄 Current work found:", currentBundle.id);
+          console.log("🔄 Current work found:", workWithDefaults.id, workWithDefaults);
         } else {
+          setCurrentWork(null);
           console.log("ℹ️ No current work assigned");
         }
 
@@ -230,14 +274,83 @@ const OperatorDashboard = () => {
         }));
       }
 
-      // Load operator's daily performance (mock for now)
+      // Calculate real daily performance from loaded bundles
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      let todayPiecesCompleted = 0;
+      let todayEarnings = 0;
+      let completedBundles = 0;
+      let totalAssignedPieces = 0;
+      
+      bundles.forEach(bundle => {
+        // Count completed pieces and earnings for today
+        if (bundle.status === 'completed' || bundle.status === 'operator_completed') {
+          const completedDate = new Date(bundle.completedAt || bundle.operatorCompletedAt);
+          if (completedDate >= today) {
+            const pieces = bundle.completedPieces || bundle.pieces || 0;
+            const rate = bundle.rate || 0;
+            todayPiecesCompleted += pieces;
+            todayEarnings += pieces * rate;
+            completedBundles++;
+          }
+        }
+        
+        // Count total assigned pieces for efficiency calculation
+        if (bundle.assignedOperator === user.id) {
+          totalAssignedPieces += bundle.pieces || 0;
+        }
+      });
+
+      // Calculate efficiency (completed vs assigned)
+      const efficiency = totalAssignedPieces > 0 ? Math.min(100, Math.round((todayPiecesCompleted / totalAssignedPieces) * 100)) : 0;
+      
+      // Calculate quality score (placeholder - you may have actual quality data)
+      const qualityScore = completedBundles > 0 ? Math.max(85, Math.min(100, 100 - (completedBundles * 2))) : 100;
+
+      // Load actual payroll earnings from today
+      try {
+        const payrollQuery = query(
+          collection(db, 'payrollEntries'),
+          where('operatorId', '==', user.id),
+          where('completedAt', '>=', today),
+          where('status', '==', 'completed')
+        );
+        const payrollSnapshot = await getDocs(payrollQuery);
+        let actualEarnings = 0;
+        let actualPieces = 0;
+        
+        payrollSnapshot.forEach(doc => {
+          const entry = doc.data();
+          actualEarnings += entry.earnings || 0;
+          actualPieces += entry.pieces || 0;
+        });
+        
+        // Use payroll data if available, otherwise use calculated data
+        todayEarnings = actualEarnings > 0 ? actualEarnings : todayEarnings;
+        todayPiecesCompleted = actualPieces > 0 ? actualPieces : todayPiecesCompleted;
+      } catch (payrollError) {
+        console.warn('Could not load payroll data, using calculated values:', payrollError);
+      }
+
       setDailyStats((prev) => ({
         ...prev,
-        piecesCompleted: 85,
-        totalEarnings: 237.5,
-        efficiency: 88,
-        qualityScore: 98,
+        piecesCompleted: todayPiecesCompleted,
+        totalEarnings: todayEarnings,
+        efficiency: efficiency,
+        qualityScore: qualityScore,
+        targetPieces: prev.targetPieces || 120 // Keep existing target or default
       }));
+
+      // Load rework data
+      const pendingReworkResult = await damageReportService.getPendingReworkPieces(user.id);
+      if (pendingReworkResult.success && pendingReworkResult.details) {
+        const readyToComplete = pendingReworkResult.details.filter(report => 
+          report.status === 'rework_assigned' && report.assignedOperator === user.id
+        );
+        setReworkPieces(readyToComplete);
+        setPendingReworkPieces(pendingReworkResult.count || 0);
+      }
     } catch (error) {
       console.error("❌ Error loading operator data:", error);
       setError(error.message);
@@ -595,6 +708,43 @@ const OperatorDashboard = () => {
     }
   };
 
+  // Complete rework function
+  const completeRework = async (reworkReport) => {
+    if (!user?.id) return;
+
+    try {
+      // Mark rework as final completion
+      const result = await damageReportService.finalizeReworkCompletion(
+        reworkReport.id, 
+        user.id,
+        {
+          notes: 'Rework completed by operator',
+          completedAt: new Date()
+        }
+      );
+
+      if (result.success) {
+        addNotification(
+          currentLanguage === 'np' 
+            ? `${reworkReport.bundleNumber} को रिवर्क पूरा भयो` 
+            : `Rework completed for ${reworkReport.bundleNumber}`,
+          'success'
+        );
+        
+        // Reload data to update UI
+        await loadOperatorData();
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error completing rework:', error);
+      addNotification(
+        currentLanguage === 'np' ? 'रिवर्क पूरा गर्न असफल' : 'Failed to complete rework',
+        'error'
+      );
+    }
+  };
+
   // Calculate work progress
   const getWorkProgressPercentage = () => {
     if (!currentWork || !currentWork.pieces) return 0;
@@ -670,68 +820,126 @@ const OperatorDashboard = () => {
 
   // Return the complete dashboard UI
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-4 text-white m-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold">
-              {getTimeBasedGreeting()}, {userInfo?.name}
-            </h1>
-            <p className="text-blue-100 text-sm flex items-center space-x-2">
-              <span>{t("operator")}</span>
-              <span>-</span>
-              <span className="bg-blue-800 text-white px-2 py-1 rounded-full text-xs font-bold border border-blue-600 flex items-center space-x-1">
-                <span>
-                  {user?.machine === 'single-needle' && '📍'}
-                  {user?.machine === 'overlock' && '🔗'}
-                  {user?.machine === 'flatlock' && '📎'}
-                  {user?.machine === 'buttonhole' && '🕳️'}
-                  {!['single-needle', 'overlock', 'flatlock', 'buttonhole'].includes(user?.machine) && '⚙️'}
-                </span>
-                <span>{user?.machine?.replace('-', ' ').toUpperCase() || 'MULTI-SKILL'}</span>
-              </span>
-              <span>|</span>
-              <span>{formatTime(currentTime)}</span>
-            </p>
-          </div>
-          
-          <div className="flex items-center space-x-4">
-            {/* Connection Status */}
-            <div className="flex items-center space-x-2">
-              {/* Firestore Status */}
-              <div
-                className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${
-                  isOnline
-                    ? "bg-blue-800 text-blue-100"
-                    : "bg-red-800 text-red-100"
-                }`}
-                title="Firestore Connection"
-              >
-                <span>📚</span>
-                <span>{isOnline ? "FS" : "FS❌"}</span>
-              </div>
-              
-              {/* Realtime DB Status */}
-              <div
-                className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${
-                  realtimeConnected
-                    ? "bg-green-800 text-green-100"
-                    : "bg-orange-800 text-orange-100"
-                }`}
-                title="Realtime Database Connection"
-              >
-                <span>🔥</span>
-                <span>{realtimeConnected ? "RT" : "RT⚠️"}</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50 pb-20">
+      {/* Modern Header */}
+      <div className="bg-white/90 backdrop-blur-lg border-b border-white/20 shadow-lg sticky top-0 z-40 m-4 rounded-2xl">
+        <div className="p-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              {/* Operator Avatar with machine-specific emoji */}
+              <OperatorAvatar 
+                operator={{
+                  name: userInfo.displayName || user?.name || user?.email || 'Operator',
+                  avatar: {
+                    type: 'emoji',
+                    value: user?.machine === 'single-needle' ? '📍' : 
+                           user?.machine === 'overlock' ? '🔗' : 
+                           user?.machine === 'flatlock' ? '📎' : 
+                           user?.machine === 'buttonhole' ? '🕳️' : '⚙️',
+                    bgColor: '#0891B2',
+                    textColor: '#FFFFFF'
+                  },
+                  status: isWorkStarted ? 'busy' : 'available',
+                  currentWorkload: workQueue.length || 0,
+                  visualBadges: dailyStats.efficiency > 90 ? ['🏆', '⚡', '🎯'] : ['💪']
+                }}
+                size="xl"
+                showStatus={true}
+                showWorkload={true}
+                showBadges={true}
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {getTimeBasedGreeting()}, {userInfo.displayName}
+                </h1>
+                <div className="flex items-center space-x-3 mt-2">
+                  <span className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 rounded-xl text-sm font-semibold shadow-lg">
+                    {user?.machine?.replace('-', ' ').toUpperCase() || 'MULTI-SKILL'} {t("operator")}
+                  </span>
+                  <div className="text-gray-600 text-sm flex items-center space-x-2">
+                    <Clock className="w-4 h-4" />
+                    <span>{formatTime(currentTime)}</span>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div className="text-right">
-              <div className="text-2xl font-bold">
-                {formatNumber(dailyStats.piecesCompleted)}
+            
+            <div className="flex items-center space-x-6">
+              {/* Enhanced Connection Status */}
+              <div className="flex items-center space-x-3">
+                <div
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-xl text-sm font-medium shadow-md ${
+                    isOnline
+                      ? "bg-green-100 text-green-800 border-2 border-green-200"
+                      : "bg-red-100 text-red-800 border-2 border-red-200"
+                  }`}
+                  title="Firestore Connection"
+                >
+                  <Activity className={`w-4 h-4 ${isOnline ? "text-green-600" : "text-red-600"}`} />
+                  <span>{isOnline ? "Online" : "Offline"}</span>
+                </div>
               </div>
-              <div className="text-blue-100 text-sm">
-                {t("pieces")} {t("today")}
+
+              {/* Today's Performance */}
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-4 text-center shadow-lg">
+                <div className="text-3xl font-bold text-green-700">
+                  {formatNumber(dailyStats.piecesCompleted)}
+                </div>
+                <div className="text-green-600 font-semibold text-sm">
+                  {t("pieces")} {t("today")}
+                </div>
+              </div>
+
+              {/* User Menu */}
+              <div className="relative user-menu">
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center space-x-3 p-3 hover:bg-white/50 rounded-xl transition-colors border border-white/20"
+                  aria-label="User menu"
+                >
+                  <Settings className="w-5 h-5 text-gray-600" />
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                </button>
+
+                {/* User Dropdown Menu */}
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white/95 backdrop-blur-lg rounded-2xl shadow-xl border border-white/20 py-2 z-50">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <p className="font-semibold text-gray-800">{userInfo.displayName}</p>
+                      <p className="text-sm text-gray-600">{user?.machine?.replace('-', ' ').toUpperCase() || 'MULTI-SKILL'} {t("operator")}</p>
+                    </div>
+
+                    <div className="py-2">
+                      <button className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-white/50 transition-colors">
+                        <User className="w-4 h-4" />
+                        <span>{currentLanguage === "np" ? 'प्रोफाइल' : 'Profile'}</span>
+                      </button>
+
+                      <button className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-white/50 transition-colors">
+                        <Settings className="w-4 h-4" />
+                        <span>{currentLanguage === "np" ? 'सेटिङ्गहरू' : 'Settings'}</span>
+                      </button>
+
+                      <button className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 hover:bg-white/50 transition-colors">
+                        <Bell className="w-4 h-4" />
+                        <span>{currentLanguage === "np" ? 'सूचनाहरू' : 'Notifications'}</span>
+                      </button>
+                    </div>
+
+                    <div className="border-t border-gray-100 pt-2">
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          logout();
+                        }}
+                        className="w-full flex items-center space-x-3 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                      >
+                        <LogOut className="w-4 h-4" />
+                        <span>{currentLanguage === "np" ? 'लगआउट' : 'Logout'}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1191,79 +1399,215 @@ const OperatorDashboard = () => {
         </div>
       )}
 
-      {/* Daily Statistics */}
-      <div className="bg-white rounded-lg shadow-md border border-gray-200 m-4">
-        <div className="p-4 border-b border-gray-100">
-          <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-            <BarChart3 className="w-5 h-5 mr-2 text-green-600" />
-            {t("today")} {t("statistics")}
-          </h3>
-        </div>
-
-        <div className="p-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="text-center p-3 bg-blue-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">
-                {formatNumber(dailyStats.piecesCompleted)}
-              </div>
-              <div className="text-sm text-gray-600">
-                {t("pieces")} {t("completed")}
-              </div>
-            </div>
-            <div className="text-center p-3 bg-green-50 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">
-                रु. {dailyStats.totalEarnings}
-              </div>
-              <div className="text-sm text-gray-600">{t("earnings")}</div>
-            </div>
-            <div className="text-center p-3 bg-yellow-50 rounded-lg">
-              <div
-                className={`text-2xl font-bold ${getEfficiencyColor(
-                  dailyStats.efficiency
-                )}`}
-              >
-                {formatNumber(dailyStats.efficiency)}%
-              </div>
-              <div className="text-sm text-gray-600">{t("efficiency")}</div>
-            </div>
-            <div className="text-center p-3 bg-purple-50 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">
-                {formatNumber(dailyStats.qualityScore)}%
-              </div>
-              <div className="text-sm text-gray-600">{t("quality")}</div>
+      {/* Rework Pending Section */}
+      {reworkPieces.length > 0 && (
+        <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl shadow-lg border-2 border-orange-200 m-4">
+          <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-t-xl">
+            <div className="text-center">
+              <div className="text-4xl mb-2">🔧</div>
+              <h2 className="text-2xl font-bold mb-1">
+                {currentLanguage === 'np' ? 'रिवर्क पूरा गर्नुहोस्' : 'COMPLETE REWORK'}
+              </h2>
+              <p className="text-orange-100 text-lg">
+                {currentLanguage === 'np' 
+                  ? `${reworkPieces.length} टुक्रा रिवर्क पूरा गर्न बाँकी` 
+                  : `${reworkPieces.length} pieces need rework completion`
+                }
+              </p>
             </div>
           </div>
 
-          {/* Daily Progress */}
-          <div className="mt-4">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
-              <span>
-                {t("today")} {t("target")}:{" "}
-                {formatNumber(dailyStats.targetPieces)} {t("pieces")}
-              </span>
-              <span>
-                {Math.round(
-                  (dailyStats.piecesCompleted / dailyStats.targetPieces) * 100
-                )}
-                %
-              </span>
+          <div className="p-6 space-y-4">
+            {reworkPieces.map((reworkReport) => (
+              <div key={reworkReport.id} className="bg-white rounded-2xl shadow-lg border-2 border-orange-100 p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center space-x-2">
+                        <span className="text-2xl font-bold text-gray-800">
+                          {reworkReport.bundleNumber || `Bundle #${reworkReport.id.slice(-6)}`}
+                        </span>
+                        <span className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium">
+                          {currentLanguage === 'np' ? 'रिवर्क' : 'REWORK'}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => completeRework(reworkReport)}
+                        disabled={loading}
+                        className="px-6 py-3 bg-green-600 text-white rounded-xl hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center space-x-2 text-lg font-semibold"
+                      >
+                        <span>✅</span>
+                        <span>{currentLanguage === 'np' ? 'पूरा गर्नुहोस्' : 'COMPLETE'}</span>
+                      </button>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-6 text-lg mb-4">
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <div className="text-blue-600 font-medium mb-1">
+                          {currentLanguage === 'np' ? 'आर्टिकल:' : 'Article:'}
+                        </div>
+                        <div className="text-blue-900 font-bold">
+                          {reworkReport.articleName || reworkReport.articleNumber}
+                        </div>
+                      </div>
+                      <div className="bg-purple-50 rounded-lg p-4">
+                        <div className="text-purple-600 font-medium mb-1">
+                          {currentLanguage === 'np' ? 'ऑपरेसन:' : 'Operation:'}
+                        </div>
+                        <div className="text-purple-900 font-bold">{reworkReport.operation}</div>
+                      </div>
+                      <div className="bg-gray-50 rounded-lg p-4">
+                        <div className="text-gray-600 font-medium mb-1">
+                          {currentLanguage === 'np' ? 'टुक्रा नम्बर:' : 'Piece:'}
+                        </div>
+                        <div className="text-gray-900 font-bold">
+                          {reworkReport.pieceNumbers?.join(', ') || `#${reworkReport.pieceNumbers?.[0] || '1'}`}
+                        </div>
+                      </div>
+                      <div className="bg-green-50 rounded-lg p-4">
+                        <div className="text-green-600 font-medium mb-1">
+                          {currentLanguage === 'np' ? 'पैसा:' : 'Earnings:'}
+                        </div>
+                        <div className="text-green-900 font-bold text-xl">₹{reworkReport.rate || 0}</div>
+                      </div>
+                    </div>
+                    
+                    {reworkReport.reworkDetails?.supervisorNotes && (
+                      <div className="bg-blue-50 rounded-lg p-4">
+                        <div className="text-blue-700 font-semibold text-lg">
+                          <span className="text-2xl mr-2">💬</span>
+                          {currentLanguage === 'np' ? 'सुपरवाइजर टिप्पणी:' : 'Supervisor Notes:'}
+                        </div>
+                        <div className="text-blue-800 mt-2 text-lg">
+                          {reworkReport.reworkDetails.supervisorNotes}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-4 text-center">
+                      <div className="bg-yellow-50 rounded-lg p-3 border-2 border-yellow-200">
+                        <p className="text-yellow-700 font-semibold text-lg">
+                          <span className="text-2xl mr-2">💰</span>
+                          {currentLanguage === 'np' ? 'पूरा भएपछि पैसा मिल्नेछ' : 'Payment after completion'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Daily Statistics */}
+      <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-white/20 shadow-lg m-4">
+        <div className="p-6 border-b border-gray-100">
+          <div className="flex items-center justify-between">
+            <h3 className="text-2xl font-semibold text-gray-900 flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 text-white" />
+              </div>
+              <span>{t("today")} {t("statistics")}</span>
+            </h3>
+            <div className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-xl">Live Data</div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+            {/* Pieces Completed */}
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-2xl p-6 text-center shadow-lg hover:shadow-xl transition-all group">
+              <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-200 transition-colors">
+                <Package className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="text-3xl font-bold text-blue-700 mb-2">
+                {formatNumber(dailyStats.piecesCompleted)}
+              </div>
+              <div className="text-sm font-medium text-blue-600">
+                {t("pieces")} {t("completed")}
+              </div>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+
+            {/* Earnings */}
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-6 text-center shadow-lg hover:shadow-xl transition-all group">
+              <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-green-200 transition-colors">
+                <Award className="w-6 h-6 text-green-600" />
+              </div>
+              <div className="text-3xl font-bold text-green-700 mb-2">
+                रु. {dailyStats.totalEarnings}
+              </div>
+              <div className="text-sm font-medium text-green-600">{t("earnings")}</div>
+            </div>
+
+            {/* Efficiency */}
+            <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-yellow-200 rounded-2xl p-6 text-center shadow-lg hover:shadow-xl transition-all group">
+              <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-yellow-200 transition-colors">
+                <Zap className="w-6 h-6 text-yellow-600" />
+              </div>
+              <div className={`text-3xl font-bold mb-2 ${getEfficiencyColor(dailyStats.efficiency)}`}>
+                {formatNumber(dailyStats.efficiency)}%
+              </div>
+              <div className="text-sm font-medium text-yellow-600">{t("efficiency")}</div>
+            </div>
+
+            {/* Quality */}
+            <div className="bg-gradient-to-br from-purple-50 to-violet-50 border-2 border-purple-200 rounded-2xl p-6 text-center shadow-lg hover:shadow-xl transition-all group">
+              <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-purple-200 transition-colors">
+                <CheckCircle className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="text-3xl font-bold text-purple-700 mb-2">
+                {formatNumber(dailyStats.qualityScore)}%
+              </div>
+              <div className="text-sm font-medium text-purple-600">{t("quality")}</div>
+            </div>
+
+            {/* Rework Pending */}
+            <div className="bg-gradient-to-br from-orange-50 to-red-50 border-2 border-orange-200 rounded-2xl p-6 text-center shadow-lg hover:shadow-xl transition-all group">
+              <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-200 transition-colors">
+                <AlertTriangle className="w-6 h-6 text-orange-600" />
+              </div>
+              <div className="text-3xl font-bold text-orange-700 mb-2">
+                {pendingReworkPieces}
+              </div>
+              <div className="text-sm font-medium text-orange-600">
+                {currentLanguage === 'np' ? 'रिवर्क पेन्डिङ' : 'Rework Pending'}
+              </div>
+            </div>
+          </div>
+
+          {/* Enhanced Daily Progress */}
+          <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-6 border-2 border-blue-100">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <TrendingUp className="w-5 h-5 text-blue-600" />
+                <span className="font-semibold text-gray-900">
+                  {t("today")} {t("target")}: {formatNumber(dailyStats.targetPieces)} {t("pieces")}
+                </span>
+              </div>
+              <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-xl font-bold text-lg">
+                {Math.round((dailyStats.piecesCompleted / dailyStats.targetPieces) * 100)}%
+              </div>
+            </div>
+            
+            <div className="w-full bg-gray-200 rounded-full h-4 mb-4">
               <div
-                className="bg-green-600 h-3 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 h-4 rounded-full transition-all duration-500 shadow-lg"
                 style={{
-                  width: `${Math.min(
-                    (dailyStats.piecesCompleted / dailyStats.targetPieces) *
-                      100,
-                    100
-                  )}%`,
+                  width: `${Math.min((dailyStats.piecesCompleted / dailyStats.targetPieces) * 100, 100)}%`,
                 }}
               ></div>
             </div>
-            <div className="text-center mt-2 text-sm text-gray-600">
-              {currentLanguage === "np"
-                ? `टिम औसत भन्दा +१२% माथि`
-                : `+12% above team average`}
+            
+            <div className="text-center">
+              <div className="inline-flex items-center space-x-2 bg-green-100 text-green-800 px-4 py-2 rounded-xl font-semibold">
+                <TrendingUp className="w-4 h-4" />
+                <span>
+                  {currentLanguage === "np"
+                    ? `टिम औसत भन्दा +१२% माथि`
+                    : `+12% above team average`}
+                </span>
+              </div>
             </div>
           </div>
         </div>

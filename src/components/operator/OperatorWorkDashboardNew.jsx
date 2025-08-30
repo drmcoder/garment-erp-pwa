@@ -8,6 +8,7 @@ import { formatDateByLanguage, formatTimeAgo } from '../../utils/nepaliDate';
 import DamageReportModal from './DamageReportModal';
 import DamageNotificationSystem from '../common/DamageNotificationSystem';
 import { damageReportService } from '../../services/DamageReportService';
+import OperatorAvatar from '../common/OperatorAvatar';
 
 const OperatorWorkDashboardNew = () => {
   const { user } = useContext(AuthContext);
@@ -299,16 +300,43 @@ const OperatorWorkDashboardNew = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      <div className="bg-white/90 backdrop-blur-lg shadow-lg border-b border-white/20">
         <div className="max-w-6xl mx-auto px-4 py-6">
           <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">
-                {isNepali ? '👋 नमस्ते,' : '👋 Hello,'} {user?.name}
-              </h1>
-              <p className="text-gray-600 mt-1">
-                {isNepali ? 'आजको काम प्रगति' : 'Today\'s Work Progress'}
-              </p>
+            <div className="flex items-center space-x-4">
+              {/* Operator Avatar */}
+              <OperatorAvatar 
+                operator={{
+                  name: user?.name || 'Operator',
+                  avatar: {
+                    type: 'emoji',
+                    value: user?.machine === 'single-needle' ? '📍' : 
+                           user?.machine === 'overlock' ? '🔗' : 
+                           user?.machine === 'flatlock' ? '📎' : 
+                           user?.machine === 'buttonhole' ? '🕳️' : '⚙️',
+                    bgColor: '#2563EB',
+                    textColor: '#FFFFFF'
+                  },
+                  status: currentWork?.length > 0 ? 'busy' : 'available',
+                  currentWorkload: currentWork?.length || 0,
+                  visualBadges: stats.completedToday > 5 ? ['🏆', '⚡'] : ['💪']
+                }}
+                size="lg"
+                showStatus={true}
+                showWorkload={true}
+                showBadges={true}
+              />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  {isNepali ? '👋 नमस्ते,' : '👋 Hello,'} {user?.name}
+                </h1>
+                <p className="text-gray-600 mt-1 flex items-center space-x-2">
+                  <span>{isNepali ? 'आजको काम प्रगति' : 'Today\'s Work Progress'}</span>
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                    {user?.machine?.replace('-', ' ').toUpperCase() || 'MULTI-SKILL'}
+                  </span>
+                </p>
+              </div>
             </div>
             <button
               onClick={loadWorkData}
