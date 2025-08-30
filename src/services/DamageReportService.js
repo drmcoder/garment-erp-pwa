@@ -238,10 +238,8 @@ export class DamageReportService {
       const penalty = operatorFault ? getDamagePenalty(reportData.damageType, reportData.severity) : 0;
 
       updateData['paymentImpact.operatorAtFault'] = operatorFault;
-      updateData['paymentImpact.paymentAdjustment'] = penalty * -1; // Negative for penalty
-      updateData['paymentImpact.adjustmentReason'] = operatorFault 
-        ? `Operator error: ${reportData.damageType}` 
-        : 'No penalty - not operator fault';
+      updateData['paymentImpact.paymentAdjustment'] = 0; // No penalty - payment held and released after completion
+      updateData['paymentImpact.adjustmentReason'] = 'Payment held for rework - to be released after completion';
       updateData['paymentImpact.supervisorCompensation'] = (completionData.timeSpentMinutes || 0) * 0.5; // ₹0.5 per minute
 
       await updateDoc(reportRef, updateData);
@@ -358,15 +356,9 @@ export class DamageReportService {
       const pieceCount = reportData.pieceCount || 0;
       const operatorFault = isOperatorFault(reportData.damageType);
       
-      let paymentToRelease = 0;
-      if (!operatorFault) {
-        // Full payment for non-operator fault
-        paymentToRelease = pieceCount * baseRate;
-      } else {
-        // Reduced payment for operator errors
-        const penalty = getDamagePenalty(reportData.damageType, reportData.severity);
-        paymentToRelease = pieceCount * baseRate * (1 - penalty);
-      }
+      // Always release full payment for reworked pieces after completion
+      // Payment was held during damage report, now released after rework completion
+      let paymentToRelease = pieceCount * baseRate;
       
       const updateData = {
         status: DAMAGE_STATUS.FINAL_COMPLETION,
@@ -685,14 +677,15 @@ export class DamageReportService {
    */
   async getPendingReworkPieces(operatorId) {
     try {
-      // Get damage reports that are with supervisor (rework started but not completed)
+      // Get damage reports that need operator action (both with supervisor and returned to operator)
       const q = query(
         collection(db, this.collectionName),
         where('operatorId', '==', operatorId),
         where('status', 'in', [
           DAMAGE_STATUS.REWORK_STARTED,
           DAMAGE_STATUS.IN_QUEUE,
-          DAMAGE_STATUS.ACKNOWLEDGED
+          DAMAGE_STATUS.ACKNOWLEDGED,
+          DAMAGE_STATUS.RETURNED  // Include pieces returned to operator for completion
         ])
       );
 
@@ -707,7 +700,8 @@ export class DamageReportService {
       return {
         success: true,
         count: totalPendingPieces,
-        reports: snapshot.docs.length
+        reports: snapshot.docs.length,
+        details: snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
       };
     } catch (error) {
       console.error('❌ Error getting pending rework pieces:', error);

@@ -17,6 +17,7 @@ const OperatorWorkDashboardNew = () => {
   const [currentWork, setCurrentWork] = useState(null); // Currently active work
   const [readyWork, setReadyWork] = useState([]); // Work ready to start
   const [completedWork, setCompletedWork] = useState([]); // Recent completed work
+  const [reworkPieces, setReworkPieces] = useState([]); // Rework pieces ready to complete
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({
     todayPieces: 0,
@@ -88,8 +89,16 @@ const OperatorWorkDashboardNew = () => {
         (w.completedAt >= today || w.operatorCompletedAt >= today)
       );
       
-      // Get pending rework pieces count
+      // Get pending rework pieces count and details
       const pendingReworkResult = await damageReportService.getPendingReworkPieces(user.id);
+      
+      // Set rework pieces that are ready for operator to complete
+      if (pendingReworkResult.success && pendingReworkResult.details) {
+        const readyToComplete = pendingReworkResult.details.filter(report => 
+          report.status === 'returned_to_operator' // Only pieces returned from supervisor
+        );
+        setReworkPieces(readyToComplete);
+      }
       
       setStats({
         todayPieces: todayCompleted.reduce((sum, w) => sum + (w.pieces || 0), 0),
@@ -237,6 +246,44 @@ const OperatorWorkDashboardNew = () => {
   useEffect(() => {
     loadWorkData();
   }, [user?.id]);
+
+  // Rework completion function
+  const completeRework = async (reworkReport) => {
+    try {
+      setLoading(true);
+      
+      // Mark rework as final completion
+      const result = await damageReportService.markFinalCompletion(
+        reworkReport.id, 
+        user.id, 
+        {
+          notes: 'Rework completed by operator',
+          qualityScore: 100
+        }
+      );
+
+      if (result.success) {
+        showNotification(
+          isNepali 
+            ? `${reworkReport.bundleNumber} को रिवर्क पूरा भयो` 
+            : `Rework completed for ${reworkReport.bundleNumber}`,
+          'success'
+        );
+        
+        loadWorkData(); // Refresh data
+      } else {
+        throw new Error(result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error completing rework:', error);
+      showNotification(
+        isNepali ? 'रिवर्क पूरा गर्न असफल' : 'Failed to complete rework',
+        'error'
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -623,6 +670,93 @@ const OperatorWorkDashboardNew = () => {
             )}
           </div>
         </div>
+
+        {/* Rework Pending Section */}
+        {reworkPieces.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-orange-200">
+            <div className="p-6 border-b border-orange-200">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-orange-100 rounded-lg">
+                  <span className="text-2xl">🔧</span>
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    {isNepali ? 'रिवर्क पूरा गर्नुहोस्' : 'Complete Rework'}
+                  </h2>
+                  <p className="text-orange-600 text-sm">
+                    {isNepali 
+                      ? `${reworkPieces.length} टुक्रा रिवर्क पूरा गर्न बाँकी` 
+                      : `${reworkPieces.length} pieces need rework completion`
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="p-6 space-y-4">
+              {reworkPieces.map((reworkReport) => (
+                <div key={reworkReport.id} className="border border-orange-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="text-lg font-semibold text-gray-800">
+                          {reworkReport.bundleNumber || `Bundle #${reworkReport.id.slice(-6)}`}
+                        </span>
+                        <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs font-medium">
+                          {isNepali ? 'रिवर्क' : 'Rework'}
+                        </span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 text-sm mb-3">
+                        <div>
+                          <span className="text-gray-600">{isNepali ? 'आर्टिकल:' : 'Article:'}</span>
+                          <span className="font-medium ml-1">{reworkReport.articleName || reworkReport.articleNumber}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">{isNepali ? 'ऑपरेसन:' : 'Operation:'}</span>
+                          <span className="font-medium ml-1">{reworkReport.operation}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">{isNepali ? 'टुक्रा नम्बर:' : 'Piece:'}</span>
+                          <span className="font-medium ml-1">
+                            {reworkReport.pieceNumbers?.join(', ') || `#${reworkReport.pieceNumbers?.[0] || '1'}`}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">{isNepali ? 'पैसा:' : 'Rate:'}</span>
+                          <span className="font-bold text-green-600 ml-1">₹{reworkReport.rate || 0}</span>
+                        </div>
+                      </div>
+                      
+                      {reworkReport.reworkDetails?.supervisorNotes && (
+                        <div className="bg-blue-50 rounded-lg p-3 mb-3">
+                          <p className="text-sm text-blue-700">
+                            <strong>{isNepali ? 'सुपरवाइजर टिप्पणी:' : 'Supervisor Notes:'}</strong> {reworkReport.reworkDetails.supervisorNotes}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="ml-4 flex flex-col items-end">
+                      <button
+                        onClick={() => completeRework(reworkReport)}
+                        disabled={loading}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center space-x-2"
+                      >
+                        <span>✅</span>
+                        <span>{isNepali ? 'पूरा गर्नुहोस्' : 'Complete'}</span>
+                      </button>
+                      
+                      <p className="text-xs text-green-600 mt-2 text-center">
+                        {isNepali ? 'पूरा भएपछि पैसा मिल्नेछ' : 'Payment after completion'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Recent Completed Work */}
         {completedWork.length > 0 && (

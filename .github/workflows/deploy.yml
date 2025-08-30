@@ -1,0 +1,94 @@
+name: 🚀 Deploy Garment ERP
+
+on:
+  push:
+    branches: [ main, staging, develop ]
+  pull_request:
+    branches: [ main, staging ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x]
+    
+    steps:
+    - name: 📦 Checkout code
+      uses: actions/checkout@v3
+
+    - name: 🔧 Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: 📥 Install dependencies
+      run: npm ci
+
+    - name: 🧪 Run tests
+      run: npm test -- --coverage --watchAll=false
+      env:
+        CI: true
+
+    - name: 🔍 Run linting
+      run: npm run lint --if-present
+
+    - name: 🔒 Security audit
+      run: npm audit --audit-level high
+
+    # Build for different environments based on branch
+    - name: 🏗️ Build for Production
+      if: github.ref == 'refs/heads/main'
+      run: npm run build
+      env:
+        REACT_APP_ENVIRONMENT: production
+        REACT_APP_VERSION: ${{ github.sha }}
+        REACT_APP_BUILD_TIME: ${{ github.event.head_commit.timestamp }}
+
+    - name: 🏗️ Build for Staging
+      if: github.ref == 'refs/heads/staging'
+      run: npm run build
+      env:
+        REACT_APP_ENVIRONMENT: staging
+        REACT_APP_VERSION: ${{ github.sha }}
+        REACT_APP_BUILD_TIME: ${{ github.event.head_commit.timestamp }}
+
+    - name: 🏗️ Build for Development
+      if: github.ref == 'refs/heads/develop'
+      run: npm run build
+      env:
+        REACT_APP_ENVIRONMENT: development
+        REACT_APP_VERSION: ${{ github.sha }}
+        REACT_APP_BUILD_TIME: ${{ github.event.head_commit.timestamp }}
+
+    # Deploy to Netlify (already configured, but this provides backup/monitoring)
+    - name: 🌐 Deploy to Netlify
+      uses: nwtgck/actions-netlify@v2.0
+      with:
+        publish-dir: './build'
+        production-branch: main
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        deploy-message: "🚀 Deploy from GitHub Actions"
+        enable-commit-comment: false
+        enable-pull-request-comment: false
+        overwrites-pull-request-comment: true
+      env:
+        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+    # Slack notification on deployment
+    - name: 📱 Slack notification
+      if: always()
+      uses: 8398a7/action-slack@v3
+      with:
+        status: ${{ job.status }}
+        text: |
+          🚀 Garment ERP Deployment ${{ job.status }}
+          📋 Branch: ${{ github.ref_name }}
+          👤 Author: ${{ github.actor }}
+          💬 Commit: ${{ github.event.head_commit.message }}
+          🔗 Preview: https://${{ github.ref_name == 'main' && 'garment-erp-nepal' || github.ref_name == 'staging' && 'staging--garment-erp-nepal' || 'dev--garment-erp-nepal' }}.netlify.app
+      env:
+        SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

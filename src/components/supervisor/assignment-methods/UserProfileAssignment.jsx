@@ -3,6 +3,8 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { useGlobalError } from '../../common/GlobalErrorHandler';
 import { getMachineTypeIcon } from '../../../constants';
 import { MachineCompatibilityValidator } from '../../../utils/machineCompatibility';
+import OperatorCard from '../../common/OperatorCard';
+import OperatorAvatar from '../../common/OperatorAvatar';
 
 const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const { currentLanguage } = useLanguage();
@@ -210,71 +212,44 @@ const UserProfileAssignment = ({ workItems, operators, onAssignmentComplete }) =
               const isSelected = selectedOperator?.id === operator.id;
               
               return (
-                <div
-                  key={operator.id}
-                  className={`border rounded-lg p-4 cursor-pointer transition-all duration-200 ${
-                    isSelected
-                      ? 'border-blue-500 bg-blue-50 shadow-md'
-                      : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-                  }`}
-                  onClick={() => handleOperatorSelect(operator)}
-                >
-                  <div className="flex items-center space-x-3">
-                    <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                      {operator.name.charAt(0).toUpperCase()}
-                    </div>
-                    
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2">
-                        <span className="font-medium text-gray-800">{operator.name}</span>
-                        {operator.status === 'active' && (
-                          <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-                        )}
-                      </div>
-                      
-                      <div className="flex items-center space-x-2 text-sm mt-1">
-                        <span className="text-lg">{getMachineTypeIcon(operator.machine)}</span>
-                        <span className="font-bold text-blue-700 bg-blue-100 px-2 py-1 rounded-full text-xs border border-blue-300">
-                          {operator.machine?.replace('-', ' ').toUpperCase() || 'MULTI-SKILL'}
-                        </span>
-                      </div>
-                      
-                      <div className="flex items-center space-x-4 mt-2">
-                        <span className={`text-xs font-medium ${getEfficiencyColor(stats.avgEfficiency)}`}>
-                          ⚡ {stats.avgEfficiency}%
-                        </span>
-                        <span className={`px-2 py-1 text-xs font-medium rounded border ${getWorkloadColor(stats.workloadPercentage)}`}>
-                          📊 {stats.workloadPercentage}%
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                <div key={operator.id} className="relative">
+                  <OperatorCard
+                    operator={operator}
+                    selected={isSelected}
+                    onClick={() => handleOperatorSelect(operator)}
+                    showDetails={viewMode === 'grid'}
+                    showWorkload={true}
+                    compact={viewMode === 'list'}
+                  />
                   
-                  <div className="mt-3 pt-3 border-t border-gray-100">
-                    {/* Simple Stats Row */}
-                    <div className="flex justify-between text-xs text-gray-600">
-                      <span>
-                        {currentLanguage === 'np' ? 'उपलब्ध काम:' : 'Available:'} {stats.compatibleWork}
-                      </span>
-                      <span>
-                        {currentLanguage === 'np' ? 'जम्मा:' : 'Total:'} {stats.totalPieces} pcs
-                      </span>
-                      <span className={`px-2 py-1 rounded text-xs ${getWorkloadColor(stats.workloadPercentage)}`}>
-                        {stats.workloadPercentage}% Load
-                      </span>
+                  {/* Additional work stats overlay for grid view */}
+                  {viewMode === 'grid' && (
+                    <div className="mt-2 pt-2 border-t border-gray-100">
+                      <div className="flex justify-between text-xs text-gray-600 mb-2">
+                        <span>
+                          {currentLanguage === 'np' ? 'उपलब्ध काम:' : 'Available:'} {stats.compatibleWork}
+                        </span>
+                        <span>
+                          {currentLanguage === 'np' ? 'जम्मा:' : 'Total:'} {stats.totalPieces} pcs
+                        </span>
+                      </div>
+                      
+                      {/* Quick Assign Button */}
+                      {stats.compatibleWork > 0 && (
+                        <button
+                          className="w-full px-3 py-2 text-white text-sm rounded hover:bg-opacity-90 transition-all flex items-center justify-center space-x-2"
+                          style={{ backgroundColor: operator.profileColor }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOperatorSelect(operator);
+                          }}
+                        >
+                          <span>👤</span>
+                          <span>{currentLanguage === 'np' ? 'काम असाइन गर्नुहोस्' : 'Assign Work'}</span>
+                        </button>
+                      )}
                     </div>
-                    
-                    {/* Simple Quick Assign Button */}
-                    {stats.compatibleWork > 0 && (
-                      <button
-                        className="w-full mt-2 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-                        onClick={() => handleOperatorSelect(operator)}
-                      >
-                        <span>👤</span>
-                        <span>{currentLanguage === 'np' ? 'काम असाइन गर्नुहोस्' : 'Assign Work'}</span>
-                      </button>
-                    )}
-                  </div>
+                  )}
                 </div>
               );
             })}

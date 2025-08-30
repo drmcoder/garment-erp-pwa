@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage, LanguageToggle } from "../../context/LanguageContext";
+import NotificationSettings from "./NotificationSettings";
 
 const Header = ({
   onMenuToggle,
@@ -26,6 +27,7 @@ const Header = ({
 
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   const userMenuRef = useRef(null);
   const notificationRef = useRef(null);
 
@@ -131,6 +133,16 @@ const Header = ({
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
+              </button>
+              
+              {/* Notification Settings Button */}
+              <button
+                onClick={() => setShowNotificationSettings(true)}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Notification Settings"
+                title={currentLanguage === "np" ? "सूचना सेटिङ्गहरू" : "Notification Settings"}
+              >
+                <Settings className="w-5 h-5 text-gray-600" />
               </button>
 
               {/* Notifications Dropdown */}
@@ -343,6 +355,12 @@ const Header = ({
           <div className="text-gray-600">{currentTime}</div>
         </div>
       </div>
+      
+      {/* Notification Settings Modal */}
+      <NotificationSettings 
+        isOpen={showNotificationSettings}
+        onClose={() => setShowNotificationSettings(false)}
+      />
     </header>
   );
 };

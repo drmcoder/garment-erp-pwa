@@ -10,7 +10,7 @@ import { damageReportService } from '../../services/DamageReportService';
 const DamageQueue = () => {
   const { user } = useContext(AuthContext);
   const { isNepali } = useContext(LanguageContext);
-  const { showNotification, sendWorkflowNotification } = useContext(NotificationContext);
+  const { showNotification } = useContext(NotificationContext);
 
   const [damageReports, setDamageReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -140,37 +140,25 @@ const DamageQueue = () => {
     }
 
     try {
-      const completedReport = {
-        ...report,
-        status: 'completed',
-        reworkDetails: {
-          ...report.reworkDetails,
-          completedTime: new Date().toISOString(),
-          partsReplaced: reworkData.partsReplaced,
-          supervisorNotes: reworkData.notes,
-          timeSpent: reworkData.timeSpent
-        }
+      // Use the proper DamageReportService method
+      const completionData = {
+        supervisorName: user.name,
+        partsReplaced: reworkData.partsReplaced,
+        supervisorNotes: reworkData.notes,
+        timeSpentMinutes: reworkData.timeSpent,
+        qualityCheck: reworkData.qualityCheck
       };
 
-      // Update local state
-      setDamageReports(prev => 
-        prev.map(r => r.id === report.id ? completedReport : r)
-      );
+      await damageReportService.completeRework(report.id, completionData);
 
-      // Send API update
-      await updateDamageReport(completedReport);
+      // Return pieces to operator and create new work assignment
+      await damageReportService.returnToOperator(report.id, {
+        supervisorId: user.uid,
+        supervisorName: user.name
+      });
 
-      // Notify operator that pieces are ready
-      await sendWorkflowNotification(
-        report.operatorId,
-        'rework_completed',
-        {
-          supervisorName: user.name,
-          bundleNumber: report.bundleNumber,
-          pieceCount: report.pieceNumbers.length,
-          operation: report.operation
-        }
-      );
+      // Update local state to remove completed report from queue
+      setDamageReports(prev => prev.filter(r => r.id !== report.id));
 
       showNotification(
         isNepali 
@@ -192,13 +180,14 @@ const DamageQueue = () => {
   };
 
   const updateDamageReport = async (reportData) => {
-    // Mock API call - replace with actual API
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        console.log('💾 Damage report updated:', reportData);
-        resolve(reportData);
-      }, 500);
-    });
+    try {
+      const updatedReport = await damageReportService.updateDamageReport(reportData.id, reportData);
+      console.log('💾 Damage report updated:', updatedReport);
+      return updatedReport;
+    } catch (error) {
+      console.error('Error updating damage report:', error);
+      throw error;
+    }
   };
 
   const getStatusColor = (status) => {

@@ -29,7 +29,20 @@ export const mockUsers = [
     monthlyTarget: 2600,
     currentEfficiency: 88,
     qualityScore: 96,
-    lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000) // 2 hours ago
+    lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
+    // Visual Identity System
+    avatar: {
+      type: 'emoji', // 'emoji', 'initials', 'photo'
+      value: '👨‍🏭', // emoji, initials, or photo URL
+      bgColor: '#FF6B6B', // unique background color
+      textColor: '#FFFFFF' // text color for initials
+    },
+    profileColor: '#FF6B6B', // primary color scheme
+    status: 'available', // available, busy, offline, break
+    currentWorkload: 2, // number of active bundles
+    favoriteOperator: false, // supervisor's favorite for quick assignment
+    machineTypes: ['overlock'], // all compatible machine types
+    visualBadges: ['⭐', '🎯'], // skill/achievement badges
   },
   {
     username: 'sita.devi',  
@@ -50,7 +63,20 @@ export const mockUsers = [
     monthlyTarget: 2400,
     currentEfficiency: 92,
     qualityScore: 98,
-    lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000) // 4 hours ago
+    lastLogin: new Date(Date.now() - 4 * 60 * 60 * 1000), // 4 hours ago
+    // Visual Identity System
+    avatar: {
+      type: 'emoji',
+      value: '👩‍🏭',
+      bgColor: '#4ECDC4',
+      textColor: '#FFFFFF'
+    },
+    profileColor: '#4ECDC4',
+    status: 'busy',
+    currentWorkload: 3,
+    favoriteOperator: true,
+    machineTypes: ['flatlock'],
+    visualBadges: ['⭐', '👑', '🏆'], // quality champion
   },
   {
     username: 'hari.supervisor',

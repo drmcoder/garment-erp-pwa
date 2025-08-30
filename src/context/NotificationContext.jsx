@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useLanguage } from './LanguageContext';
+import config from '../config/environments';
 
 export const NotificationContext = createContext();
 
@@ -11,6 +12,12 @@ export const NotificationProvider = ({ children }) => {
   // Initialize empty notifications - no test data
 
   const addNotification = (notification) => {
+    // Check if demo notifications are disabled
+    if (!config.features.demoNotifications && notification.isDemo) {
+      console.log('🚫 Demo notification blocked:', notification.title);
+      return;
+    }
+
     const newNotification = {
       id: Date.now(),
       time: new Date(),

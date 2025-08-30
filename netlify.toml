@@ -18,7 +18,7 @@
   to = "/.netlify/functions/:splat"
   status = 200
 
-# Environment variables for production
+# Environment variables for production (main branch)
 [context.production.environment]
   REACT_APP_ENVIRONMENT = "production"
   REACT_APP_API_URL = "https://garment-erp-nepal.netlify.app/api"
@@ -27,14 +27,32 @@
   BUNDLE_CACHE_TTL = "300"
   PUSH_NOTIFICATION_ENABLED = "true"
 
-# Environment variables for development
+# Environment variables for staging (staging branch)
+[context.staging.environment]
+  REACT_APP_ENVIRONMENT = "staging"
+  REACT_APP_API_URL = "https://staging--garment-erp-nepal.netlify.app/api"
+  JWT_SECRET = "garment-erp-jwt-secret-staging"
+  TOKEN_EXPIRY = "24h"
+  BUNDLE_CACHE_TTL = "60"
+  PUSH_NOTIFICATION_ENABLED = "true"
+
+# Environment variables for development (develop branch)
 [context.develop.environment]
   REACT_APP_ENVIRONMENT = "development"
-  REACT_APP_API_URL = "http://localhost:8888/api"
+  REACT_APP_API_URL = "https://dev--garment-erp-nepal.netlify.app/api"
   JWT_SECRET = "garment-erp-jwt-secret-dev"
   TOKEN_EXPIRY = "24h"
-  BUNDLE_CACHE_TTL = "300"
+  BUNDLE_CACHE_TTL = "30"
   PUSH_NOTIFICATION_ENABLED = "true"
+
+# Environment variables for branch deploys (feature branches)
+[context.branch-deploy.environment]
+  REACT_APP_ENVIRONMENT = "development"
+  REACT_APP_API_URL = "https://deploy-preview--garment-erp-nepal.netlify.app/api"
+  JWT_SECRET = "garment-erp-jwt-secret-preview"
+  TOKEN_EXPIRY = "24h"
+  BUNDLE_CACHE_TTL = "10"
+  PUSH_NOTIFICATION_ENABLED = "false"
 
 # Security and CORS headers for API endpoints
 [[headers]]
