@@ -33,6 +33,17 @@ export const WORK_STATUSES = {
     borderColor: 'border-blue-300',
     description: 'Work has been assigned to an operator'
   },
+  'self_assigned': {
+    id: 'self_assigned',
+    name: 'Self Assigned',
+    nameNp: 'स्वयं असाइन',
+    icon: '🙋',
+    color: 'indigo',
+    bgColor: 'bg-indigo-100',
+    textColor: 'text-indigo-800',
+    borderColor: 'border-indigo-300',
+    description: 'Operator has self-assigned this work, pending supervisor approval'
+  },
   'in-progress': {
     id: 'in-progress',
     name: 'In Progress',

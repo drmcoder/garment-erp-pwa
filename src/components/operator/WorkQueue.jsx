@@ -175,6 +175,7 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
       pending: "bg-gray-100 text-gray-800",
       scheduled: "bg-purple-100 text-purple-800",
       completed: "bg-green-100 text-green-800",
+      self_assigned: "bg-indigo-100 text-indigo-800",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
   };
@@ -186,6 +187,7 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
       pending: isNepali ? "पेन्डिङ" : "Pending",
       scheduled: isNepali ? "निर्धारित" : "Scheduled",
       completed: isNepali ? "सम्पन्न" : "Completed",
+      self_assigned: isNepali ? "स्वयं असाइन" : "Self Assigned",
     };
     return texts[status] || status;
   };
@@ -331,6 +333,11 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
                 key: "all",
                 label: isNepali ? "सबै" : "All",
                 count: workQueue.length,
+              },
+              {
+                key: "self_assigned",
+                label: isNepali ? "स्वयं असाइन" : "Self Assigned",
+                count: workQueue.filter((w) => w.status === "self_assigned").length,
               },
               {
                 key: "in_progress",

@@ -7,6 +7,9 @@ import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { BundleService, OperatorService, WorkAssignmentService, ConfigService, WIPService } from '../../services/firebase-services';
 import { assignWorkItemToOperator, startWorkItem, completeWorkItem } from '../../utils/progressManager';
+import SelfAssignmentApprovalQueue from './SelfAssignmentApprovalQueue';
+import EmergencyWorkInsertion from './EmergencyWorkInsertion';
+import WorkflowAnalyticsDashboard from './WorkflowAnalyticsDashboard';
 
 const WorkAssignment = () => {
   const { user } = useContext(AuthContext);
@@ -22,7 +25,7 @@ const WorkAssignment = () => {
   const [filter, setFilter] = useState({
     machineType: 'all',
     priority: 'all',
-    status: 'pending'
+    status: 'ready'
   });
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [showBulkAssign, setShowBulkAssign] = useState(false);
@@ -30,6 +33,10 @@ const WorkAssignment = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+  const [activeTab, setActiveTab] = useState('assignment'); // 'assignment' | 'approvals'
+  const [showEmergencyInsertion, setShowEmergencyInsertion] = useState(false);
+  const [selectedLotForInsertion, setSelectedLotForInsertion] = useState(null);
+  const [showAnalyticsDashboard, setShowAnalyticsDashboard] = useState(false);
   
   // Load data when component mounts
   useEffect(() => {
@@ -501,7 +508,7 @@ const WorkAssignment = () => {
       'buttonhole': ['बटनहोल', 'Buttonhole', 'buttonhole']
     };
 
-    const operatorMachine = operator.speciality || operator.machine;
+    const operatorMachine = operator.machineType || operator.machine || operator.speciality;
     const bundleMachine = bundle.machineType;
     
     // Direct match first
@@ -862,19 +869,70 @@ const WorkAssignment = () => {
             </p>
           </div>
           <div className="flex items-center space-x-4">
-            <button
-              onClick={() => setShowBulkAssign(true)}
-              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
-            >
-              {isNepali ? '🤖 स्मार्ट असाइन' : '🤖 Smart Assign'}
-            </button>
-            <button
-              onClick={handleRefresh}
-              disabled={loading}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
-            >
-              {loading ? '🔄' : '↻'} {isNepali ? 'रिफ्रेस' : 'Refresh'}
-            </button>
+            {/* Tab Navigation */}
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden">
+              <button
+                onClick={() => setActiveTab('assignment')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'assignment' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                🎯 {isNepali ? 'काम असाइन' : 'Work Assignment'}
+              </button>
+              <button
+                onClick={() => setActiveTab('approvals')}
+                className={`px-4 py-2 text-sm font-medium transition-colors ${
+                  activeTab === 'approvals' 
+                    ? 'bg-indigo-600 text-white' 
+                    : 'bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                🙋 {isNepali ? 'अनुमोदन गर्नुहोस्' : 'Approvals'}
+              </button>
+            </div>
+            
+            {activeTab === 'assignment' && (
+              <>
+                <button
+                  onClick={() => setShowAnalyticsDashboard(true)}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+                  title={isNepali ? 'वर्कफ्लो एनालिटिक्स' : 'Workflow Analytics'}
+                >
+                  📊 {isNepali ? 'एनालिटिक्स' : 'Analytics'}
+                </button>
+                <button
+                  onClick={() => {
+                    // Auto-detect current lot numbers from available work
+                    const lotNumbers = [...new Set(availableBundles.map(b => b.lotNumber).filter(Boolean))];
+                    if (lotNumbers.length === 1) {
+                      setSelectedLotForInsertion(lotNumbers[0]);
+                    } else {
+                      setSelectedLotForInsertion('LOT001'); // Default if multiple or none
+                    }
+                    setShowEmergencyInsertion(true);
+                  }}
+                  className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700"
+                  title={isNepali ? 'आपातकालीन काम थप्नुहोस्' : 'Insert Emergency Work'}
+                >
+                  🚨 {isNepali ? 'आपातकाल' : 'Emergency'}
+                </button>
+                <button
+                  onClick={() => setShowBulkAssign(true)}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700"
+                >
+                  {isNepali ? '🤖 स्मार्ट असाइन' : '🤖 Smart Assign'}
+                </button>
+                <button
+                  onClick={handleRefresh}
+                  disabled={loading}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading ? '🔄' : '↻'} {isNepali ? 'रिफ्रेस' : 'Refresh'}
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -911,8 +969,14 @@ const WorkAssignment = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border p-4">
+      {/* Tab Content */}
+      {activeTab === 'approvals' ? (
+        /* Approval Queue */
+        <SelfAssignmentApprovalQueue />
+      ) : (
+        <>
+          {/* Filters */}
+          <div className="bg-white rounded-lg shadow-sm border p-4">
         <div className="flex flex-wrap items-center space-x-4">
           <div className="flex items-center space-x-2">
             <label className="text-sm font-medium text-gray-700">
@@ -957,8 +1021,15 @@ const WorkAssignment = () => {
               onChange={(e) => setFilter(prev => ({ ...prev, status: e.target.value }))}
               className="border rounded px-3 py-1 text-sm"
             >
-              <option value="pending">{isNepali ? 'पेन्डिङ' : 'Pending'}</option>
               <option value="all">{isNepali ? 'सबै' : 'All'}</option>
+              {statuses.filter(status => 
+                // Only show statuses that make sense for assignment
+                ['pending', 'ready', 'on-hold', 'self_assigned'].includes(status.id)
+              ).map(status => (
+                <option key={status.id} value={status.id}>
+                  {status.icon} {isNepali ? status.nameNp : status.name}
+                </option>
+              ))}
             </select>
           </div>
         </div>
@@ -1140,7 +1211,7 @@ const WorkAssignment = () => {
                   <div className="flex justify-between items-center text-sm text-gray-600 mb-2">
                     <div className="flex items-center space-x-1">
                       <span className="bg-blue-50 text-blue-700 px-2 py-1 rounded text-xs font-medium">
-                        {isNepali ? operator.specialityNepali : operator.speciality}
+                        {operator.machineType || operator.machine || (isNepali ? operator.specialityNepali : operator.speciality)}
                       </span>
                     </div>
                     <div className="flex items-center space-x-1 bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-medium">
@@ -1198,7 +1269,7 @@ const WorkAssignment = () => {
             </label>
             <div className="p-2 border rounded-md bg-gray-50 text-sm">
               {selectedOperator 
-                ? `${selectedOperator.name} (${isNepali ? selectedOperator.specialityNepali : selectedOperator.speciality})`
+                ? `${selectedOperator.name} (${selectedOperator.machineType || selectedOperator.machine || (isNepali ? selectedOperator.specialityNepali : selectedOperator.speciality)})`
                 : (isNepali ? 'ऑपरेटर छनोट गर्नुहोस्' : 'Select an operator')
               }
             </div>
@@ -1265,11 +1336,43 @@ const WorkAssignment = () => {
       </div>
 
       {/* Smart Assignment Modal */}
+        </>
+      )}
+
       <SmartAssignModal
         show={showBulkAssign}
         onClose={() => setShowBulkAssign(false)}
         onAssign={handleBulkAssign}
       />
+
+      {/* Emergency Work Insertion Modal */}
+      {showEmergencyInsertion && (
+        <EmergencyWorkInsertion
+          lotNumber={selectedLotForInsertion}
+          onClose={() => {
+            setShowEmergencyInsertion(false);
+            setSelectedLotForInsertion(null);
+          }}
+          onSuccess={(workItemId) => {
+            showNotification(
+              isNepali 
+                ? `✅ आपातकालीन काम सफलतापूर्वक थपियो`
+                : `✅ Emergency work inserted successfully`,
+              'success'
+            );
+            // Refresh work lists
+            loadAvailableBundles();
+            loadActiveWork();
+          }}
+        />
+      )}
+
+      {/* Analytics Dashboard Modal */}
+      {showAnalyticsDashboard && (
+        <WorkflowAnalyticsDashboard
+          onClose={() => setShowAnalyticsDashboard(false)}
+        />
+      )}
     </div>
   );
 };

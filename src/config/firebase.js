@@ -28,6 +28,7 @@ import {
   onSnapshot,
   serverTimestamp,
   increment,
+  runTransaction,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import {
@@ -54,6 +55,7 @@ export {
   onSnapshot,
   serverTimestamp,
   increment,
+  runTransaction,
   signInWithEmailAndPassword,
   signOut,
   onAuthStateChanged,

@@ -21,6 +21,9 @@ export const updateWorkItemStatus = (workItemId, newStatus, completedPieces = nu
         } else if (newStatus === 'completed') {
           updatedItem.completedAt = new Date().toISOString();
           updatedItem.completedPieces = completedPieces || item.pieces;
+        } else if (newStatus === 'self_assigned') {
+          updatedItem.selfAssignedAt = new Date().toISOString();
+          updatedItem.requestedBy = updatedItem.assignedOperator;
         }
         
         return updatedItem;
@@ -103,7 +106,7 @@ export const calculateBundleProgress = (bundleId) => {
     const totalOperations = bundleItems.length;
     const completedOperations = bundleItems.filter(item => item.status === 'completed').length;
     const inProgressOperations = bundleItems.filter(item => 
-      item.status === 'in_progress' || item.status === 'assigned'
+      item.status === 'in_progress' || item.status === 'assigned' || item.status === 'self_assigned'
     ).length;
     const pendingOperations = bundleItems.filter(item => 
       item.status === 'ready' || item.status === 'waiting'
@@ -126,7 +129,7 @@ export const calculateBundleProgress = (bundleId) => {
       progressPercentage,
       status,
       currentOperation: bundleItems.find(item => 
-        item.status === 'in_progress' || item.status === 'assigned'
+        item.status === 'in_progress' || item.status === 'assigned' || item.status === 'self_assigned'
       ) || bundleItems.find(item => item.status === 'ready')
     };
   } catch (error) {
@@ -159,7 +162,7 @@ export const calculateLotProgress = (lotNumber) => {
     const totalOperations = lotItems.length;
     const completedOperations = lotItems.filter(item => item.status === 'completed').length;
     const inProgressOperations = lotItems.filter(item => 
-      item.status === 'in_progress' || item.status === 'assigned'
+      item.status === 'in_progress' || item.status === 'assigned' || item.status === 'self_assigned'
     ).length;
     const pendingOperations = lotItems.filter(item => 
       item.status === 'ready' || item.status === 'waiting'

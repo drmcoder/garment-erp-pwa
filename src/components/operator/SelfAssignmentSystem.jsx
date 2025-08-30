@@ -370,22 +370,19 @@ const SelfAssignmentSystem = () => {
       
       if (isWIPWorkItem) {
         console.log(`🔄 Self-assigning WIP work item: ${selectedWork.currentOperation} on ${selectedWork.machineType}`);
-        assignResult = await WIPService.assignWorkItem(
+        assignResult = await WIPService.selfAssignWorkItem(
           selectedWork.id,
-          user.id,
-          user.id, // Self-assignment, so assignedBy is the operator themselves
-          'self_assigned' // Set special status for supervisor approval
+          user.id
         );
-        console.log(`🔍 WIP assignment result:`, assignResult);
+        console.log(`🔍 WIP self-assignment result:`, assignResult);
       } else {
         console.log(`🔄 Self-assigning traditional bundle: ${selectedWork.id}`);
-        assignResult = await BundleService.assignBundle(
+        // Use atomic self-assignment method to prevent race conditions
+        assignResult = await BundleService.selfAssignBundle(
           selectedWork.id,
-          user.id,
-          user.id, // Self-assignment, so assignedBy is the operator themselves
-          'self_assigned' // Set special status for supervisor approval
+          user.id
         );
-        console.log(`🔍 Bundle assignment result:`, assignResult);
+        console.log(`🔍 Atomic self-assignment result:`, assignResult);
       }
 
       if (!assignResult.success) {
@@ -653,549 +650,233 @@ const SelfAssignmentSystem = () => {
 
 
   return (
-    <div className="max-w-6xl mx-auto p-4 space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm border p-6">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {isNepali ? "🎯 काम छनोट गर्नुहोस्" : "🎯 Choose Your Work"}
-            </h1>
-            <p className="text-gray-600 mt-1">
-              {isNepali
-                ? "आफ्नो क्षमता अनुसार उपयुक्त काम छनोट गर्नुहोस्"
-                : "Choose suitable work based on your skills"}
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-500">
-              {searchTerm 
-                ? (isNepali ? "खोजको परिणाम" : "Search Results")
-                : (isNepali ? "उपलब्ध काम" : "Available Work")
-              }
-            </div>
-            <div className="text-2xl font-bold text-blue-600">
-              {searchTerm ? filteredWork.length : availableWork.length}
-              {searchTerm && (
-                <span className="text-sm text-gray-500 ml-1">
-                  / {availableWork.length}
-                </span>
-              )}
+    <div className="max-w-7xl mx-auto p-3 space-y-3">
+      {/* Compact Header */}
+      <div className="flex items-center justify-between bg-white rounded-lg p-3 shadow-sm">
+        <div className="flex items-center space-x-3">
+          <h1 className="text-lg font-bold text-gray-900">
+            🎯 {isNepali ? "काम छनोट" : "Choose Work"}
+          </h1>
+          <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm font-medium">
+            {filteredWork.length}
+          </span>
+        </div>
+        
+        {/* Inline Search */}
+        <div className="flex items-center space-x-2">
+          <div className="relative">
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder={isNepali ? "खोज..." : "Search..."}
+              className="w-48 pl-8 pr-3 py-2 text-sm border rounded-lg focus:ring-1 focus:ring-blue-500"
+            />
+            <div className="absolute inset-y-0 left-0 pl-2 flex items-center">
+              <span className="text-gray-400 text-sm">🔍</span>
             </div>
           </div>
+          
+          <button
+            onClick={loadAvailableWork}
+            disabled={loading}
+            className="bg-blue-600 text-white px-3 py-2 rounded-lg hover:bg-blue-700 text-sm"
+          >
+            {loading ? "⏳" : "🔄"}
+          </button>
         </div>
       </div>
 
-      {/* Machine Speciality Warning */}
+      {/* Machine Warning - Compact */}
       {!user?.machine && !user?.speciality && (
-        <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-lg">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-amber-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <div className="ml-3 flex-1">
-              <p className="text-sm font-medium text-amber-800">
-                {isNepali ? 'मेसिन विशेषता आवश्यक' : 'Machine Speciality Required'}
-              </p>
-              <p className="text-sm text-amber-700 mt-1">
-                {isNepali 
-                  ? 'काम सेल्फ-एसाइन गर्न पहिले मेसिन विशेषता सेट गर्नुहोस्। यसले तपाईंलाई सही काम मिलाउन मद्दत गर्नेछ।'
-                  : 'Please set your machine speciality first to self-assign work. This helps match you with suitable tasks.'
-                }
-              </p>
-            </div>
-            <div className="ml-3">
-              <button
-                onClick={() => setShowMachineSelector(true)}
-                className="bg-amber-100 hover:bg-amber-200 text-amber-800 px-3 py-1 rounded-md text-sm font-medium transition-colors"
-              >
-                {isNepali ? 'सेट गर्नुहोस्' : 'Set Now'}
-              </button>
-            </div>
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-amber-800">
+              ⚠️ {isNepali ? 'मेसिन सेट गर्नुहोस्' : 'Set your machine'}
+            </span>
+            <button
+              onClick={() => setShowMachineSelector(true)}
+              className="bg-amber-600 text-white px-3 py-1 rounded text-sm"
+            >
+              {isNepali ? 'सेट' : 'Set'}
+            </button>
           </div>
         </div>
       )}
 
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Filters Panel */}
-        <div className="lg:col-span-1">
-          <div className="bg-white rounded-lg shadow-sm border p-6 sticky top-4">
-            <h3 className="text-lg font-semibold mb-4">
-              {isNepali ? "🔍 खोज र फिल्टर" : "🔍 Search & Filter"}
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p>{isNepali ? "लोड गर्दै..." : "Loading..."}</p>
+          </div>
+        ) : availableWork.length === 0 ? (
+          <div className="text-center py-8 bg-white rounded-lg border">
+            <div className="text-4xl mb-4">📭</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {isNepali ? "कुनै काम छैन" : "No work available"}
             </h3>
-
-            {/* Search Box */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">
-                {isNepali ? "काम खोज्नुहोस्" : "Search Work"}
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder={isNepali 
-                    ? "आर्टिकल नम्बर, रङ, साइज खोज्नुहोस्..." 
-                    : "Search by article, color, size..."
-                  }
-                  className="w-full p-3 pl-10 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+          </div>
+        ) : filteredWork.length === 0 ? (
+          <div className="text-center py-8 bg-white rounded-lg border">
+            <div className="text-4xl mb-4">🔍</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              {isNepali ? "फेला परेन" : "Not found"}
+            </h3>
+            <button
+              onClick={() => setSearchTerm('')}
+              className="bg-blue-600 text-white px-3 py-2 rounded text-sm"
+            >
+              {isNepali ? "सफा" : "Clear"}
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredWork.map((work, index) => (
+              <div
+                key={`${work.id || work.bundleId || 'work'}_${index}`}
+                className={`bg-white rounded-lg border p-4 transition-all duration-200 cursor-pointer hover:shadow-md ${
+                  selectedWork?.id === work.id
+                    ? "ring-2 ring-blue-500 shadow-md bg-blue-50"
+                    : ""
+                }`}
+                onClick={() => handleWorkSelection(work)}
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-bold text-gray-900 truncate">
+                    {work.operation}
+                  </h3>
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                    #{work.articleNumber}
+                  </span>
                 </div>
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
-                  >
-                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
+
+                {/* Key Info */}
+                <div className="space-y-2 mb-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      {work.size} • {work.color}
+                    </span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {work.pieces} pcs
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">
+                      ⚙️ {work.machineType}
+                    </span>
+                    <span className="text-lg font-bold text-blue-600">
+                      {work.estimatedTime}m
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center justify-between">
+                    <div className={`px-2 py-1 rounded text-xs font-medium ${
+                      work.difficulty === 'Easy' || work.difficulty === 'सजिलो' 
+                        ? 'bg-green-100 text-green-700' 
+                        : work.difficulty === 'Medium' || work.difficulty === 'मध्यम'
+                        ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {work.difficulty}
+                    </div>
+                    <span className="text-sm font-medium text-green-600">
+                      Rs. {work.rate || 0}
+                    </span>
+                  </div>
+                </div>
+
+                {/* AI Match Score */}
+                {work.recommendations && work.recommendations.match > 50 && (
+                  <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-green-700 font-medium">
+                        🎯 {work.recommendations.match}% {isNepali ? "मिल्छ" : "Match"}
+                      </span>
+                      {work.recommendations.reasons[0] && (
+                        <span className="text-xs text-green-600">
+                          {work.recommendations.reasons[0]}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Selection Status */}
+                {selectedWork?.id === work.id ? (
+                  <div className="text-center">
+                    <span className="text-sm font-medium text-blue-600">
+                      ✓ {isNepali ? "छनोट गरियो" : "Selected"}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <span className="text-xs text-gray-400">
+                      {isNepali ? "छनोट गर्न क्लिक" : "Click to select"}
+                    </span>
+                  </div>
                 )}
               </div>
-              {searchTerm && (
-                <div className="mt-2 text-sm text-blue-600">
-                  {isNepali 
-                    ? `"${searchTerm}" खोजिँदै - ${filteredWork.length} परिणामहरू`
-                    : `Searching "${searchTerm}" - ${filteredWork.length} results`
-                  }
+            ))}
+          </div>
+        )}
+
+        {/* Confirm Assignment - Fixed Bottom */}
+        {selectedWork && (
+          <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg p-4 z-50">
+            <div className="max-w-7xl mx-auto">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <span className="text-lg">✅</span>
+                  <div>
+                    <h3 className="font-bold text-gray-900">
+                      {selectedWork.operation}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      {selectedWork.pieces} pcs • {selectedWork.estimatedTime}m • Rs. {selectedWork.rate}
+                    </p>
+                  </div>
                 </div>
-              )}
-            </div>
-
-            {/* Machine Section Header */}
-            <h4 className="text-md font-semibold mb-3 text-gray-700">
-              {isNepali ? "🔧 तपाईंको मेसिन" : "🔧 Your Machine"}
-            </h4>
-
-            {/* Assigned Machine Display */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">
-                {isNepali ? "तपाईंको मेसिन" : "Your Assigned Machine"}
-              </label>
-              <div className={`w-full p-3 border rounded-md font-medium ${
-                user?.machine || user?.assignedMachines?.[0] 
-                  ? 'bg-blue-50 border-blue-200 text-blue-800'
-                  : 'bg-orange-50 border-orange-200 text-orange-800'
-              }`}>
-                🔧 {user?.machine || user?.assignedMachines?.[0] || 'Default (Overlock)'}
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                {isNepali 
-                  ? (user?.machine || user?.assignedMachines?.[0] 
-                      ? "तपाईंको मेसिनका कामहरू देखाउँदै"
-                      : "कुनै मेसिन असाइन नभएको, डिफल्ट देखाउँदै"
-                    )
-                  : (user?.machine || user?.assignedMachines?.[0]
-                      ? "Showing work for your assigned machine"
-                      : "No machine assigned, showing default work"
-                    )
-                }
-              </p>
-            </div>
-
-            {/* Priority Filter */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">
-                {isNepali ? "प्राथमिकता" : "Priority"}
-              </label>
-              <select
-                value={filter.priority}
-                onChange={(e) =>
-                  setFilter({ ...filter, priority: e.target.value })
-                }
-                className="w-full p-2 border rounded-md focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="all">
-                  {isNepali ? "सबै प्राथमिकता" : "All Priorities"}
-                </option>
-                <option value="उच्च">
-                  {isNepali ? "उच्च प्राथमिकता" : "High Priority"}
-                </option>
-                <option value="सामान्य">
-                  {isNepali ? "सामान्य प्राथमिकता" : "Normal Priority"}
-                </option>
-                <option value="कम">
-                  {isNepali ? "कम प्राथमिकता" : "Low Priority"}
-                </option>
-              </select>
-            </div>
-
-            {/* Quick Operation Selection */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">
-                {isNepali ? "मेरो विशेषता" : "My Specialty"}
-              </label>
-              <div className="space-y-2">
-                {operationTypes.slice(0, 4).map((op) => (
+                
+                <div className="flex items-center space-x-3">
                   <button
-                    key={op.id}
-                    onClick={() => setFilter({ ...filter, operation: op.id })}
-                    className="w-full text-left p-2 text-sm rounded border hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                    onClick={() => setSelectedWork(null)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
                   >
-                    {isNepali ? op.nepali : op.english}
-                    <span className="text-xs text-gray-500 block">
-                      {op.machine}
-                    </span>
+                    {isNepali ? "रद्द" : "Cancel"}
                   </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Refresh Button */}
-            <button
-              onClick={loadAvailableWork}
-              disabled={loading}
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  {isNepali ? "लोड गर्दै..." : "Loading..."}
-                </div>
-              ) : isNepali ? (
-                "🔄 नयाँ काम खोज्नुहोस्"
-              ) : (
-                "🔄 Refresh Work"
-              )}
-            </button>
-
-            {/* Firestore Data Only Message */}
-            <div className="bg-blue-50 border border-blue-200 rounded-md p-3 text-sm">
-              <div className="flex items-center space-x-2 text-blue-700">
-                <span>🔥</span>
-                <span className="font-semibold">
-                  {isNepali ? "फायरस्टोर डाटा मात्र" : "Firestore Data Only"}
-                </span>
-              </div>
-              <p className="text-blue-600 mt-1">
-                {isNepali 
-                  ? "सिस्टमले अब केवल फायरस्टोर बाट डाटा लिन्छ। व्यवस्थापकले कामको डाटा सेटअप गर्नुपर्छ।" 
-                  : "System now uses only Firestore data. Admin needs to setup work data."}
-              </p>
-            </div>
-
-
-            {/* Test Notification System Button */}
-            <button
-              onClick={testNotificationSystem}
-              className="w-full bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 transition-colors mb-2"
-            >
-              🔔 {isNepali ? "नोटिफिकेशन टेस्ट गर्नुहोस्" : "Test Notifications"}
-            </button>
-
-            {/* Operations Sequence Editor Button */}
-            <button
-              onClick={() => setShowOperationsEditor(true)}
-              className="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 transition-colors"
-            >
-              ⚙️ {isNepali ? "सञ्चालन क्रम सम्पादन" : "Edit Operations Sequence"}
-            </button>
-          </div>
-        </div>
-
-        {/* Available Work List */}
-        <div className="lg:col-span-2">
-          <div className="space-y-4">
-            {loading ? (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p>{isNepali ? "काम लोड गर्दै..." : "Loading work..."}</p>
-              </div>
-            ) : availableWork.length === 0 ? (
-              <div className="text-center py-8 bg-white rounded-lg border">
-                <div className="text-6xl mb-4">📭</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {isNepali ? "कुनै काम उपलब्ध छैन" : "No work available"}
-                </h3>
-                <p className="text-gray-500">
-                  {isNepali
-                    ? "फिल्टर परिवर्तन गर्नुहोस् वा पछि प्रयास गर्नुहोस्"
-                    : "Try changing filters or check back later"}
-                </p>
-              </div>
-            ) : filteredWork.length === 0 ? (
-              <div className="text-center py-8 bg-white rounded-lg border">
-                <div className="text-6xl mb-4">🔍</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {isNepali ? "खोजको परिणाम फेला परेन" : "No search results found"}
-                </h3>
-                <p className="text-gray-500 mb-4">
-                  {isNepali
-                    ? `"${searchTerm}" सँग मिल्ने काम फेला परेन`
-                    : `No work found matching "${searchTerm}"`}
-                </p>
-                <button
-                  onClick={() => setSearchTerm('')}
-                  className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  {isNepali ? "खोज सफा गर्नुहोस्" : "Clear Search"}
-                </button>
-              </div>
-            ) : (
-              filteredWork.map((work, index) => (
-                <div
-                  key={`${work.id || work.bundleId || 'work'}_${index}`}
-                  className={`bg-white rounded-lg border p-6 transition-all duration-200 cursor-pointer hover:shadow-md ${
-                    selectedWork?.id === work.id
-                      ? "ring-2 ring-blue-500 shadow-md"
-                      : ""
-                  }`}
-                  onClick={() => handleWorkSelection(work)}
-                >
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex-1">
-                      {/* Main Work Info */}
-                      <div className="mb-3">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="text-xl font-bold text-gray-900">
-                            {isNepali ? work.operation : work.englishOperation}
-                          </h3>
-                          <span className="text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded">
-                            {work.readableId || `#${work.articleNumber}`}
-                          </span>
-                        </div>
-                        <div className="flex items-center space-x-4 text-sm text-gray-600">
-                          <span>Lot #{work.articleNumber}</span>
-                          <span>•</span>
-                          <span>{work.size} Size</span>
-                          <span>•</span>
-                          <span>{work.color}</span>
-                          <span>•</span>
-                          <span className="font-medium text-gray-900">{work.pieces} pcs</span>
-                        </div>
-                      </div>
-
-                      {/* Work Status and Details */}
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center space-x-4">
-                          <div className={`px-2 py-1 rounded text-xs font-medium ${
-                            work.difficulty === 'Easy' || work.difficulty === 'सजिलो' 
-                              ? 'bg-green-100 text-green-700' 
-                              : work.difficulty === 'Medium' || work.difficulty === 'मध्यम'
-                              ? 'bg-yellow-100 text-yellow-700'
-                              : 'bg-red-100 text-red-700'
-                          }`}>
-                            💪 {isNepali ? work.difficulty : work.englishDifficulty}
-                          </div>
-                          <div className="text-gray-600">
-                            ⚙️ {isNepali ? work.machineType : work.englishMachine}
-                          </div>
-                        </div>
-                        <div className="text-gray-600">
-                          💰 Rs. {work.rate || 0}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Time Display */}
-                    <div className="ml-4 text-right">
-                      <div className="text-lg font-bold text-blue-600">
-                        {work.estimatedTime} {isNepali ? "मिनेट" : "min"}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        {isNepali ? "अनुमानित समय" : "Estimated Time"}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Work Details */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-blue-600">⏱️</span>
-                      <div>
-                        <div className="text-gray-500">
-                          {isNepali ? "समय:" : "Time:"}
-                        </div>
-                        <div className="font-semibold">
-                          {work.estimatedTime} {isNepali ? "मिनेट" : "min"}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-green-600">📦</span>
-                      <div>
-                        <div className="text-gray-500">
-                          {isNepali ? "टुक्राहरू:" : "Pieces:"}
-                        </div>
-                        <div className="font-semibold">
-                          {work.pieces || work.quantity || 0} {isNepali ? "पीस" : "pcs"}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-orange-600">⚙️</span>
-                      <div>
-                        <div className="text-gray-500">
-                          {isNepali ? "अपरेसन:" : "Operation:"}
-                        </div>
-                        <div className="font-semibold">
-                          {work.operation || work.operationName || (isNepali ? "सिलाई" : "Sewing")}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span className="text-purple-600">💪</span>
-                      <div>
-                        <div className="text-gray-500">
-                          {isNepali ? "कठिनाई:" : "Difficulty:"}
-                        </div>
-                        <div className="font-semibold">
-                          {isNepali ? work.difficulty : work.englishDifficulty}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Work History */}
-                  {(work.lastWorker || work.lastAction || work.lastActionDate) && (
-                    <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                      <div className="text-sm text-gray-600 mb-2">
-                        {isNepali ? "अन्तिम कार्य:" : "Last Activity:"}
-                      </div>
-                      <div className="flex justify-between items-center text-sm">
-                        <div>
-                          <span className="font-medium">
-                            {work.lastWorker || (isNepali ? "नयाँ काम" : "New Work")}
-                          </span>
-                          <span className="text-gray-500 ml-2">
-                            {work.lastAction || (isNepali ? "तोकिएको छैन" : "Not assigned yet")}
-                          </span>
-                        </div>
-                        <div className="text-gray-500">
-                          {work.lastActionDate ? 
-                            new Date(work.lastActionDate.seconds * 1000).toLocaleDateString() : 
-                            (work.createdAt ? new Date(work.createdAt.seconds * 1000).toLocaleDateString() : '')
-                          }
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recommendations */}
-                  <div className="bg-gray-50 rounded-md p-3 mb-4">
-                    <div className="text-sm font-medium text-gray-700 mb-2">
-                      {isNepali ? "🤖 AI सुझाव:" : "🤖 AI Recommendations:"}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {work.recommendations && work.recommendations.reasons && work.recommendations.reasons.map((reason, index) => (
-                        <span
-                          key={index}
-                          className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full"
-                        >
-                          {reason}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Action Button */}
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm text-gray-500">
-                      {isNepali
-                        ? "क्लिक गरेर छनोट गर्नुहोस्"
-                        : "Click to select this work"}
-                    </div>
-                    {selectedWork?.id === work.id && (
-                      <div className="flex items-center space-x-2 text-blue-600">
-                        <span className="text-sm font-medium">
-                          {isNepali ? "छनोट गरिएको" : "Selected"}
-                        </span>
-                        <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                      </div>
+                  <button
+                    onClick={handleSelfAssign}
+                    disabled={loading}
+                    className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 disabled:opacity-50 font-medium"
+                  >
+                    {loading ? (
+                      <span className="flex items-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        {isNepali ? "असाइन..." : "Assigning..."}
+                      </span>
+                    ) : (
+                      <span>🎯 {isNepali ? "काम स्वीकार" : "Accept Work"}</span>
                     )}
-                  </div>
+                  </button>
                 </div>
-              ))
-            )}
-          </div>
-
-          {/* Confirm Assignment Button */}
-          {selectedWork && (
-            <div className="mt-6 bg-white rounded-lg border p-6">
-              <div className="flex justify-between items-center mb-4">
-                <div>
-                  <h3 className="text-lg font-semibold">
-                    {isNepali
-                      ? "✅ काम पुष्टि गर्नुहोस्"
-                      : "✅ Confirm Work Assignment"}
-                  </h3>
-                  <p className="text-gray-600">
-                    {isNepali
-                      ? `${selectedWork.articleName} - ${selectedWork.operation}`
-                      : `${selectedWork.englishName} - ${selectedWork.englishOperation}`}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-gray-500">
-                    {isNepali ? "अनुमानित समय" : "Estimated Time"}
-                  </div>
-                  <div className="text-xl font-bold text-blue-600">
-                    {selectedWork.estimatedTime} {isNepali ? "मिनेट" : "min"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex space-x-4">
-                <button
-                  onClick={handleSelfAssign}
-                  disabled={loading || selectedWork?.isSample || selectedWork?.status === 'sample_demo_only' || selectedWork?.id?.startsWith('sample_')}
-                  className={`flex-1 py-3 px-6 rounded-md transition-colors font-medium ${
-                    selectedWork?.isSample || selectedWork?.status === 'sample_demo_only' || selectedWork?.id?.startsWith('sample_')
-                      ? 'bg-gray-400 text-white cursor-not-allowed'
-                      : 'bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed'
-                  }`}
-                >
-                  {loading ? (
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                      {isNepali ? "असाइन गर्दै..." : "Assigning..."}
-                    </div>
-                  ) : selectedWork?.isSample || selectedWork?.status === 'sample_demo_only' || selectedWork?.id?.startsWith('sample_') ? (
-                    isNepali ? "📋 नमुना डेटा मात्र" : "📋 Sample Data Only"
-                  ) : isNepali ? (
-                    "🎯 काम स्वीकार गर्नुहोस्"
-                  ) : (
-                    "🎯 Accept This Work"
-                  )}
-                </button>
-                <button
-                  onClick={() => setSelectedWork(null)}
-                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  {isNepali ? "रद्द गर्नुहोस्" : "Cancel"}
-                </button>
-              </div>
-
-              <div className="mt-4 text-sm text-gray-600 bg-blue-50 p-3 rounded-md">
-                💡{" "}
-                {isNepali
-                  ? "टिप: यो काम स्वीकार गरेपछि तुरुन्त तपाईंको कामको सूचीमा थपिनेछ।"
-                  : "Tip: After accepting this work, it will be immediately added to your work queue."}
               </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
+        )}
 
-      {/* Operations Sequence Editor Modal */}
+      {/* Modals */}
       {showOperationsEditor && (
         <OperationsSequenceEditor
           onClose={() => setShowOperationsEditor(false)}
         />
       )}
 
-      {/* Machine Speciality Selector Modal */}
       {showMachineSelector && (
         <MachineSpecialitySelector
           onClose={() => setShowMachineSelector(false)}
           onUpdate={(machineType) => {
-            // Refresh available work after machine type is set
             loadAvailableWork();
           }}
         />

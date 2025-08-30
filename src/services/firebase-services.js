@@ -18,6 +18,7 @@ import {
   limit,
   onSnapshot,
   serverTimestamp,
+  runTransaction,
   increment,
   signOut,
   writeBatch,
@@ -353,9 +354,9 @@ export class BundleService {
         // Filter by machine type if specified
         let filteredWorkItems = wipWorkItems.workItems.filter(item => {
           // For self-assignment, only include unassigned work that's available for assignment
-          // Exclude all completed, in_progress, or assigned statuses
-          const excludedStatuses = ['operator_completed', 'completed', 'in_progress', 'assigned', 'self_assigned'];
-          const isAvailable = !excludedStatuses.includes(item.status) && !item.assignedOperator;
+          // Exclude completed, in_progress, or assigned statuses but INCLUDE self_assigned for supervisor review
+          const excludedStatuses = ['operator_completed', 'completed', 'in_progress', 'assigned'];
+          const isAvailable = !excludedStatuses.includes(item.status) && (!item.assignedOperator || item.status === 'self_assigned');
           
           // Debug logging to see what's being filtered
           if (!isAvailable) {
@@ -512,6 +513,284 @@ export class BundleService {
       return { success: true, bundles: enrichedBundles };
     } catch (error) {
       console.error("Get available bundles error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Atomic self-assignment with race condition protection
+  static async selfAssignBundle(bundleId, operatorId) {
+    try {
+      // Use atomic transaction to prevent race conditions
+      const result = await runTransaction(db, async (transaction) => {
+        const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
+        const bundleDoc = await transaction.get(bundleRef);
+        
+        if (!bundleDoc.exists()) {
+          throw new Error(`Work no longer available - not found in system`);
+        }
+        
+        const bundleData = bundleDoc.data();
+        
+        // Only allow self-assignment if work is available
+        if (!['ready', 'pending'].includes(bundleData.status)) {
+          throw new Error(`Work no longer available - already ${bundleData.status}`);
+        }
+        
+        // Check if already assigned to someone else
+        if (bundleData.assignedOperator && bundleData.assignedOperator !== operatorId) {
+          throw new Error(`Work already requested by another operator`);
+        }
+        
+        // Atomic update to self_assigned status
+        transaction.update(bundleRef, {
+          assignedOperator: operatorId,
+          currentOperatorId: operatorId,
+          status: 'self_assigned',
+          selfAssignedAt: serverTimestamp(),
+          requestedBy: operatorId,
+          assignedBy: operatorId, // Self-assignment
+          updatedAt: serverTimestamp(),
+        });
+        
+        return { success: true, bundleData };
+      });
+      
+      // Send immediate notification to supervisors
+      await NotificationService.createNotification({
+        title: "नयाँ स्वयं असाइनमेन्ट अनुरोध",
+        titleEn: "New Self-Assignment Request",
+        message: `${operatorId} ले बन्डल #${bundleId} का लागि अनुरोध गर्यो`,
+        messageEn: `${operatorId} requested Bundle #${bundleId}`,
+        type: "self_assignment_request",
+        priority: "medium", 
+        targetRole: "supervisor",
+        bundleId: bundleId,
+        requestedBy: operatorId,
+        actionRequired: true
+      });
+
+      console.log(`✅ Bundle ${bundleId} atomically self-assigned to ${operatorId} with supervisor notification`);
+      return result;
+      
+    } catch (error) {
+      console.log(`❌ Self-assignment failed: ${error.message}`);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get all self-assigned work for supervisor review
+  static async getSelfAssignedWork() {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.BUNDLES),
+        where('status', '==', 'self_assigned'),
+        orderBy('selfAssignedAt', 'asc')
+      );
+      
+      const snapshot = await getDocs(q);
+      const workItems = [];
+      
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        
+        // Get operator name
+        const operatorDoc = await getDoc(doc(db, COLLECTIONS.OPERATORS, data.requestedBy));
+        const operatorName = operatorDoc.exists() ? operatorDoc.data().name : 'Unknown Operator';
+        
+        workItems.push({
+          id: doc.id,
+          ...data,
+          requestedByName: operatorName
+        });
+      }
+      
+      return { success: true, workItems };
+    } catch (error) {
+      console.error('Failed to get self-assigned work:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Approve self-assignment
+  static async approveSelfAssignment(bundleId, supervisorId) {
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
+        const bundleDoc = await transaction.get(bundleRef);
+        
+        if (!bundleDoc.exists()) {
+          throw new Error('Bundle not found');
+        }
+        
+        const bundleData = bundleDoc.data();
+        
+        if (bundleData.status !== 'self_assigned') {
+          throw new Error('Bundle is not in self_assigned status');
+        }
+        
+        // Update to assigned status
+        transaction.update(bundleRef, {
+          status: 'assigned',
+          approvedBy: supervisorId,
+          approvedAt: serverTimestamp(),
+          assignedBy: supervisorId, // Supervisor becomes the assigner
+          assignedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        
+        return { success: true, bundleData };
+      });
+      
+      // Create notification for operator
+      await NotificationService.createNotification({
+        title: "काम अनुमोदन भयो",
+        titleEn: "Work Approved",
+        message: `बन्डल #${bundleId} अनुमोदन भयो - काम सुरु गर्न सक्नुहुन्छ`,
+        messageEn: `Bundle #${bundleId} approved - you can start working`,
+        type: "work_approved",
+        priority: "high",
+        targetUser: result.bundleData.requestedBy,
+        targetRole: "operator",
+        bundleId: bundleId
+      });
+      
+      console.log(`✅ Bundle ${bundleId} self-assignment approved by ${supervisorId}`);
+      return result;
+      
+    } catch (error) {
+      console.error('Failed to approve self-assignment:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Reject self-assignment
+  static async rejectSelfAssignment(bundleId, supervisorId, reason = '') {
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
+        const bundleDoc = await transaction.get(bundleRef);
+        
+        if (!bundleDoc.exists()) {
+          throw new Error('Bundle not found');
+        }
+        
+        const bundleData = bundleDoc.data();
+        
+        if (bundleData.status !== 'self_assigned') {
+          throw new Error('Bundle is not in self_assigned status');
+        }
+        
+        // Reset to ready status and clear assignment
+        transaction.update(bundleRef, {
+          status: 'ready',
+          assignedOperator: null,
+          currentOperatorId: null,
+          requestedBy: null,
+          selfAssignedAt: null,
+          rejectedBy: supervisorId,
+          rejectedAt: serverTimestamp(),
+          rejectionReason: reason,
+          updatedAt: serverTimestamp()
+        });
+        
+        return { success: true, bundleData };
+      });
+      
+      // Create notification for operator
+      await NotificationService.createNotification({
+        title: "काम अस्वीकार गरियो",
+        titleEn: "Work Rejected",
+        message: reason ? 
+          `बन्डल #${bundleId} अस्वीकार: ${reason}` :
+          `बन्डल #${bundleId} अस्वीकार गरियो`,
+        messageEn: reason ?
+          `Bundle #${bundleId} rejected: ${reason}` :
+          `Bundle #${bundleId} was rejected`,
+        type: "work_rejected",
+        priority: "medium",
+        targetUser: result.bundleData.requestedBy,
+        targetRole: "operator",
+        bundleId: bundleId
+      });
+      
+      console.log(`❌ Bundle ${bundleId} self-assignment rejected by ${supervisorId}`);
+      return result;
+      
+    } catch (error) {
+      console.error('Failed to reject self-assignment:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Reassign work to different operator
+  static async reassignWork(bundleId, newOperatorId, supervisorId) {
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
+        const bundleDoc = await transaction.get(bundleRef);
+        
+        if (!bundleDoc.exists()) {
+          throw new Error('Bundle not found');
+        }
+        
+        const bundleData = bundleDoc.data();
+        const originalOperator = bundleData.requestedBy;
+        
+        // Update assignment to new operator
+        transaction.update(bundleRef, {
+          status: 'assigned',
+          assignedOperator: newOperatorId,
+          currentOperatorId: newOperatorId,
+          assignedBy: supervisorId,
+          assignedAt: serverTimestamp(),
+          reassignedFrom: originalOperator,
+          reassignedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        
+        return { success: true, bundleData, originalOperator, newOperatorId };
+      });
+      
+      // Get operator names for notifications
+      const [originalOpDoc, newOpDoc] = await Promise.all([
+        getDoc(doc(db, COLLECTIONS.OPERATORS, result.originalOperator)),
+        getDoc(doc(db, COLLECTIONS.OPERATORS, result.newOperatorId))
+      ]);
+      
+      const originalOpName = originalOpDoc.exists() ? originalOpDoc.data().name : 'Unknown';
+      const newOpName = newOpDoc.exists() ? newOpDoc.data().name : 'Unknown';
+      
+      // Notify original operator
+      await NotificationService.createNotification({
+        title: "काम पुनः असाइन गरियो",
+        titleEn: "Work Reassigned",
+        message: `बन्डल #${bundleId} ${newOpName} लाई दिइयो`,
+        messageEn: `Bundle #${bundleId} was assigned to ${newOpName}`,
+        type: "work_reassigned",
+        priority: "medium",
+        targetUser: result.originalOperator,
+        targetRole: "operator",
+        bundleId: bundleId
+      });
+      
+      // Notify new operator
+      await NotificationService.createNotification({
+        title: "नयाँ काम असाइन",
+        titleEn: "New Work Assigned",
+        message: `बन्डल #${bundleId} तपाईंलाई असाइन गरियो`,
+        messageEn: `Bundle #${bundleId} has been assigned to you`,
+        type: "work_assignment",
+        priority: "high",
+        targetUser: result.newOperatorId,
+        targetRole: "operator",
+        bundleId: bundleId
+      });
+      
+      console.log(`🔄 Bundle ${bundleId} reassigned from ${originalOpName} to ${newOpName}`);
+      return result;
+      
+    } catch (error) {
+      console.error('Failed to reassign work:', error);
       return { success: false, error: error.message };
     }
   }
@@ -1066,6 +1345,27 @@ export class OperatorService {
       return { success: false, error: error.message };
     }
   }
+
+  // Get operators by machine type for emergency work assignment
+  static async getOperatorsByMachine(machineType) {
+    try {
+      const operatorsQuery = query(
+        collection(db, COLLECTIONS.OPERATORS),
+        where("machine", "==", machineType)
+      );
+      
+      const snapshot = await getDocs(operatorsQuery);
+      const operators = snapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data() 
+      }));
+      
+      return { success: true, operators };
+    } catch (error) {
+      console.error('Failed to get operators by machine:', error);
+      return { success: false, error: error.message };
+    }
+  }
 }
 
 // Work Assignment Service
@@ -1542,6 +1842,608 @@ export class WIPService {
       return { success: true };
     } catch (error) {
       console.error('❌ Error starting work item:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get all self-assigned WIP work items for supervisor review
+  static async getSelfAssignedWorkItems() {
+    try {
+      const q = query(
+        collection(db, COLLECTIONS.WORK_ITEMS),
+        where('status', '==', 'self_assigned'),
+        orderBy('selfAssignedAt', 'asc')
+      );
+      
+      const snapshot = await getDocs(q);
+      const workItems = [];
+      
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        
+        // Get operator name
+        const operatorDoc = await getDoc(doc(db, COLLECTIONS.OPERATORS, data.requestedBy));
+        const operatorName = operatorDoc.exists() ? operatorDoc.data().name : 'Unknown Operator';
+        
+        workItems.push({
+          id: doc.id,
+          ...data,
+          requestedByName: operatorName
+        });
+      }
+      
+      return { success: true, workItems };
+    } catch (error) {
+      console.error('Failed to get self-assigned WIP work items:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Approve WIP self-assignment
+  static async approveSelfAssignment(workItemId, supervisorId) {
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const workItemRef = doc(db, COLLECTIONS.WORK_ITEMS, workItemId);
+        const workItemDoc = await transaction.get(workItemRef);
+        
+        if (!workItemDoc.exists()) {
+          throw new Error('Work item not found');
+        }
+        
+        const workItemData = workItemDoc.data();
+        
+        if (workItemData.status !== 'self_assigned') {
+          throw new Error('Work item is not in self_assigned status');
+        }
+        
+        // Update to assigned status
+        transaction.update(workItemRef, {
+          status: 'assigned',
+          approvedBy: supervisorId,
+          approvedAt: serverTimestamp(),
+          assignedBy: supervisorId,
+          assignedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        
+        return { success: true, workItemData };
+      });
+      
+      // Create notification for operator
+      await NotificationService.createNotification({
+        title: "काम अनुमोदन भयो",
+        titleEn: "Work Approved",
+        message: `काम आइटम #${workItemId} अनुमोदन भयो`,
+        messageEn: `Work item #${workItemId} approved`,
+        type: "work_approved",
+        priority: "high",
+        targetUser: result.workItemData.requestedBy,
+        targetRole: "operator",
+        workItemId: workItemId
+      });
+      
+      console.log(`✅ WIP work item ${workItemId} self-assignment approved by ${supervisorId}`);
+      return result;
+      
+    } catch (error) {
+      console.error('Failed to approve WIP self-assignment:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Reject WIP self-assignment
+  static async rejectSelfAssignment(workItemId, supervisorId, reason = '') {
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const workItemRef = doc(db, COLLECTIONS.WORK_ITEMS, workItemId);
+        const workItemDoc = await transaction.get(workItemRef);
+        
+        if (!workItemDoc.exists()) {
+          throw new Error('Work item not found');
+        }
+        
+        const workItemData = workItemDoc.data();
+        
+        if (workItemData.status !== 'self_assigned') {
+          throw new Error('Work item is not in self_assigned status');
+        }
+        
+        // Reset to ready status and clear assignment
+        transaction.update(workItemRef, {
+          status: 'ready',
+          assignedOperator: null,
+          requestedBy: null,
+          selfAssignedAt: null,
+          rejectedBy: supervisorId,
+          rejectedAt: serverTimestamp(),
+          rejectionReason: reason,
+          updatedAt: serverTimestamp()
+        });
+        
+        return { success: true, workItemData };
+      });
+      
+      // Create notification for operator
+      await NotificationService.createNotification({
+        title: "काम अस्वीकार गरियो",
+        titleEn: "Work Rejected",
+        message: reason ? 
+          `काम आइटम #${workItemId} अस्वीकार: ${reason}` :
+          `काम आइटम #${workItemId} अस्वीकार गरियो`,
+        messageEn: reason ?
+          `Work item #${workItemId} rejected: ${reason}` :
+          `Work item #${workItemId} was rejected`,
+        type: "work_rejected",
+        priority: "medium",
+        targetUser: result.workItemData.requestedBy,
+        targetRole: "operator",
+        workItemId: workItemId
+      });
+      
+      console.log(`❌ WIP work item ${workItemId} self-assignment rejected by ${supervisorId}`);
+      return result;
+      
+    } catch (error) {
+      console.error('Failed to reject WIP self-assignment:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Reassign WIP work to different operator
+  static async reassignWork(workItemId, newOperatorId, supervisorId) {
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const workItemRef = doc(db, COLLECTIONS.WORK_ITEMS, workItemId);
+        const workItemDoc = await transaction.get(workItemRef);
+        
+        if (!workItemDoc.exists()) {
+          throw new Error('Work item not found');
+        }
+        
+        const workItemData = workItemDoc.data();
+        const originalOperator = workItemData.requestedBy;
+        
+        // Update assignment to new operator
+        transaction.update(workItemRef, {
+          status: 'assigned',
+          assignedOperator: newOperatorId,
+          assignedBy: supervisorId,
+          assignedAt: serverTimestamp(),
+          reassignedFrom: originalOperator,
+          reassignedAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+        
+        return { success: true, workItemData, originalOperator, newOperatorId };
+      });
+      
+      // Get operator names for notifications
+      const [originalOpDoc, newOpDoc] = await Promise.all([
+        getDoc(doc(db, COLLECTIONS.OPERATORS, result.originalOperator)),
+        getDoc(doc(db, COLLECTIONS.OPERATORS, result.newOperatorId))
+      ]);
+      
+      const originalOpName = originalOpDoc.exists() ? originalOpDoc.data().name : 'Unknown';
+      const newOpName = newOpDoc.exists() ? newOpDoc.data().name : 'Unknown';
+      
+      // Notify original operator
+      await NotificationService.createNotification({
+        title: "काम पुनः असाइन गरियो",
+        titleEn: "Work Reassigned",
+        message: `काम आइटम #${workItemId} ${newOpName} लाई दिइयो`,
+        messageEn: `Work item #${workItemId} was assigned to ${newOpName}`,
+        type: "work_reassigned",
+        priority: "medium",
+        targetUser: result.originalOperator,
+        targetRole: "operator",
+        workItemId: workItemId
+      });
+      
+      // Notify new operator
+      await NotificationService.createNotification({
+        title: "नयाँ काम असाइन",
+        titleEn: "New Work Assigned",
+        message: `काम आइटम #${workItemId} तपाईंलाई असाइन गरियो`,
+        messageEn: `Work item #${workItemId} has been assigned to you`,
+        type: "work_assignment",
+        priority: "high",
+        targetUser: result.newOperatorId,
+        targetRole: "operator",
+        workItemId: workItemId
+      });
+      
+      console.log(`🔄 WIP work item ${workItemId} reassigned from ${originalOpName} to ${newOpName}`);
+      return result;
+      
+    } catch (error) {
+      console.error('Failed to reassign WIP work:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Self-assign WIP work item (atomic operation)
+  static async selfAssignWorkItem(workItemId, operatorId) {
+    try {
+      const result = await runTransaction(db, async (transaction) => {
+        const workItemRef = doc(db, COLLECTIONS.WORK_ITEMS, workItemId);
+        const workItemDoc = await transaction.get(workItemRef);
+        
+        if (!workItemDoc.exists()) {
+          throw new Error(`Work no longer available - not found in system`);
+        }
+        
+        const workItemData = workItemDoc.data();
+        
+        if (!['ready', 'pending'].includes(workItemData.status)) {
+          throw new Error(`Work no longer available - already ${workItemData.status}`);
+        }
+        
+        if (workItemData.assignedOperator && workItemData.assignedOperator !== operatorId) {
+          throw new Error(`Work already requested by another operator`);
+        }
+        
+        transaction.update(workItemRef, {
+          assignedOperator: operatorId,
+          status: 'self_assigned',
+          selfAssignedAt: serverTimestamp(),
+          requestedBy: operatorId,
+          updatedAt: serverTimestamp(),
+        });
+        
+        return { success: true, workItemData };
+      });
+      
+      // Send notification to supervisors
+      await NotificationService.createNotification({
+        title: "नयाँ स्वयं असाइनमेन्ट अनुरोध",
+        titleEn: "New Self-Assignment Request",
+        message: `${operatorId} ले काम आइटम #${workItemId} का लागि अनुरोध गर्यो`,
+        messageEn: `${operatorId} requested Work Item #${workItemId}`,
+        type: "self_assignment_request",
+        priority: "medium",
+        targetRole: "supervisor",
+        workItemId: workItemId,
+        requestedBy: operatorId,
+        actionRequired: true
+      });
+      
+      return result;
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Insert emergency work item (for dynamic production changes)
+  static async insertEmergencyWorkItem(emergencyWork) {
+    try {
+      const workItemRef = await addDoc(collection(db, COLLECTIONS.WORK_ITEMS), {
+        ...emergencyWork,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        isEmergencyInsertion: true,
+        workflowPosition: await this.calculateInsertionPosition(emergencyWork.lotNumber, emergencyWork.insertionPoint)
+      });
+
+      console.log(`🚨 Emergency work item inserted: ${workItemRef.id}`);
+
+      // Phase 2: Auto-recalculate workflow after insertion
+      if (emergencyWork.insertionPoint !== 'parallel') {
+        setTimeout(async () => {
+          await this.recalculateWorkflowAfterInsertion(
+            emergencyWork.lotNumber, 
+            workItemRef.id, 
+            emergencyWork.insertionPoint
+          );
+        }, 1000); // Small delay to ensure insertion is complete
+      }
+
+      return { success: true, workItemId: workItemRef.id };
+    } catch (error) {
+      console.error('Failed to insert emergency work:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Calculate optimal position for work insertion
+  static async calculateInsertionPosition(lotNumber, insertionPoint) {
+    try {
+      const workItemsQuery = query(
+        collection(db, COLLECTIONS.WORK_ITEMS),
+        where("lotNumber", "==", lotNumber),
+        orderBy("createdAt", "asc")
+      );
+      
+      const snapshot = await getDocs(workItemsQuery);
+      const workItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      if (insertionPoint === 'parallel') {
+        return 999; // Independent work, no specific position
+      } else if (insertionPoint === 'after_current') {
+        const currentWork = workItems.find(item => item.status === 'in_progress');
+        return currentWork ? currentWork.workflowPosition + 0.5 : workItems.length;
+      } else if (insertionPoint === 'before_next') {
+        const nextWork = workItems.find(item => item.status === 'ready' || item.status === 'assigned');
+        return nextWork ? nextWork.workflowPosition - 0.5 : workItems.length;
+      }
+      
+      return workItems.length; // Default to end
+    } catch (error) {
+      console.error('Failed to calculate insertion position:', error);
+      return 999;
+    }
+  }
+
+  // Pause downstream assignments for workflow changes
+  static async pauseDownstreamAssignments(lotNumber, insertedWorkItemId) {
+    try {
+      const workItemsQuery = query(
+        collection(db, COLLECTIONS.WORK_ITEMS),
+        where("lotNumber", "==", lotNumber),
+        where("status", "in", ["ready", "assigned"])
+      );
+      
+      const snapshot = await getDocs(workItemsQuery);
+      const batch = writeBatch(db);
+      
+      snapshot.docs.forEach(doc => {
+        batch.update(doc.ref, {
+          status: 'paused_for_insertion',
+          pausedBy: insertedWorkItemId,
+          pausedAt: serverTimestamp(),
+          originalStatus: doc.data().status
+        });
+      });
+      
+      await batch.commit();
+      console.log(`⏸️ Paused ${snapshot.docs.length} downstream work items for lot ${lotNumber}`);
+      return { success: true, pausedCount: snapshot.docs.length };
+    } catch (error) {
+      console.error('Failed to pause downstream assignments:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Resume downstream assignments after emergency work completion
+  static async resumeDownstreamAssignments(insertedWorkItemId) {
+    try {
+      const workItemsQuery = query(
+        collection(db, COLLECTIONS.WORK_ITEMS),
+        where("pausedBy", "==", insertedWorkItemId),
+        where("status", "==", "paused_for_insertion")
+      );
+      
+      const snapshot = await getDocs(workItemsQuery);
+      const batch = writeBatch(db);
+      
+      snapshot.docs.forEach(doc => {
+        const originalStatus = doc.data().originalStatus || 'ready';
+        batch.update(doc.ref, {
+          status: originalStatus,
+          pausedBy: null,
+          pausedAt: null,
+          originalStatus: null,
+          resumedAt: serverTimestamp()
+        });
+      });
+      
+      await batch.commit();
+      console.log(`▶️ Resumed ${snapshot.docs.length} downstream work items`);
+      return { success: true, resumedCount: snapshot.docs.length };
+    } catch (error) {
+      console.error('Failed to resume downstream assignments:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get work items for specific lot
+  static async getWorkItemsForLot(lotNumber) {
+    try {
+      const workItemsQuery = query(
+        collection(db, COLLECTIONS.WORK_ITEMS),
+        where("lotNumber", "==", lotNumber),
+        orderBy("createdAt", "asc")
+      );
+      
+      const snapshot = await getDocs(workItemsQuery);
+      const workItems = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      
+      return { success: true, workItems };
+    } catch (error) {
+      console.error('Failed to get work items for lot:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Recalculate workflow after emergency insertion (Phase 2)
+  static async recalculateWorkflowAfterInsertion(lotNumber, insertedWorkItemId, insertionPoint) {
+    try {
+      console.log(`🔧 Recalculating workflow for lot ${lotNumber} after insertion`);
+      
+      const workItems = await this.getWorkItemsForLot(lotNumber);
+      if (!workItems.success) {
+        throw new Error(workItems.error);
+      }
+
+      const items = workItems.workItems;
+      const insertedItem = items.find(item => item.id === insertedWorkItemId);
+      
+      if (!insertedItem) {
+        throw new Error('Inserted work item not found');
+      }
+
+      // Recalculate workflow sequence and dependencies
+      const updatedWorkflow = await this.calculateNewWorkflowSequence(items, insertedItem, insertionPoint);
+      
+      // Update operator queues with new sequence
+      await this.updateOperatorQueues(lotNumber, updatedWorkflow);
+      
+      // Update dependencies and prerequisites
+      await this.updateWorkItemDependencies(updatedWorkflow);
+      
+      console.log(`✅ Workflow recalculated for lot ${lotNumber}`);
+      return { success: true, updatedWorkflow };
+      
+    } catch (error) {
+      console.error('Failed to recalculate workflow:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Calculate new workflow sequence after insertion
+  static async calculateNewWorkflowSequence(workItems, insertedItem, insertionPoint) {
+    const sequence = [];
+    
+    // Sort existing items by workflow position
+    const existingItems = workItems
+      .filter(item => item.id !== insertedItem.id && !item.isEmergencyInsertion)
+      .sort((a, b) => (a.workflowPosition || 0) - (b.workflowPosition || 0));
+    
+    if (insertionPoint === 'parallel') {
+      // Independent work - no sequence change needed
+      return workItems.map((item, index) => ({
+        ...item,
+        workflowPosition: item.id === insertedItem.id ? 999 : index + 1,
+        sequenceOrder: item.id === insertedItem.id ? 999 : index + 1
+      }));
+    }
+    
+    // Find insertion point in existing workflow
+    let insertIndex = 0;
+    if (insertionPoint === 'after_current') {
+      const currentWorkIndex = existingItems.findIndex(item => item.status === 'in_progress');
+      insertIndex = currentWorkIndex >= 0 ? currentWorkIndex + 1 : 0;
+    } else if (insertionPoint === 'before_next') {
+      const nextWorkIndex = existingItems.findIndex(item => 
+        item.status === 'ready' || item.status === 'assigned'
+      );
+      insertIndex = nextWorkIndex >= 0 ? nextWorkIndex : existingItems.length;
+    }
+    
+    // Rebuild sequence with inserted work
+    for (let i = 0; i < existingItems.length; i++) {
+      if (i === insertIndex) {
+        sequence.push({
+          ...insertedItem,
+          workflowPosition: i + 1,
+          sequenceOrder: i + 1,
+          predecessors: i > 0 ? [existingItems[i - 1].id] : [],
+          successors: i < existingItems.length ? [existingItems[i].id] : []
+        });
+      }
+      
+      sequence.push({
+        ...existingItems[i],
+        workflowPosition: sequence.length + 1,
+        sequenceOrder: sequence.length + 1,
+        predecessors: sequence.length > 0 ? [sequence[sequence.length - 1].id] : [],
+        successors: i < existingItems.length - 1 ? [existingItems[i + 1].id] : []
+      });
+    }
+    
+    // Handle case where insertion is at the end
+    if (insertIndex >= existingItems.length) {
+      sequence.push({
+        ...insertedItem,
+        workflowPosition: sequence.length + 1,
+        sequenceOrder: sequence.length + 1,
+        predecessors: sequence.length > 0 ? [sequence[sequence.length - 1].id] : [],
+        successors: []
+      });
+    }
+    
+    return sequence;
+  }
+
+  // Update operator queues with new workflow sequence
+  static async updateOperatorQueues(lotNumber, updatedWorkflow) {
+    try {
+      const batch = writeBatch(db);
+      
+      // Group work items by assigned operators
+      const operatorQueues = {};
+      
+      updatedWorkflow.forEach(workItem => {
+        if (workItem.assignedOperator && workItem.status !== 'completed') {
+          if (!operatorQueues[workItem.assignedOperator]) {
+            operatorQueues[workItem.assignedOperator] = [];
+          }
+          operatorQueues[workItem.assignedOperator].push(workItem);
+        }
+      });
+      
+      // Update each operator's queue with new sequence
+      for (const [operatorId, queuedWork] of Object.entries(operatorQueues)) {
+        // Sort by new workflow position
+        queuedWork.sort((a, b) => a.workflowPosition - b.workflowPosition);
+        
+        // Update work items with new queue positions
+        queuedWork.forEach((workItem, index) => {
+          const workItemRef = doc(db, COLLECTIONS.WORK_ITEMS, workItem.id);
+          batch.update(workItemRef, {
+            queuePosition: index + 1,
+            workflowPosition: workItem.workflowPosition,
+            sequenceOrder: workItem.sequenceOrder,
+            predecessors: workItem.predecessors || [],
+            successors: workItem.successors || [],
+            updatedAt: serverTimestamp(),
+            workflowRecalculated: true
+          });
+        });
+        
+        // Notify operator about queue changes
+        await NotificationService.createNotification({
+          title: "काम अनुक्रम परिवर्तन",
+          titleEn: "Work Sequence Changed",
+          message: `लट ${lotNumber} को काम अनुक्रम परिवर्तन भएको छ`,
+          messageEn: `Work sequence for Lot ${lotNumber} has been updated`,
+          type: "workflow_change",
+          priority: "medium",
+          targetUser: operatorId,
+          targetRole: "operator",
+          lotNumber: lotNumber,
+          queueLength: queuedWork.length
+        });
+      }
+      
+      await batch.commit();
+      console.log(`✅ Updated operator queues for lot ${lotNumber}`);
+      return { success: true };
+      
+    } catch (error) {
+      console.error('Failed to update operator queues:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Update work item dependencies after workflow change
+  static async updateWorkItemDependencies(updatedWorkflow) {
+    try {
+      const batch = writeBatch(db);
+      
+      updatedWorkflow.forEach(workItem => {
+        const workItemRef = doc(db, COLLECTIONS.WORK_ITEMS, workItem.id);
+        
+        // Update dependencies based on new sequence
+        const dependencies = [];
+        if (workItem.predecessors && workItem.predecessors.length > 0) {
+          dependencies.push(...workItem.predecessors);
+        }
+        
+        batch.update(workItemRef, {
+          dependencies: dependencies,
+          workflowPosition: workItem.workflowPosition,
+          sequenceOrder: workItem.sequenceOrder,
+          canStartImmediately: dependencies.length === 0,
+          updatedAt: serverTimestamp()
+        });
+      });
+      
+      await batch.commit();
+      console.log(`✅ Updated work item dependencies`);
+      return { success: true };
+      
+    } catch (error) {
+      console.error('Failed to update work item dependencies:', error);
       return { success: false, error: error.message };
     }
   }

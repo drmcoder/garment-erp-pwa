@@ -39,8 +39,8 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   const [assignments, setAssignments] = useState({});
   const [workItemSearch, setWorkItemSearch] = useState('');
   const [operatorSearch, setOperatorSearch] = useState('');
-  const [operatorViewMode, setOperatorViewMode] = useState('grid'); // 'grid' | 'list' | 'compact'
-  const [workItemViewMode, setWorkItemViewMode] = useState('detailed'); // 'detailed' | 'compact' | 'mini'
+  const [operatorViewMode, setOperatorViewMode] = useState('compact'); // 'grid' | 'list' | 'compact'
+  const [workItemViewMode, setWorkItemViewMode] = useState('compact'); // 'detailed' | 'compact' | 'mini'
   const [localOperators, setLocalOperators] = useState(operators);
   const [currentWorkPage, setCurrentWorkPage] = useState(1);
   const [workItemsPerPage] = useState(50); // Pagination for large datasets
@@ -343,150 +343,72 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="bg-white rounded-lg shadow-sm p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">
-              🎯 {currentLanguage === 'np' ? 'ड्र्याग एन्ड ड्रप असाइनमेन्ट' : 'Drag & Drop Assignment'}
-            </h2>
-            <p className="text-sm text-gray-600">
+    <div className="space-y-3">
+      {/* Compact Header */}
+      {Object.keys(assignments).length > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-green-700 font-medium">
               {currentLanguage === 'np' 
-                ? 'काम आइटमहरू अपरेटरहरूमा ड्र्याग गर्नुहोस्'
-                : 'Drag work items to operators for assignment'
+                ? `${Object.keys(assignments).length} असाइनमेन्ट तयार`
+                : `${Object.keys(assignments).length} assignments ready`
               }
-            </p>
-            {(workItemSearch.trim() || operatorSearch.trim()) && (
-              <div className="mt-2 flex items-center space-x-4 text-xs text-gray-500">
-                <span>🔍 {currentLanguage === 'np' ? 'खोज परिणामहरू:' : 'Search results:'}</span>
-                {workItemSearch.trim() && (
-                  <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                    {currentLanguage === 'np' ? 'काम:' : 'Items:'} {filteredWorkItems.length}/{availableItems.length}
-                  </span>
-                )}
-                {operatorSearch.trim() && (
-                  <span className="bg-green-100 text-green-700 px-2 py-1 rounded">
-                    {currentLanguage === 'np' ? 'अपरेटर:' : 'Operators:'} {filteredOperators.length}/{operators.length}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          
-          {Object.keys(assignments).length > 0 && (
+            </span>
             <button
               onClick={handleBulkConfirm}
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2"
+              className="bg-green-600 text-white px-4 py-1 rounded hover:bg-green-700 transition-colors text-sm flex items-center space-x-1"
             >
               <span>✅</span>
               <span>
-                {currentLanguage === 'np' 
-                  ? `${Object.keys(assignments).length} असाइनमेन्ट पुष्टि गर्नुहोस्`
-                  : `Confirm ${Object.keys(assignments).length} Assignments`
-                }
+                {currentLanguage === 'np' ? 'पुष्टि' : 'Confirm'}
               </span>
             </button>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Available Work Items */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-            <span className="mr-2">📦</span>
-            {currentLanguage === 'np' ? 'उपलब्ध काम आइटमहरू' : 'Available Work Items'}
-            <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
-              {filteredWorkItems.length}/{availableItems.length}
-            </span>
+        <div className="bg-white rounded-lg shadow-sm p-3">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-800 flex items-center">
+              📦 {currentLanguage === 'np' ? 'काम' : 'Available Work'}
+              <span className="ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs">
+                {filteredWorkItems.length}
+              </span>
+            </h3>
             {filteredWorkItems.length > workItemsPerPage && (
-              <span className="ml-2 bg-gray-100 text-gray-600 px-2 py-1 rounded-full text-xs">
-                {currentLanguage === 'np' ? 'पृष्ठ' : 'Page'} {currentWorkPage}/{totalWorkPages}
+              <span className="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-xs">
+                {currentWorkPage}/{totalWorkPages}
               </span>
             )}
-          </h3>
+          </div>
           
-          {/* Work Items Search and Controls */}
-          <div className="space-y-3 mb-4">
+          {/* Compact Search */}
+          <div className="mb-3">
             <div className="relative">
               <input
                 type="text"
                 value={workItemSearch}
                 onChange={(e) => setWorkItemSearch(e.target.value)}
-                placeholder={currentLanguage === 'np' 
-                  ? 'लेख, लट, रंग, अपरेसन, बन्डल नम्बर खोज्नुहोस्...'
-                  : 'Search by article, lot, color, operation, bundle...'
-                }
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder={currentLanguage === 'np' ? 'खोज...' : 'Search...'}
+                className="w-full pl-8 pr-4 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-transparent"
               />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-400">🔍</span>
+              <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                <span className="text-gray-400 text-sm">🔍</span>
               </div>
               {workItemSearch && (
                 <button
                   onClick={() => setWorkItemSearch('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 pr-2 flex items-center text-gray-400 hover:text-gray-600"
                 >
-                  ✕
+                  <span className="text-xs">✕</span>
                 </button>
-              )}
-            </div>
-            
-            {/* View Mode Toggle */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-gray-600">
-                  {currentLanguage === 'np' ? 'दृश्य:' : 'View:'}
-                </span>
-                <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-                  <button
-                    onClick={() => setWorkItemViewMode('detailed')}
-                    className={`px-3 py-1 text-xs ${workItemViewMode === 'detailed' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    📋 {currentLanguage === 'np' ? 'विस्तृत' : 'Detailed'}
-                  </button>
-                  <button
-                    onClick={() => setWorkItemViewMode('compact')}
-                    className={`px-3 py-1 text-xs ${workItemViewMode === 'compact' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    📄 {currentLanguage === 'np' ? 'संकुचित' : 'Compact'}
-                  </button>
-                  <button
-                    onClick={() => setWorkItemViewMode('mini')}
-                    className={`px-3 py-1 text-xs ${workItemViewMode === 'mini' ? 'bg-blue-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                  >
-                    📏 {currentLanguage === 'np' ? 'मिनी' : 'Mini'}
-                  </button>
-                </div>
-              </div>
-              
-              {/* Pagination Controls */}
-              {totalWorkPages > 1 && (
-                <div className="flex items-center space-x-2">
-                  <button
-                    onClick={() => setCurrentWorkPage(Math.max(1, currentWorkPage - 1))}
-                    disabled={currentWorkPage === 1}
-                    className="px-2 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                  >
-                    ‹ {currentLanguage === 'np' ? 'अघिल्लो' : 'Prev'}
-                  </button>
-                  <span className="text-xs text-gray-500">
-                    {currentWorkPage}/{totalWorkPages}
-                  </span>
-                  <button
-                    onClick={() => setCurrentWorkPage(Math.min(totalWorkPages, currentWorkPage + 1))}
-                    disabled={currentWorkPage === totalWorkPages}
-                    className="px-2 py-1 text-xs border rounded disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                  >
-                    {currentLanguage === 'np' ? 'अर्को' : 'Next'} ›
-                  </button>
-                </div>
               )}
             </div>
           </div>
           
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[70vh] overflow-y-auto">
             {filteredWorkItems.length === 0 && workItemSearch.trim() && (
               <div className="text-center py-8 text-gray-500">
                 <span className="text-2xl">🔍</span>
@@ -649,64 +571,41 @@ const DragDropAssignment = ({ workItems, operators, onAssignmentComplete }) => {
         </div>
 
         {/* Operators Drop Zones */}
-        <div className="bg-white rounded-lg shadow-sm p-6">
-          <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center">
-            <span className="mr-2">👥</span>
-            {currentLanguage === 'np' ? 'अपरेटरहरू' : 'Operators'}
-            <span className="ml-2 bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
-              {sortedOperators.length}/{operators.length}
-            </span>
-          </h3>
+        <div className="bg-white rounded-lg shadow-sm p-3">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-medium text-gray-800 flex items-center">
+              👥 {currentLanguage === 'np' ? 'अपरेटरहरू' : 'Operators'}
+              <span className="ml-2 bg-green-100 text-green-800 px-2 py-0.5 rounded-full text-xs">
+                {sortedOperators.length}
+              </span>
+            </h3>
+          </div>
 
-          {/* Operators Search and View Controls */}
-          <div className="space-y-3 mb-4">
+          {/* Compact Search */}
+          <div className="mb-3">
             <div className="relative">
               <input
                 type="text"
                 value={operatorSearch}
                 onChange={(e) => setOperatorSearch(e.target.value)}
-                placeholder={currentLanguage === 'np' 
-                  ? 'अपरेटर नाम, मेसिन वा ID खोज्नुहोस्...'
-                  : 'Search by name, machine, or ID...'
-                }
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder={currentLanguage === 'np' ? 'अपरेटर खोज...' : 'Search operators...'}
+                className="w-full pl-8 pr-4 py-1.5 border border-gray-300 rounded text-sm focus:ring-1 focus:ring-green-500 focus:border-transparent"
               />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-400">🔍</span>
+              <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none">
+                <span className="text-gray-400 text-sm">🔍</span>
               </div>
               {operatorSearch && (
                 <button
                   onClick={() => setOperatorSearch('')}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                  className="absolute inset-y-0 right-0 pr-2 flex items-center text-gray-400 hover:text-gray-600"
                 >
-                  ✕
+                  <span className="text-xs">✕</span>
                 </button>
               )}
             </div>
-            
-            {/* View Mode Toggle */}
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">
-                {currentLanguage === 'np' ? 'दृश्य:' : 'View:'}
-              </span>
-              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
-                <button
-                  onClick={() => setOperatorViewMode('grid')}
-                  className={`px-3 py-1 text-xs ${operatorViewMode === 'grid' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                >
-                  📋 {currentLanguage === 'np' ? 'ग्रिड' : 'Grid'}
-                </button>
-                <button
-                  onClick={() => setOperatorViewMode('compact')}
-                  className={`px-3 py-1 text-xs ${operatorViewMode === 'compact' ? 'bg-green-500 text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}
-                >
-                  📄 {currentLanguage === 'np' ? 'संकुचित' : 'Compact'}
-                </button>
-              </div>
-            </div>
           </div>
           
-          <div className="max-h-96 overflow-y-auto">
+          <div className="max-h-[70vh] overflow-y-auto">
             {sortedOperators.length === 0 && operatorSearch.trim() && (
               <div className="text-center py-8 text-gray-500">
                 <span className="text-2xl">🔍</span>
