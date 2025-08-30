@@ -24,7 +24,6 @@ import {
 } from 'lucide-react';
 import { useLanguage } from '../../context/LanguageContext';
 import { loginControlService } from '../../services/LoginControlService';
-import LocationManagement from './LocationManagement';
 
 const LoginControlPanel = () => {
   const { currentLanguage, t } = useLanguage();
@@ -151,6 +150,28 @@ const LoginControlPanel = () => {
         maintenanceMode: maintenance
       }));
     }
+  };
+
+  const toggleTimeControl = () => {
+    setSettings(prev => ({
+      ...prev,
+      timeControl: {
+        ...prev.timeControl,
+        enabled: !prev.timeControl.enabled
+      }
+    }));
+  };
+
+  const toggleShift = (shiftId) => {
+    setSettings(prev => ({
+      ...prev,
+      timeControl: {
+        ...prev.timeControl,
+        allowedShifts: prev.timeControl.allowedShifts.map(shift =>
+          shift.id === shiftId ? { ...shift, active: !shift.active } : shift
+        )
+      }
+    }));
   };
 
   return (
@@ -338,7 +359,7 @@ const LoginControlPanel = () => {
           </div>
         )}
 
-        {/* Location Tab - Full Location Management */}
+        {/* Location Tab */}
         {activeTab === 'location' && (
           <div className="space-y-6">
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -346,14 +367,113 @@ const LoginControlPanel = () => {
                 <MapPin className="w-5 h-5 text-blue-600 mr-2" />
                 <p className="text-blue-800 font-medium">
                   {isNepali 
-                    ? 'स्थान व्यवस्थापन एकीकृत - लगइन नियन्त्रण भित्र'
-                    : 'Location Management Integrated - Within Login Control'}
+                    ? 'स्थान आधारित लगइन नियन्त्रण'
+                    : 'Location-based Login Control'}
                 </p>
               </div>
             </div>
-            
-            {/* Embed the full LocationManagement component */}
-            <LocationManagement />
+
+            {/* Location Control Settings */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <h4 className="font-medium text-gray-900">
+                    {isNepali ? 'स्थान नियन्त्रण सक्षम गर्नुहोस्' : 'Enable Location Control'}
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    {isNepali ? 'GPS स्थान आधारमा लगइन प्रतिबन्ध लगाउनुहोस्' : 'Restrict logins based on GPS location'}
+                  </p>
+                </div>
+                <button
+                  onClick={toggleLocationControl}
+                  className="flex items-center"
+                >
+                  {settings.locationControl.enabled ? (
+                    <ToggleRight className="w-8 h-8 text-green-600" />
+                  ) : (
+                    <ToggleLeft className="w-8 h-8 text-gray-400" />
+                  )}
+                </button>
+              </div>
+
+              {settings.locationControl.enabled && (
+                <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                  <h5 className="font-medium text-gray-900">
+                    {isNepali ? 'अनुमतित स्थानहरू' : 'Allowed Locations'}
+                  </h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {settings.locationControl.allowedLocations.map((location, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-white border rounded">
+                        <div>
+                          <p className="font-medium text-gray-900">{location.name}</p>
+                          <p className="text-sm text-gray-600">{location.address}</p>
+                          <p className="text-xs text-gray-500">
+                            Radius: {location.radius}m
+                          </p>
+                        </div>
+                        <span className={`px-2 py-1 text-xs rounded ${
+                          location.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {location.active ? (isNepali ? 'सक्रिय' : 'Active') : (isNepali ? 'निष्क्रिय' : 'Inactive')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Time-based Controls */}
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <div>
+                  <h4 className="font-medium text-gray-900">
+                    {isNepali ? 'समय नियन्त्रण सक्षम गर्नुहोस्' : 'Enable Time Control'}
+                  </h4>
+                  <p className="text-sm text-gray-600">
+                    {isNepali ? 'काम को समय आधारमा लगइन प्रतिबन्ध लगाउनुहोस्' : 'Restrict logins based on working hours'}
+                  </p>
+                </div>
+                <button
+                  onClick={toggleTimeControl}
+                  className="flex items-center"
+                >
+                  {settings.timeControl.enabled ? (
+                    <ToggleRight className="w-8 h-8 text-green-600" />
+                  ) : (
+                    <ToggleLeft className="w-8 h-8 text-gray-400" />
+                  )}
+                </button>
+              </div>
+
+              {settings.timeControl.enabled && (
+                <div className="space-y-4 p-4 bg-gray-50 rounded-lg">
+                  <h5 className="font-medium text-gray-900">
+                    {isNepali ? 'काम को समय सेटिंग्स' : 'Working Hours Settings'}
+                  </h5>
+                  <div className="space-y-3">
+                    {settings.timeControl.allowedShifts.map(shift => (
+                      <div key={shift.id} className="flex items-center justify-between p-3 bg-white border rounded">
+                        <div>
+                          <h6 className="font-medium text-gray-900">{shift.name}</h6>
+                          <p className="text-sm text-gray-600">
+                            {shift.start} - {shift.end}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => toggleShift(shift.id)}
+                          className="flex items-center"
+                        >
+                          {shift.active ? (
+                            <ToggleRight className="w-8 h-8 text-green-600" />
+                          ) : (
+                            <ToggleLeft className="w-8 h-8 text-gray-400" />
+                          )}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 

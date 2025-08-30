@@ -7,7 +7,7 @@ class LoginControlService {
     this.settings = {
       // Location-based controls
       locationControl: {
-        enabled: true,
+        enabled: false,
         enforceForRoles: ['operator'], // Roles that require location validation
         allowedLocations: [], // Will sync with LocationService
         strictMode: false // If true, deny all location requests outside factory

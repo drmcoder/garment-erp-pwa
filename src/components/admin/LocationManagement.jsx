@@ -39,6 +39,10 @@ const LocationManagement = () => {
   const [locationStats, setLocationStats] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   
+  // Toggle states
+  const [monitoringEnabled, setMonitoringEnabled] = useState(locationService.isMonitoringEnabled());
+  const [approvalRequired, setApprovalRequired] = useState(locationService.isApprovalRequired());
+  
   // Multi-location settings state
   const [locations, setLocations] = useState(locationService.getAllLocations());
   const [editingLocationId, setEditingLocationId] = useState(null);
@@ -118,6 +122,17 @@ const LocationManagement = () => {
     setRefreshing(true);
     await loadLocationData();
     setRefreshing(false);
+  };
+
+  // Toggle handlers
+  const handleToggleMonitoring = () => {
+    const newState = locationService.toggleMonitoring();
+    setMonitoringEnabled(newState);
+  };
+
+  const handleToggleApproval = () => {
+    const newState = locationService.toggleApprovalRequired();
+    setApprovalRequired(newState);
   };
 
   // Location settings functions
@@ -548,6 +563,95 @@ const LocationManagement = () => {
                 </button>
               </div>
               
+              {/* Location Monitoring Toggles */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                {/* Operator Location Monitoring Toggle */}
+                <div className="bg-white border rounded-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                        <Users className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-800">
+                          {isNepali ? 'अपरेटर स्थान निगरानी' : 'Operator Location Monitoring'}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {isNepali ? 'अपरेटरहरूको स्थान ट्र्याक गर्नुहोस्' : 'Track operator locations'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleToggleMonitoring}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        monitoringEnabled ? 'bg-blue-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          monitoringEnabled ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <div className="mt-3">
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      monitoringEnabled 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {monitoringEnabled 
+                        ? (isNepali ? 'सक्रिय' : 'Enabled') 
+                        : (isNepali ? 'निष्क्रिय' : 'Disabled')
+                      }
+                    </span>
+                  </div>
+                </div>
+
+                {/* Location Approval Toggle */}
+                <div className="bg-white border rounded-lg p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                        <Shield className="w-5 h-5 text-green-600" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold text-gray-800">
+                          {isNepali ? 'स्थान अनुमोदन आवश्यक' : 'Location Approval Required'}
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          {isNepali ? 'रिमोट एक्सेसको लागि अनुमोदन चाहिन्छ' : 'Require approval for remote access'}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleToggleApproval}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                        approvalRequired ? 'bg-green-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          approvalRequired ? 'translate-x-6' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <div className="mt-3">
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      approvalRequired 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {approvalRequired 
+                        ? (isNepali ? 'सक्रिय' : 'Required') 
+                        : (isNepali ? 'निष्क्रिय' : 'Not Required')
+                      }
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <div className="flex items-center">
                   <Settings className="w-5 h-5 text-blue-600 mr-2" />

@@ -18,19 +18,8 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
     email: '',
     phone: '',
     password: '',
-    department: 'sewing',
-    assignedOperators: [],
-    permissions: {
-      canViewAllBundles: true,
-      canAssignBundles: true,
-      canViewReports: true,
-      canManageOperators: false,
-      canUpdatePricing: false
-    },
     status: 'active',
     joiningDate: new Date().toISOString().split('T')[0],
-    shift: 'day',
-    monthlyTarget: 0,
     photo: '',
     notes: ''
   });
@@ -47,7 +36,12 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
         OperatorService.getActiveOperators()
       ]);
       
-      const savedSupervisors = supervisorsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const savedSupervisors = supervisorsSnapshot.docs.map(doc => ({ 
+        id: doc.id, 
+        ...doc.data(),
+        assignedOperators: doc.data().assignedOperators || [],
+        permissions: doc.data().permissions || {}
+      }));
       const savedOperators = operatorsResult.success ? operatorsResult.operators : [];
       
       setSupervisors(savedSupervisors);
@@ -107,11 +101,11 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
       createdAt: new Date().toISOString(),
       lastLogin: null,
       performance: {
-        totalOperatorsManaged: newSupervisor.assignedOperators.length,
+        totalOperatorsManaged: newSupervisor.assignedOperators?.length || 0,
         teamProductivity: 0,
         bundlesCompleted: 0,
         teamQualityScore: 100,
-        monthlyTarget: newSupervisor.monthlyTarget,
+        monthlyTarget: 0,
         monthlyAchievement: 0
       }
     };
@@ -127,19 +121,8 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
       email: '',
       phone: '',
       password: '',
-      department: 'sewing',
-      assignedOperators: [],
-      permissions: {
-        canViewAllBundles: true,
-        canAssignBundles: true,
-        canViewReports: true,
-        canManageOperators: false,
-        canUpdatePricing: false
-      },
       status: 'active',
       joiningDate: new Date().toISOString().split('T')[0],
-      shift: 'day',
-      monthlyTarget: 0,
       photo: '',
       notes: ''
     });
@@ -154,7 +137,7 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
         ...editingSupervisor,
         performance: {
           ...editingSupervisor.performance,
-          totalOperatorsManaged: editingSupervisor.assignedOperators.length
+          totalOperatorsManaged: editingSupervisor.assignedOperators?.length || 0
         }
       } : sup
     );
@@ -219,9 +202,9 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
     return operator ? operator.name : operatorId;
   };
 
-  const filteredSupervisors = supervisors.filter(supervisor => 
-    supervisor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    supervisor.employeeId.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredSupervisors = (supervisors || []).filter(supervisor => 
+    supervisor?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    supervisor?.employeeId?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (isCreating || editingSupervisor) {
@@ -306,50 +289,6 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Department
-                  </label>
-                  <select
-                    value={currentData.department}
-                    onChange={(e) => setCurrentData(prev => ({ ...prev, department: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="sewing">Sewing</option>
-                    <option value="cutting">Cutting</option>
-                    <option value="finishing">Finishing</option>
-                    <option value="packing">Packing</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Shift
-                  </label>
-                  <select
-                    value={currentData.shift}
-                    onChange={(e) => setCurrentData(prev => ({ ...prev, shift: e.target.value }))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="day">Day Shift</option>
-                    <option value="night">Night Shift</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Monthly Target (Pieces)
-                </label>
-                <input
-                  type="number"
-                  value={currentData.monthlyTarget}
-                  onChange={(e) => setCurrentData(prev => ({ ...prev, monthlyTarget: parseInt(e.target.value) || 0 }))}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="5000"
-                />
-              </div>
             </div>
 
             {/* Operator Assignment & Permissions */}
@@ -361,11 +300,11 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
                   Assigned Operators
                 </label>
                 <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-2">
-                  {operators.map(operator => (
+                  {operators?.map(operator => (
                     <label key={operator.id} className="flex items-center space-x-2 p-2 hover:bg-gray-50">
                       <input
                         type="checkbox"
-                        checked={currentData.assignedOperators.includes(operator.id)}
+                        checked={currentData.assignedOperators?.includes(operator.id) || false}
                         onChange={(e) => handleOperatorSelection(operator.id, e.target.checked)}
                         className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
@@ -378,7 +317,7 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
               <div>
                 <h4 className="text-md font-medium text-gray-900 mb-3">Permissions</h4>
                 <div className="space-y-3">
-                  {Object.entries(currentData.permissions).map(([key, value]) => (
+                  {Object.entries(currentData.permissions || {}).map(([key, value]) => (
                     <label key={key} className="flex items-center space-x-2">
                       <input
                         type="checkbox"

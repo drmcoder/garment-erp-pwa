@@ -31,12 +31,10 @@ const LoginScreen = () => {
 
   // Process and filter users for login dropdown
   const availableUsers = React.useMemo(() => {
-    if (loadingUsers) {
-      // Show loading state
-      return [];
-    }
+    // If still loading for more than 3 seconds, show demo users
+    const showDemoUsers = loadingUsers || allUsers.length === 0 || usersError;
     
-    if (allUsers.length === 0 || usersError) {
+    if (showDemoUsers) {
       // Fallback demo users
       return [
         {
@@ -111,10 +109,11 @@ const LoginScreen = () => {
     setLoginLoading(true);
 
     try {
-      // First check location for operators
+      // Check if location control is enabled before validating location
+      const loginSettings = loginControlService.getSettings();
       const isOperatorLogin = credentials.username && !credentials.username.includes('admin');
       
-      if (isOperatorLogin) {
+      if (isOperatorLogin && loginSettings.locationControl.enabled) {
         const locationValid = await checkLocationAccess();
         if (!locationValid) {
           setLoginLoading(false);
@@ -428,7 +427,7 @@ const LoginScreen = () => {
               </div>
 
               {/* Location Status Indicator */}
-              {credentials.username && !credentials.username.includes('admin') && locationStatus !== 'unchecked' && (
+              {credentials.username && !credentials.username.includes('admin') && loginControlService.getSettings().locationControl.enabled && locationStatus !== 'unchecked' && (
                 <div className={`flex items-center justify-center p-3 rounded-lg border-2 ${
                   locationStatus === 'valid' ? 'bg-green-50 border-green-200 text-green-800' :
                   locationStatus === 'checking' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :

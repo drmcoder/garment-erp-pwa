@@ -12,6 +12,7 @@ import WorkAssignmentManager from './WorkAssignmentManager';
 import SelfAssignmentApproval from './SelfAssignmentApproval';
 import DamageQueue from './DamageQueue';
 import DamageNotificationSystem from '../common/DamageNotificationSystem';
+import LiveOperatorWorkBucket from './LiveOperatorWorkBucket';
 import OperatorAvatar from '../common/OperatorAvatar';
 import { 
   BarChart3, 
@@ -54,6 +55,7 @@ const SupervisorDashboard = () => {
   const [showWIPProgress, setShowWIPProgress] = useState(false);
   const [showSelfAssignmentApproval, setShowSelfAssignmentApproval] = useState(false);
   const [showDamageQueue, setShowDamageQueue] = useState(false);
+  const [showLiveOperatorBucket, setShowLiveOperatorBucket] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   // Close dropdown when clicking outside
@@ -598,6 +600,21 @@ const SupervisorDashboard = () => {
               </p>
             </button>
 
+            {/* Live Operator Work Bucket */}
+            <button 
+              onClick={() => setShowLiveOperatorBucket(true)}
+              className="bg-gradient-to-br from-cyan-50 to-sky-50 border-2 border-cyan-200 rounded-2xl p-6 hover:from-cyan-100 hover:to-sky-100 hover:border-cyan-300 transition-all duration-300 shadow-lg hover:shadow-xl group"
+            >
+              <div className="w-12 h-12 bg-cyan-100 rounded-xl flex items-center justify-center mb-4 group-hover:bg-cyan-200 transition-colors">
+                <Activity className="w-6 h-6 text-cyan-600" />
+              </div>
+              <h3 className="font-semibold text-gray-900 mb-2 text-center">
+                {isNepali ? 'लाइभ अपरेटर बकेट' : 'Live Operator Bucket'}
+              </h3>
+              <p className="text-sm text-gray-600 text-center leading-relaxed">
+                {isNepali ? 'अपरेटरहरूको काम र स्थिति हेर्नुहोस्' : 'Monitor operator work and status'}
+              </p>
+            </button>
             {/* Self-Assignment Approval */}
             <button 
               onClick={() => setShowSelfAssignmentApproval(true)}
@@ -821,6 +838,30 @@ const SupervisorDashboard = () => {
               </div>
               <div className="flex-1 overflow-y-auto">
                 <DamageQueue />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Operator Work Bucket Modal */}
+      {showLiveOperatorBucket && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl h-full max-h-[90vh] overflow-hidden">
+            <div className="h-full flex flex-col">
+              <div className="flex justify-between items-center p-6 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {isNepali ? 'लाइभ अपरेटर बकेट' : 'Live Operator Work Bucket'}
+                </h2>
+                <button
+                  onClick={() => setShowLiveOperatorBucket(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <LiveOperatorWorkBucket />
               </div>
             </div>
           </div>

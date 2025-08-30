@@ -5,6 +5,10 @@ import { db, collection, addDoc, getDocs, query, where, orderBy, updateDoc, doc 
 
 class LocationService {
   constructor() {
+    // Location monitoring settings
+    this.MONITORING_ENABLED = true;
+    this.APPROVAL_REQUIRED = true;
+    
     // Multiple factory locations (up to 3 locations)
     this.FACTORY_LOCATIONS = [
       {
@@ -99,6 +103,28 @@ class LocationService {
       return location;
     }
     return null;
+  }
+
+  // Toggle monitoring enabled/disabled
+  toggleMonitoring() {
+    this.MONITORING_ENABLED = !this.MONITORING_ENABLED;
+    return this.MONITORING_ENABLED;
+  }
+
+  // Toggle approval requirement
+  toggleApprovalRequired() {
+    this.APPROVAL_REQUIRED = !this.APPROVAL_REQUIRED;
+    return this.APPROVAL_REQUIRED;
+  }
+
+  // Get monitoring status
+  isMonitoringEnabled() {
+    return this.MONITORING_ENABLED;
+  }
+
+  // Get approval requirement status
+  isApprovalRequired() {
+    return this.APPROVAL_REQUIRED;
   }
 
   // Delete location (if more than 1 exists)

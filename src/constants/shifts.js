@@ -10,9 +10,9 @@ export const SHIFTS = {
     color: 'blue',
     bgColor: 'bg-blue-100',
     textColor: 'text-blue-800',
-    startTime: '08:00',
-    endTime: '17:00',
-    duration: 9,
+    startTime: '06:00',
+    endTime: '19:00',
+    duration: 13,
     breakTime: 60, // minutes
     order: 1,
     isDefault: true
@@ -58,7 +58,7 @@ export const isCurrentShift = (shiftId) => {
   let startTime = startHour + (startMin / 60);
   let endTime = endHour + (endMin / 60);
   
-  // Handle overnight shifts
+  // Handle overnight shifts (not needed for 6am-7pm shift)
   if (endTime <= startTime) {
     endTime += 24;
     if (currentTime < 12) {

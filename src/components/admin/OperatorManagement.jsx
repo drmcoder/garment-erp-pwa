@@ -54,10 +54,10 @@ const OperatorManagement = ({ onStatsUpdate }) => {
       const savedTemplates = templatesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       
       console.log('✅ Loaded operator management data:', {
-        operators: savedOperators.length,
-        machines: savedMachines.length,
-        templates: savedTemplates.length,
-        skills: skillsData.length
+        operators: savedOperators?.length || 0,
+        machines: savedMachines?.length || 0,
+        templates: savedTemplates?.length || 0,
+        skills: skillsData?.length || 0
       });
       
       setOperators(savedOperators);

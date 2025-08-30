@@ -57,11 +57,8 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import DamageAnalyticsDashboard from './DamageAnalyticsDashboard';
 import AIProductionAnalytics from '../analytics/AIProductionAnalytics';
-import OperatorManagement from '../admin/OperatorManagement';
 import SupervisorManagement from '../admin/SupervisorManagement';
 import MachineManagement from '../admin/MachineManagement';
-import OperatorTemplates from '../admin/OperatorTemplates';
-import LoginControlPanel from '../admin/LoginControlPanel';
 
 const AdvancedManagementDashboard = () => {
   const { user } = useAuth();
@@ -520,70 +517,6 @@ const AdvancedManagementDashboard = () => {
     </div>
   );
 
-  // Production Analytics Dashboard
-  const ProductionAnalytics = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Hourly Production */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            {currentLanguage === "np" ? "घण्टाको उत्पादन" : "Hourly Production"}
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={dashboardData.hourlyProduction}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Bar dataKey="pieces" fill={chartColors.primary} name="टुक्रा" />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Efficiency Radial */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            {currentLanguage === "np"
-              ? "दक्षता मेट्रिक्स"
-              : "Efficiency Metrics"}
-          </h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <RadialBarChart
-              cx="50%"
-              cy="50%"
-              innerRadius="10%"
-              outerRadius="80%"
-              barSize={20}
-              data={[
-                {
-                  name: "Overall",
-                  efficiency: dashboardData.kpis.efficiency,
-                  fill: chartColors.primary,
-                },
-                {
-                  name: "Quality",
-                  efficiency: dashboardData.kpis.qualityScore,
-                  fill: chartColors.secondary,
-                },
-                {
-                  name: "OnTime",
-                  efficiency: dashboardData.kpis.onTimeDelivery,
-                  fill: chartColors.tertiary,
-                },
-              ]}
-            >
-              <RadialBar
-                dataKey="efficiency"
-                cornerRadius={10}
-                fill="#8884d8"
-              />
-              <Tooltip />
-            </RadialBarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-    </div>
-  );
 
   // Main Render
   return (
@@ -653,44 +586,19 @@ const AdvancedManagementDashboard = () => {
               icon: BarChart3,
             },
             {
-              key: "production",
-              label: currentLanguage === "np" ? "उत्पादन" : "Production",
-              icon: Factory,
-            },
-            {
-              key: "analytics",
-              label: currentLanguage === "np" ? "विश्लेषण" : "Analytics",
-              icon: Activity,
-            },
-            {
               key: "damage",
               label: currentLanguage === "np" ? "क्षति विश्लेषण" : "Damage Analytics",
               icon: Wrench,
             },
             {
-              key: "operators",
-              label: currentLanguage === "np" ? "अपरेटरहरू" : "Operators",
+              key: "personnel",
+              label: currentLanguage === "np" ? "कर्मचारीहरू" : "Personnel",
               icon: Users,
-            },
-            {
-              key: "supervisors", 
-              label: currentLanguage === "np" ? "सुपरभाइजरहरू" : "Supervisors",
-              icon: UserCheck,
             },
             {
               key: "machines",
               label: currentLanguage === "np" ? "मेसिनहरू" : "Machines",
               icon: Cog,
-            },
-            {
-              key: "templates",
-              label: currentLanguage === "np" ? "टेम्प्लेट र वर्कफ्लो" : "Templates & Workflows",
-              icon: GitBranch,
-            },
-            {
-              key: "logincontrol",
-              label: currentLanguage === "np" ? "लगइन नियन्त्रण" : "Login Control",
-              icon: Shield,
             },
           ].map((tab) => (
             <button
@@ -723,49 +631,25 @@ const AdvancedManagementDashboard = () => {
         ) : (
           <>
             {activeView === "overview" && <OverviewDashboard />}
-            {activeView === "production" && <ProductionAnalytics />}
-            {activeView === "analytics" && <AIProductionAnalytics />}
             {activeView === "damage" && <DamageAnalyticsDashboard />}
-            {activeView === "operators" && <OperatorManagement />}
-            {activeView === "supervisors" && <SupervisorManagement />}
-            {activeView === "machines" && <MachineManagement />}
-            {activeView === "templates" && (
+            {activeView === "personnel" && (
               <div className="space-y-6">
-                {/* Unified Template Management Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="text-lg font-semibold text-gray-800 flex items-center">
-                    <GitBranch className="w-5 h-5 mr-2 text-blue-600" />
-                    {currentLanguage === "np" ? "एकीकृत टेम्प्लेट व्यवस्थापन" : "Unified Template Management"}
-                  </h3>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {currentLanguage === "np" 
-                      ? "अपरेटर टेम्प्लेट र वर्कफ्लो टेम्प्लेट दुबै यहाँ व्यवस्थापन गर्नुहोस्"
-                      : "Manage both Operator Templates and Workflow Templates in one place"}
-                  </p>
-                </div>
-
-                {/* Tabbed Interface for Templates */}
-                <div className="bg-white border rounded-lg">
-                  <div className="border-b border-gray-200">
-                    <nav className="flex space-x-8 px-6">
-                      <button className="flex items-center space-x-2 py-4 px-2 border-b-2 border-blue-500 text-blue-600 font-medium text-sm">
-                        <Users className="w-4 h-4" />
-                        <span>{currentLanguage === "np" ? "अपरेटर टेम्प्लेट" : "Operator Templates"}</span>
-                      </button>
-                      <button className="flex items-center space-x-2 py-4 px-2 border-b-2 border-transparent text-gray-500 hover:text-gray-700 font-medium text-sm">
-                        <GitBranch className="w-4 h-4" />
-                        <span>{currentLanguage === "np" ? "वर्कफ्लो टेम्प्लेट" : "Workflow Templates"}</span>
-                      </button>
-                    </nav>
+                <div className="bg-white rounded-lg shadow-md border border-gray-200">
+                  <div className="p-4 border-b border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+                      {currentLanguage === "np" ? "सुपरभाइजरहरू" : "Supervisors"}
+                      <span className="ml-2 text-sm text-gray-500">
+                        {currentLanguage === "np" ? "(अपरेटरहरू सुपरभाइजरले व्यवस्थापन गर्छन्)" : "(Operators managed by supervisors)"}
+                      </span>
+                    </h3>
                   </div>
-                  
-                  <div className="p-6">
-                    <OperatorTemplates />
+                  <div className="p-4">
+                    <SupervisorManagement />
                   </div>
                 </div>
               </div>
             )}
-            {activeView === "logincontrol" && <LoginControlPanel />}
+            {activeView === "machines" && <MachineManagement />}
           </>
         )}
       </div>
