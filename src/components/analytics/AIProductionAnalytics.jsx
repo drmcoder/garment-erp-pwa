@@ -291,7 +291,7 @@ const AIProductionAnalytics = ({ onBack }) => {
 
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">पूर्वानुमान दक्षता:</span>
+                <span className="text-gray-600">{t("predictedEfficiency")}:</span>
                 <span className="text-2xl font-bold text-blue-600">
                   {prediction.predictedEfficiency}%
                 </span>
@@ -299,7 +299,7 @@ const AIProductionAnalytics = ({ onBack }) => {
 
               {prediction.actualEfficiency && (
                 <div className="flex justify-between items-center">
-                  <span className="text-gray-600">वास्तविक दक्षता:</span>
+                  <span className="text-gray-600">{t("actualEfficiency")}:</span>
                   <span className="text-lg font-semibold text-green-600">
                     {prediction.actualEfficiency}%
                   </span>
@@ -308,7 +308,7 @@ const AIProductionAnalytics = ({ onBack }) => {
 
               <div className="pt-3 border-t border-gray-200">
                 <p className="text-sm text-gray-600 mb-2">
-                  प्रभावकारी तत्वहरू:
+  {t("influencingFactors")}:
                 </p>
                 <div className="flex flex-wrap gap-1">
                   {prediction.factors.map((factor, i) => (
@@ -329,7 +329,7 @@ const AIProductionAnalytics = ({ onBack }) => {
       {/* Trend Prediction Chart */}
       <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
-          दक्षता ट्रेन्ड र पूर्वानुमान
+{t("efficiencyTrend")}
         </h3>
         <ResponsiveContainer width="100%" height={400}>
           <LineChart data={analyticsData.trends}>
@@ -343,7 +343,7 @@ const AIProductionAnalytics = ({ onBack }) => {
               dataKey="efficiency"
               stroke="#3B82F6"
               strokeWidth={2}
-              name="वास्तविक दक्षता"
+              name={t("actualEfficiencyLabel")}
             />
             <Line
               type="monotone"
@@ -351,7 +351,7 @@ const AIProductionAnalytics = ({ onBack }) => {
               stroke="#10B981"
               strokeWidth={2}
               strokeDasharray="5 5"
-              name="AI पूर्वानुमान"
+              name={t("aiPrediction")}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -365,7 +365,7 @@ const AIProductionAnalytics = ({ onBack }) => {
         {/* Bottleneck List */}
         <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            मुख्य बाटलनेकहरू
+{t("mainBottlenecks")}
           </h3>
           <div className="space-y-4">
             {analyticsData.bottlenecks.map((bottleneck, index) => (
@@ -774,8 +774,12 @@ const AIProductionAnalytics = ({ onBack }) => {
           <div className="flex items-center justify-center h-64">
             <div className="text-center">
               <Brain className="w-12 h-12 animate-pulse text-blue-600 mx-auto mb-4" />
-              <p className="text-gray-600 text-lg">AI विश्लेषण चलिरहेको छ...</p>
-              <p className="text-gray-500 text-sm">कृपया पर्खनुहोस्</p>
+              <p className="text-gray-600 text-lg">
+                {currentLanguage === "np" ? "AI विश्लेषण चलिरहेको छ..." : "AI analysis in progress..."}
+              </p>
+              <p className="text-gray-500 text-sm">
+                {currentLanguage === "np" ? "कृपया पर्खनुहोस्" : "Please wait"}
+              </p>
             </div>
           </div>
         ) : (

@@ -21,11 +21,11 @@ import {
   subMonths,
   addMonths,
 } from "date-fns";
-import { enUS } from "date-fns/locale";
+// import { enUS } from "date-fns/locale"; // Unused
 import NepaliDate from "nepali-date-converter";
 
 const PayrollSystem = ({ onBack }) => {
-  const { t, currentLanguage, formatNumber } = useLanguage();
+  const { currentLanguage, formatNumber } = useLanguage();
   const isNepali = currentLanguage === "np";
 
   // Helper function to format dates based on language
@@ -98,9 +98,9 @@ const PayrollSystem = ({ onBack }) => {
   };
 
   // State Management
-  const [activeTab, setActiveTab] = useState("monthly");
+  // const [activeTab, setActiveTab] = useState("monthly"); // Unused
   const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [selectedOperators, setSelectedOperators] = useState([]);
+  // const [selectedOperators, setSelectedOperators] = useState([]); // Unused
   const [showPayslipModal, setShowPayslipModal] = useState(false);
   const [selectedPayslip, setSelectedPayslip] = useState(null);
   const [filterBy, setFilterBy] = useState("all");

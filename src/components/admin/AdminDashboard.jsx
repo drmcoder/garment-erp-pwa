@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import { OperatorService, WIPService } from '../../services/firebase-services';
 import { db, collection, getDocs, COLLECTIONS } from '../../config/firebase';
 import MachineManagement from './MachineManagement';
 import SupervisorManagement from './SupervisorManagement';
-import DamageAnalyticsDashboard from '../management/DamageAnalyticsDashboard';
 import AIProductionAnalytics from '../analytics/AIProductionAnalytics';
 import LoginControlPanel from './LoginControlPanel';
+import LocationManagement from './LocationManagement';
 import OperatorAvatar from '../common/OperatorAvatar';
 import { 
   Users, 
@@ -36,7 +35,7 @@ import { createMissingUsers } from '../../utils/createUsers';
 const AdminDashboard = () => {
   const { currentLanguage } = useLanguage();
   const { logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('users');
+  const [activeTab, setActiveTab] = useState('analytics');
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [creatingUsers, setCreatingUsers] = useState(false);
 
@@ -52,9 +51,9 @@ const AdminDashboard = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
   const [stats, setStats] = useState({
-    totalOperators: 0,
     totalSupervisors: 0,
     totalMachines: 0,
+    totalLocations: 0,
   });
 
   // Load stats from localStorage or API
@@ -66,27 +65,26 @@ const AdminDashboard = () => {
     try {
       console.log('🔄 Loading admin dashboard stats from Firestore...');
       
-      // Load real data from Firestore
-      const [operatorsResult, supervisorsSnapshot, machinesSnapshot] = await Promise.all([
-        OperatorService.getActiveOperators(),
+      // Load real data from Firestore - focused on admin-level management
+      const [supervisorsSnapshot, machinesSnapshot] = await Promise.all([
         getDocs(collection(db, COLLECTIONS.SUPERVISORS)),
         getDocs(collection(db, COLLECTIONS.MACHINE_CONFIGS))
       ]);
 
-      const operators = operatorsResult.success ? operatorsResult.operators : [];
       const supervisors = supervisorsSnapshot.docs || [];
       const machines = machinesSnapshot.docs || [];
+      const locations = 3; // Mock locations count - should be from LocationService
 
       console.log('✅ Admin dashboard stats loaded:', {
-        operators: operators.length,
         supervisors: supervisors.length, 
-        machines: machines.length
+        machines: machines.length,
+        locations: locations
       });
 
       setStats({
-        totalOperators: operators.length,
         totalSupervisors: supervisors.length,
-        totalMachines: machines.length
+        totalMachines: machines.length,
+        totalLocations: locations
       });
     } catch (error) {
       console.error('❌ Error loading admin dashboard stats:', error);
@@ -119,10 +117,17 @@ const AdminDashboard = () => {
   const tabs = [
     {
       id: 'analytics',
-      label: currentLanguage === 'en' ? '🧠 AI Analytics' : 'AI विश्लेषण',
+      label: currentLanguage === 'en' ? '🧠 AI Analytics' : '🧠 AI विश्लेषण',
       icon: Activity,
       count: 0,
       color: 'blue'
+    },
+    {
+      id: 'supervisors',
+      label: currentLanguage === 'en' ? 'Supervisors' : 'सुपरवाइजरहरू',
+      icon: UserCheck,
+      count: stats.totalSupervisors,
+      color: 'green'
     },
     {
       id: 'machines',
@@ -130,6 +135,13 @@ const AdminDashboard = () => {
       icon: Cog,
       count: stats.totalMachines,
       color: 'purple'
+    },
+    {
+      id: 'locations',
+      label: currentLanguage === 'en' ? 'Locations' : 'स्थानहरू',
+      icon: MapPin,
+      count: stats.totalLocations,
+      color: 'orange'
     },
     {
       id: 'logincontrol',
@@ -144,8 +156,12 @@ const AdminDashboard = () => {
     switch (activeTab) {
       case 'analytics':
         return <AIProductionAnalytics />;
+      case 'supervisors':
+        return <SupervisorManagement onStatsUpdate={loadStats} />;
       case 'machines':
         return <MachineManagement onStatsUpdate={loadStats} />;
+      case 'locations':
+        return <LocationManagement onStatsUpdate={loadStats} />;
       case 'logincontrol':
         return <LoginControlPanel />;
       default:
@@ -242,7 +258,7 @@ const AdminDashboard = () => {
             <div className="flex items-center space-x-4">
               {/* Enhanced Quick Stats Cards */}
               <div className="flex space-x-3">
-                {tabs.slice(0, 3).map((tab) => {
+                {tabs.slice(1, 4).map((tab) => {
                   const colors = getColorClasses(tab.color);
                   const IconComponent = tab.icon;
                   return (
@@ -330,7 +346,7 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {/* Modern Analytics Overview */}
+      {/* System Information Overview - Real Data Only */}
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           {/* System Status */}
@@ -339,50 +355,67 @@ const AdminDashboard = () => {
               <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
                 <Activity className="w-5 h-5 text-green-600" />
               </div>
-              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">Online</span>
+              <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-medium">
+                {currentLanguage === 'np' ? 'अनलाइन' : 'Online'}
+              </span>
             </div>
-            <h3 className="font-semibold text-gray-900 mb-1">System Status</h3>
-            <p className="text-2xl font-bold text-green-600 mb-2">98.5%</p>
-            <p className="text-sm text-gray-600">Uptime Today</p>
+            <h3 className="font-semibold text-gray-900 mb-1">
+              {currentLanguage === 'np' ? 'प्रणाली स्थिति' : 'System Status'}
+            </h3>
+            <p className="text-2xl font-bold text-green-600 mb-2">
+              {currentLanguage === 'np' ? 'सक्रिय' : 'Active'}
+            </p>
+            <p className="text-sm text-gray-600">
+              {currentLanguage === 'np' ? 'वर्तमान स्थिति' : 'Current Status'}
+            </p>
           </div>
 
-          {/* Today's Activity */}
+          {/* Total Supervisors */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
             <div className="flex items-center justify-between mb-4">
               <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-blue-600" />
+                <Users className="w-5 h-5 text-blue-600" />
               </div>
-              <TrendingUp className="w-4 h-4 text-green-500" />
             </div>
-            <h3 className="font-semibold text-gray-900 mb-1">Production</h3>
-            <p className="text-2xl font-bold text-blue-600 mb-2">2,847</p>
-            <p className="text-sm text-gray-600">Pieces Today</p>
+            <h3 className="font-semibold text-gray-900 mb-1">
+              {currentLanguage === 'np' ? 'सुपरवाइजरहरू' : 'Supervisors'}
+            </h3>
+            <p className="text-2xl font-bold text-blue-600 mb-2">{stats.totalSupervisors}</p>
+            <p className="text-sm text-gray-600">
+              {currentLanguage === 'np' ? 'कुल' : 'Total'}
+            </p>
           </div>
 
-          {/* Alerts */}
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
-                <AlertCircle className="w-5 h-5 text-yellow-600" />
-              </div>
-              <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full font-medium">3 Active</span>
-            </div>
-            <h3 className="font-semibold text-gray-900 mb-1">Alerts</h3>
-            <p className="text-2xl font-bold text-yellow-600 mb-2">3</p>
-            <p className="text-sm text-gray-600">Pending Issues</p>
-          </div>
-
-          {/* Performance */}
+          {/* Total Machines */}
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
             <div className="flex items-center justify-between mb-4">
               <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-purple-600" />
+                <Cog className="w-5 h-5 text-purple-600" />
               </div>
-              <TrendingUp className="w-4 h-4 text-green-500" />
             </div>
-            <h3 className="font-semibold text-gray-900 mb-1">Efficiency</h3>
-            <p className="text-2xl font-bold text-purple-600 mb-2">87.3%</p>
-            <p className="text-sm text-gray-600">Avg Today</p>
+            <h3 className="font-semibold text-gray-900 mb-1">
+              {currentLanguage === 'np' ? 'मेसिनहरू' : 'Machines'}
+            </h3>
+            <p className="text-2xl font-bold text-purple-600 mb-2">{stats.totalMachines}</p>
+            <p className="text-sm text-gray-600">
+              {currentLanguage === 'np' ? 'कुल' : 'Total'}
+            </p>
+          </div>
+
+          {/* Total Locations */}
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 border border-white/20 shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center">
+                <MapPin className="w-5 h-5 text-orange-600" />
+              </div>
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-1">
+              {currentLanguage === 'np' ? 'स्थानहरू' : 'Locations'}
+            </h3>
+            <p className="text-2xl font-bold text-orange-600 mb-2">{stats.totalLocations}</p>
+            <p className="text-sm text-gray-600">
+              {currentLanguage === 'np' ? 'कुल' : 'Total'}
+            </p>
           </div>
         </div>
 

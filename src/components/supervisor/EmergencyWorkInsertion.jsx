@@ -28,7 +28,8 @@ const EmergencyWorkInsertion = ({ lotNumber, onClose, onSuccess }) => {
     selectedBatch: '',
     ratePerOperation: 0,
     totalCost: 0,
-    quantity: 1
+    quantity: 1,
+    splitIntoWorkItems: 1
   });
 
   const [availableOperations, setAvailableOperations] = useState([]);
@@ -240,75 +241,72 @@ const EmergencyWorkInsertion = ({ lotNumber, onClose, onSuccess }) => {
 
     setLoading(true);
     try {
-      // Phase 1: Create emergency work item with high priority
-      const emergencyWorkItem = {
-        lotNumber: lotNumber,
-        operation: formData.operationName,
-        operationNp: formData.operationNameNp,
-        machineType: formData.machineType,
-        status: 'emergency_inserted',
-        priority: formData.priority,
-        estimatedTime: formData.estimatedTime,
-        insertionPoint: formData.insertionPoint,
-        reason: formData.reason,
-        skillRequirements: formData.skillRequirements,
-        insertedBy: user.id,
-        insertedAt: new Date().toISOString(),
-        requiresApproval: formData.priority === 'emergency' ? false : true, // Emergency work bypasses approval
-        affectedOperations: formData.affectedOperations,
-        workflowDisruption: true,
-        // New batch and pricing fields
-        batchId: formData.selectedBatch,
-        quantity: formData.quantity,
-        ratePerOperation: formData.ratePerOperation,
-        totalCost: formData.totalCost,
-        pricing: {
-          rate: formData.ratePerOperation,
-          quantity: formData.quantity,
-          total: formData.totalCost,
-          currency: 'NPR'
-        }
-      };
-
-      // Insert the emergency work item
-      const result = await WIPService.insertEmergencyWorkItem(emergencyWorkItem);
+      // Phase 1: Create multiple emergency work items based on split
+      const piecesPerWorkItem = Math.floor(formData.quantity / formData.splitIntoWorkItems);
+      const remainingPieces = formData.quantity % formData.splitIntoWorkItems;
       
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to insert emergency work');
+      const workItemResults = [];
+      
+      for (let i = 0; i < formData.splitIntoWorkItems; i++) {
+        const workItemQuantity = i === formData.splitIntoWorkItems - 1 ? 
+          piecesPerWorkItem + remainingPieces : piecesPerWorkItem;
+        
+        const emergencyWorkItem = {
+          lotNumber: lotNumber,
+          operation: formData.operationName,
+          operationNp: formData.operationNameNp,
+          machineType: formData.machineType,
+          status: 'ready',
+          priority: formData.priority,
+          estimatedTime: formData.estimatedTime,
+          insertionPoint: formData.insertionPoint,
+          reason: formData.reason,
+          skillRequirements: formData.skillRequirements,
+          insertedBy: user.id,
+          insertedAt: new Date().toISOString(),
+          requiresApproval: formData.priority === 'emergency' ? false : true,
+          affectedOperations: formData.affectedOperations,
+          workflowDisruption: true,
+          // Batch and pricing fields for this work item
+          batchId: formData.selectedBatch,
+          quantity: workItemQuantity,
+          pieces: workItemQuantity, // Add pieces field for clarity
+          ratePerOperation: formData.ratePerOperation,
+          totalCost: (formData.ratePerOperation * workItemQuantity).toFixed(2),
+          pricing: {
+            rate: formData.ratePerOperation,
+            quantity: workItemQuantity,
+            total: (formData.ratePerOperation * workItemQuantity).toFixed(2),
+            currency: 'NPR'
+          },
+          // Split tracking
+          splitIndex: i + 1,
+          totalSplits: formData.splitIntoWorkItems,
+          originalQuantity: formData.quantity
+        };
+
+        // Insert each work item
+        const result = await WIPService.insertEmergencyWorkItem(emergencyWorkItem);
+        workItemResults.push(result);
+        
+        if (!result.success) {
+          throw new Error(result.error || `Failed to insert emergency work item ${i + 1}`);
+        }
+      }
+      
+      // Check if all work items were created successfully
+      const failedItems = workItemResults.filter(r => !r.success);
+      if (failedItems.length > 0) {
+        throw new Error(`Failed to create ${failedItems.length} work items`);
       }
 
       // Phase 2: Pause downstream assignments for this lot (optional)
-      if (formData.insertionPoint !== 'parallel') {
-        await WIPService.pauseDownstreamAssignments(lotNumber, result.workItemId);
+      if (formData.insertionPoint !== 'parallel' && workItemResults.length > 0) {
+        await WIPService.pauseDownstreamAssignments(lotNumber, workItemResults[0].workItemId);
       }
 
-      // Phase 3: Auto-suggest and optionally assign to best operator
-      if (suggestedOperators.length > 0 && formData.priority === 'emergency') {
-        const bestOperator = suggestedOperators[0];
-        
-        // Auto-assign to best available operator for emergency work
-        await WIPService.assignWorkItem(
-          result.workItemId,
-          bestOperator.id,
-          user.id, // Supervisor assigns
-          'assigned'
-        );
-
-        // Notify the assigned operator
-        await NotificationService.createNotification({
-          title: "आपातकालीन काम असाइन",
-          titleEn: "Emergency Work Assigned",
-          message: `लट ${lotNumber} मा ${formData.operationName} आपातकालीन काम असाइन गरियो`,
-          messageEn: `Emergency work ${formData.operationName} assigned for Lot ${lotNumber}`,
-          type: "emergency_assignment",
-          priority: "emergency",
-          targetUser: bestOperator.id,
-          targetRole: "operator",
-          workItemId: result.workItemId,
-          actionRequired: true,
-          autoAssigned: true
-        });
-      }
+      // Phase 3: Emergency work items created - ready for manual assignment
+      console.log(`✅ Created ${formData.splitIntoWorkItems} emergency work items for lot ${lotNumber}`);
 
       // Notify other supervisors about workflow disruption
       await NotificationService.createNotification({
@@ -346,12 +344,12 @@ const EmergencyWorkInsertion = ({ lotNumber, onClose, onSuccess }) => {
 
       showNotification(
         isNepali 
-          ? `✅ आपातकालीन काम सफलतापूर्वक थपियो`
-          : `✅ Emergency work inserted successfully`,
+          ? `✅ ${formData.splitIntoWorkItems} वटा आपातकालीन काम सफलतापूर्वक सिर्जना भयो`
+          : `✅ ${formData.splitIntoWorkItems} emergency work items created successfully`,
         'success'
       );
 
-      onSuccess && onSuccess(result.workItemId);
+      onSuccess && onSuccess(workItemResults.map(r => r.workItemId));
       onClose();
 
     } catch (error) {
@@ -533,6 +531,26 @@ const EmergencyWorkInsertion = ({ lotNumber, onClose, onSuccess }) => {
                   className="w-full border border-gray-300 rounded-lg px-3 py-2"
                   min="1"
                 />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  {isNepali ? 'कति वटा काम बनाउने' : 'Split into Work Items'}
+                </label>
+                <input
+                  type="number"
+                  value={formData.splitIntoWorkItems}
+                  onChange={(e) => setFormData({...formData, splitIntoWorkItems: parseInt(e.target.value) || 1})}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2"
+                  min="1"
+                  max={formData.quantity}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  {isNepali ? 
+                    `${Math.floor(formData.quantity / formData.splitIntoWorkItems)} पिस प्रति काम` : 
+                    `${Math.floor(formData.quantity / formData.splitIntoWorkItems)} pieces per work item`
+                  }
+                </p>
               </div>
             </div>
             

@@ -461,6 +461,13 @@ export const MACHINE_TYPES = {
     avgSpeed: 50,
     efficiency: 95,
   },
+  kansai: {
+    name: "Kansai Special Machine",
+    nameNepali: "कान्साई स्पेसल मेसिन",
+    operations: ["specialSeaming", "multiNeedleWork", "decorativeStitch"],
+    avgSpeed: 42,
+    efficiency: 88,
+  },
 };
 
 export default app;

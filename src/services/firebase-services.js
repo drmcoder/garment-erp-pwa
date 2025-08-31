@@ -2116,12 +2116,28 @@ export class WIPService {
   // Insert emergency work item (for dynamic production changes)
   static async insertEmergencyWorkItem(emergencyWork) {
     try {
+      // Validate required fields
+      if (!emergencyWork.lotNumber) {
+        throw new Error('lotNumber is required');
+      }
+      
+      // Calculate workflow position first to avoid circular dependency
+      const workflowPosition = await this.calculateInsertionPosition(emergencyWork.lotNumber, emergencyWork.insertionPoint);
+      
+      // Clean the emergency work data to ensure no undefined values
+      const cleanedEmergencyWork = {};
+      for (const [key, value] of Object.entries(emergencyWork)) {
+        if (value !== undefined && value !== null) {
+          cleanedEmergencyWork[key] = value;
+        }
+      }
+      
       const workItemRef = await addDoc(collection(db, COLLECTIONS.WORK_ITEMS), {
-        ...emergencyWork,
+        ...cleanedEmergencyWork,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         isEmergencyInsertion: true,
-        workflowPosition: await this.calculateInsertionPosition(emergencyWork.lotNumber, emergencyWork.insertionPoint)
+        workflowPosition: workflowPosition
       });
 
       console.log(`🚨 Emergency work item inserted: ${workItemRef.id}`);

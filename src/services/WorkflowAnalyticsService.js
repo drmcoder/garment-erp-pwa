@@ -9,6 +9,7 @@ import {
   getDoc,
   addDoc,
   updateDoc,
+  setDoc,
   query,
   where,
   orderBy,
@@ -347,7 +348,7 @@ export class WorkflowAnalyticsService {
           lastUpdated: serverTimestamp()
         });
       } else {
-        await updateDoc(frequencyRef, {
+        await setDoc(frequencyRef, {
           operationType,
           garmentType: garmentType || 'unknown',
           count: 1,

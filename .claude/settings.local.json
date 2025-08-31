@@ -48,7 +48,11 @@
       "Bash(gcloud firestore indexes composite create:*)",
       "WebFetch(domain:console.firebase.google.com)",
       "Bash(git branch:*)",
-      "Bash(open:*)"
+      "Bash(open:*)",
+      "Bash(PORT=3000 timeout 15 npm start)",
+      "Bash(PORT=3001 timeout 10 npm start)",
+      "Bash(npx eslint:*)",
+      "Bash(timeout 30 npm run build)"
     ],
     "deny": [],
     "ask": []

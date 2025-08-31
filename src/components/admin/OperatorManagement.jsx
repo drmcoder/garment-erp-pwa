@@ -1,3 +1,8 @@
+// ⚠️ DEPRECATED: This component is no longer used in Admin Dashboard
+// Operator management has been moved to Supervisor level management
+// Supervisors now handle all operator-related tasks through their dashboard
+// This file remains for backward compatibility but is not actively maintained
+
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { OperatorService, ConfigService } from '../../services/firebase-services';

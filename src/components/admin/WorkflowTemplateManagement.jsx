@@ -1,3 +1,8 @@
+// ⚠️ DEPRECATED: This component is no longer used in Admin Dashboard
+// Template and Workflow management has been moved to Supervisor level
+// Supervisors now handle all templates through ProcessTemplateManager component
+// This file remains for backward compatibility but is not actively maintained
+
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { ConfigService } from '../../services/firebase-services';

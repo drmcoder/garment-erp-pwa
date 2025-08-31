@@ -38,23 +38,7 @@ const WorkAssignment = () => {
   const [selectedLotForInsertion, setSelectedLotForInsertion] = useState(null);
   const [showAnalyticsDashboard, setShowAnalyticsDashboard] = useState(false);
   
-  // Load data when component mounts
-  useEffect(() => {
-    loadOperators();
-    loadAvailableBundles();
-    loadAssignmentHistory();
-    loadActiveWork();
-  }, []);
-
-  // Auto-refresh operators every 30 seconds to catch admin changes
-  useEffect(() => {
-    const refreshInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing operators...');
-      loadOperators();
-    }, 30000);
-
-    return () => clearInterval(refreshInterval);
-  }, []);
+  // Load data when component mounts - REMOVED DUPLICATE
 
   // Dynamic configurations from ConfigService
   const [machines, setMachines] = useState([]);
@@ -103,6 +87,7 @@ const WorkAssignment = () => {
   // Auto-refresh operators every 30 seconds to catch new users
   useEffect(() => {
     const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing operators...');
       loadOperators();
     }, 30000); // 30 seconds
 
@@ -260,10 +245,21 @@ const WorkAssignment = () => {
 
   // Helper function to get operator's assigned machine display name
   const getOperatorMachineDisplay = (operator) => {
+    // Check if machines are loaded yet to avoid race condition
+    if (!machines || machines.length === 0) {
+      // Don't log warnings, just return fallback
+      return {
+        name: operator.station || `${operator.machine || 'Station'}-${operator.name?.split(' ')[0] || 'Op'}`,
+        nameNp: operator.stationNp || operator.station || `${operator.machine || 'स्टेशन'}-${operator.name?.split(' ')[0] || 'अप'}`,
+        icon: '🏭'
+      };
+    }
+
     if (operator.assignedMachines && operator.assignedMachines.length > 0) {
       const machineId = operator.assignedMachines[0];
       const machine = machines.find(m => m.id === machineId);
       if (machine) {
+        console.log('✅ Machine found for operator:', operator.name, '→', machine.name);
         return {
           name: machine.name,
           nameNp: machine.nameNp || machine.name,
@@ -855,6 +851,32 @@ const WorkAssignment = () => {
     );
   };
 
+  // Filter bundles based on search term
+  const getFilteredBundles = () => {
+    if (!searchTerm.trim()) return availableBundles;
+    
+    const search = searchTerm.toLowerCase();
+    return availableBundles.filter(bundle => {
+      const articleNumber = (bundle.articleNumber || bundle.article || '').toString().toLowerCase();
+      const articleName = (bundle.articleName || '').toLowerCase();
+      const lotNumber = (bundle.lotNumber || '').toLowerCase();
+      const color = (bundle.color || '').toLowerCase();
+      const operation = (bundle.operation || bundle.currentOperation || '').toLowerCase();
+      const category = (bundle.category || '').toLowerCase();
+      const style = (bundle.style || '').toLowerCase();
+      
+      return articleNumber.includes(search) || 
+             articleName.includes(search) || 
+             lotNumber.includes(search) || 
+             color.includes(search) || 
+             operation.includes(search) ||
+             category.includes(search) ||
+             style.includes(search);
+    });
+  };
+
+  const filteredBundles = getFilteredBundles();
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
@@ -1044,7 +1066,12 @@ const WorkAssignment = () => {
                 {isNepali ? '📦 उपलब्ध काम' : '📦 Available Work'}
               </h2>
               <span className="text-sm text-gray-500">
-                {availableBundles.length} {isNepali ? 'आइटम' : 'items'}
+                {filteredBundles.length} {isNepali ? 'आइटम' : 'items'}
+                {searchTerm.trim() && filteredBundles.length !== availableBundles.length && (
+                  <span className="text-xs text-gray-400 ml-1">
+                    ({availableBundles.length} {isNepali ? 'मध्ये' : 'total'})
+                  </span>
+                )}
               </span>
             </div>
             
@@ -1076,9 +1103,23 @@ const WorkAssignment = () => {
               <div className="text-center py-8 text-gray-500">
                 {isNepali ? 'कुनै काम उपलब्ध छैन' : 'No work available'}
               </div>
+            ) : filteredBundles.length === 0 && searchTerm.trim() ? (
+              <div className="text-center py-8 text-gray-500">
+                <div className="text-lg mb-2">🔍</div>
+                {isNepali ? 
+                  `"${searchTerm}" को लागि कुनै काम भेटिएन` : 
+                  `No work found for "${searchTerm}"`
+                }
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="mt-2 text-blue-600 hover:text-blue-800 text-sm underline"
+                >
+                  {isNepali ? 'खोज हटाउनुहोस्' : 'Clear search'}
+                </button>
+              </div>
             ) : (
               <div className="space-y-3">
-                {availableBundles.map((bundle) => (
+                {filteredBundles.map((bundle) => (
                   <div
                     key={bundle.id}
                     draggable
@@ -1178,8 +1219,13 @@ const WorkAssignment = () => {
           </div>
           
           <div className="p-4 max-h-96 overflow-y-auto">
-            <div className="space-y-3">
-              {operators.map((operator) => (
+            {!machines || machines.length === 0 ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {operators.map((operator) => (
                 <div
                   key={operator.id}
                   onDragOver={handleDragOver}
@@ -1194,17 +1240,50 @@ const WorkAssignment = () => {
                         : 'hover:border-gray-300'}`}
                 >
                   <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-900">{operator.name}</span>
+                    <div className="flex items-center space-x-3">
+                      {/* Avatar */}
+                      <div className="relative">
+                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                          {operator.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'OP'}
+                        </div>
+                        {/* Online Status Indicator */}
+                        <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
+                          operator.isOnline ? 'bg-green-500' : 'bg-gray-400'
+                        }`}></div>
+                      </div>
+                      
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-medium text-gray-900">{operator.name}</span>
+                          {operator.isOnline && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs bg-green-100 text-green-800">
+                              <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1 animate-pulse"></div>
+                              {isNepali ? 'अनलाइन' : 'Online'}
+                            </span>
+                          )}
+                        </div>
+                        
+                        <div className="text-xs text-gray-500">
+                          {getOperatorSkill(operator)?.name || (isNepali ? 'सामान्य अपरेटर' : 'General Operator')}
+                        </div>
+                        
+                        {/* Machine Assignment */}
+                        <div className="flex items-center space-x-1 mt-1">
+                          <span className="text-xs">🏭</span>
+                          <span className="text-xs font-medium text-gray-600">
+                            {getOperatorMachineDisplay(operator).name}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
                       <span className={`px-2 py-1 rounded text-xs border ${getOperatorStatusColor(operator.status)}`}>
                         {getOperatorStatusText(operator.status)}
                       </span>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-gray-600">
-                        {operator.currentWorkload}/{operator.maxWorkload}
+                      <div className="text-sm text-gray-600 mt-1">
+                        {operator.currentWorkload || 0}/{operator.maxWorkload || 50}
                       </div>
-                      <div className="text-xs text-gray-500">workload</div>
                     </div>
                   </div>
                   
@@ -1234,8 +1313,9 @@ const WorkAssignment = () => {
                     </div>
                   )}
                 </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

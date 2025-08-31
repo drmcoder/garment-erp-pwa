@@ -7,9 +7,6 @@ import {
   Bar,
   LineChart,
   Line,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -18,38 +15,12 @@ import {
   ResponsiveContainer,
   AreaChart,
   Area,
-  RadialBarChart,
-  RadialBar,
 } from "recharts";
 import {
   TrendingUp,
   TrendingDown,
   Users,
-  Package,
-  Clock,
-  AlertTriangle,
-  Target,
-  Award,
-  Calendar,
-  Filter,
-  Download,
-  RefreshCw,
-  Eye,
-  DollarSign,
   Factory,
-  Zap,
-  BarChart3,
-  Activity,
-  Settings,
-  Wrench,
-  MapPin,
-  UserCheck,
-  Cog,
-  FileText,
-  GitBranch,
-  Shield,
-  Menu,
-  Bell,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
@@ -62,17 +33,13 @@ import MachineManagement from '../admin/MachineManagement';
 
 const AdvancedManagementDashboard = () => {
   const { user } = useAuth();
-  const { t, currentLanguage, formatNumber, formatTime } = useLanguage();
+  const { t, currentLanguage, formatNumber } = useLanguage();
 
   // State Management
   const [activeView, setActiveView] = useState("overview");
   const [dateRange, setDateRange] = useState("thisMonth");
-  const [selectedMetric, setSelectedMetric] = useState("production");
   const [timeFilter, setTimeFilter] = useState("daily");
   const [isLoading, setIsLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const [unreadNotificationsCount] = useState(3);
 
   // Data States
   const [dashboardData, setDashboardData] = useState({
@@ -98,104 +65,23 @@ const AdvancedManagementDashboard = () => {
     setTimeout(() => {
       setDashboardData({
         kpis: {
-          totalProduction: 12750,
-          targetProduction: 15000,
-          efficiency: 85,
-          qualityScore: 96.2,
-          activeOperators: 48,
-          totalOperators: 50,
-          revenue: 425000,
-          profit: 127500,
-          costPerPiece: 18.5,
-          onTimeDelivery: 94,
+          totalProduction: 0,
+          targetProduction: 0,
+          efficiency: 0,
+          qualityScore: 0,
+          activeOperators: 0,
+          totalOperators: 0,
+          revenue: 0,
+          profit: 0,
+          costPerPiece: 0,
+          onTimeDelivery: 0,
         },
-        productionTrends: [
-          { date: "१ गते", planned: 500, actual: 485, efficiency: 97 },
-          { date: "२ गते", planned: 520, actual: 510, efficiency: 98 },
-          { date: "३ गते", planned: 480, actual: 465, efficiency: 97 },
-          { date: "४ गते", planned: 600, actual: 520, efficiency: 87 },
-          { date: "५ गते", planned: 550, actual: 540, efficiency: 98 },
-          { date: "६ गते", planned: 500, actual: 495, efficiency: 99 },
-          { date: "७ गते", planned: 580, actual: 575, efficiency: 99 },
-        ],
-        operatorPerformance: [
-          {
-            name: "राम सिंह",
-            pieces: 125,
-            efficiency: 98,
-            quality: 99,
-            earnings: 312,
-          },
-          {
-            name: "सीता देवी",
-            pieces: 120,
-            efficiency: 96,
-            quality: 97,
-            earnings: 300,
-          },
-          {
-            name: "हरि बहादुर",
-            pieces: 118,
-            efficiency: 94,
-            quality: 98,
-            earnings: 295,
-          },
-          {
-            name: "गीता शर्मा",
-            pieces: 115,
-            efficiency: 92,
-            quality: 96,
-            earnings: 287,
-          },
-          {
-            name: "कमल थापा",
-            pieces: 110,
-            efficiency: 88,
-            quality: 94,
-            earnings: 275,
-          },
-        ],
-        qualityMetrics: [
-          { defectType: "कपडामा प्वाल", count: 12, percentage: 35 },
-          { defectType: "सिलाई दोष", count: 8, percentage: 23 },
-          { defectType: "रङ मिलेन", count: 6, percentage: 18 },
-          { defectType: "साइज गलत", count: 5, percentage: 15 },
-          { defectType: "अन्य", count: 3, percentage: 9 },
-        ],
-        financialData: [
-          { month: "फागुन", revenue: 380000, cost: 285000, profit: 95000 },
-          { month: "चैत्र", revenue: 425000, cost: 297500, profit: 127500 },
-          { month: "बैशाख", revenue: 465000, cost: 320000, profit: 145000 },
-          { month: "जेठ", revenue: 520000, cost: 364000, profit: 156000 },
-        ],
-        efficiencyData: [
-          { hour: "८ बजे", efficiency: 65, operators: 45 },
-          { hour: "९ बजे", efficiency: 78, operators: 48 },
-          { hour: "१० बजे", efficiency: 85, operators: 50 },
-          { hour: "११ बजे", efficiency: 88, operators: 50 },
-          { hour: "१२ बजे", efficiency: 72, operators: 48 },
-          { hour: "१ बजे", efficiency: 45, operators: 25 },
-          { hour: "२ बजे", efficiency: 82, operators: 48 },
-          { hour: "३ बजे", efficiency: 87, operators: 50 },
-          { hour: "४ बजे", efficiency: 85, operators: 49 },
-        ],
-        lineComparison: [
-          { line: "लाइन A", target: 200, achieved: 185, efficiency: 92.5 },
-          { line: "लाइन B", target: 180, achieved: 175, efficiency: 97.2 },
-          { line: "लाइन C", target: 150, achieved: 138, efficiency: 92.0 },
-          { line: "लाइन D", target: 120, achieved: 118, efficiency: 98.3 },
-        ],
-        hourlyProduction: [
-          { time: "८:०० AM", pieces: 45 },
-          { time: "९:०० AM", pieces: 68 },
-          { time: "१०:०० AM", pieces: 85 },
-          { time: "११:०० AM", pieces: 92 },
-          { time: "१२:०० PM", pieces: 78 },
-          { time: "१:०० PM", pieces: 42 },
-          { time: "२:०० PM", pieces: 88 },
-          { time: "३:०० PM", pieces: 95 },
-          { time: "४:०० PM", pieces: 89 },
-        ],
+        productionTrends: [],
+        operatorPerformance: [],
+        qualityMetrics: [],
+        financialData: [],
+        efficiencyData: [],
+        hourlyProduction: [],
       });
       setIsLoading(false);
     }, 1000);
@@ -256,7 +142,7 @@ const AdvancedManagementDashboard = () => {
     accent: "#8B5CF6",
   };
 
-  const pieColors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"];
+  // const pieColors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"]; // Unused
 
   // Overview Dashboard
   const OverviewDashboard = () => (
@@ -386,102 +272,7 @@ const AdvancedManagementDashboard = () => {
 
       {/* Charts Row 2 */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-        {/* Quality Issues */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            {currentLanguage === "np" ? "गुणस्तर मुद्दाहरू" : "Quality Issues"}
-          </h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <PieChart>
-              <Pie
-                data={dashboardData.qualityMetrics}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ name, percentage }) => `${percentage}%`}
-                outerRadius={80}
-                fill="#8884d8"
-                dataKey="count"
-                nameKey="defectType"
-              >
-                {dashboardData.qualityMetrics.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={pieColors[index % pieColors.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
 
-        {/* Line Comparison */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            {currentLanguage === "np" ? "लाइन तुलना" : "Line Comparison"}
-          </h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <BarChart data={dashboardData.lineComparison}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="line" />
-              <YAxis />
-              <Tooltip />
-              <Bar
-                dataKey="target"
-                fill={chartColors.primary}
-                name={currentLanguage === "np" ? "लक्ष्य" : "Target"}
-              />
-              <Bar
-                dataKey="achieved"
-                fill={chartColors.secondary}
-                name={currentLanguage === "np" ? "हासिल" : "Achieved"}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Top Performers */}
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">
-            {currentLanguage === "np" ? "शीर्ष कलाकार" : "Top Performers"}
-          </h3>
-          <div className="space-y-3">
-            {dashboardData.operatorPerformance
-              .slice(0, 5)
-              .map((operator, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                >
-                  <div className="flex items-center">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 font-medium text-sm">
-                        {index + 1}
-                      </span>
-                    </div>
-                    <div className="ml-3">
-                      <p className="font-medium text-gray-800">
-                        {operator.name}
-                      </p>
-                      <p className="text-sm text-gray-600">
-                        {operator.pieces} टुक्रा
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-bold text-green-600">
-                      रु. {operator.earnings}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {operator.efficiency}%
-                    </p>
-                  </div>
-                </div>
-              ))}
-          </div>
-        </div>
       </div>
 
       {/* Financial Overview */}
