@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { formatBSDate, formatTimeAgo, getCurrentBSDate } from '../utils/nepaliDate';
 
 // Complete language translations for TSA Production Management System with flexible sizing
@@ -894,7 +894,7 @@ export const LanguageProvider = ({ children }) => {
     return size;
   };
 
-  const value = {
+  const value = useMemo(() => ({
     currentLanguage,
     setCurrentLanguage,
     toggleLanguage,
@@ -911,7 +911,7 @@ export const LanguageProvider = ({ children }) => {
     sizeUtils,
     sizeConfigurations,
     articleSizeMapping
-  };
+  }), [currentLanguage]);
 
   return (
     <LanguageContext.Provider value={value}>

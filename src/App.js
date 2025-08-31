@@ -10,6 +10,8 @@ import {
 } from "./context/NotificationContext";
 import { SystemProvider, useSystem } from "./context/SystemContext";
 import { GlobalErrorProvider } from "./components/common/GlobalErrorHandler";
+import SentryErrorBoundary from "./components/error/SentryErrorBoundary";
+import ErrorTestingComponent from "./components/test/ErrorTestingComponent";
 // Removed unused Firebase imports - using modular LoginScreen
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import SelfAssignmentSystemCentralized from "./components/operator/SelfAssignmentSystemCentralized";
@@ -391,6 +393,7 @@ const AppContent = () => {
   const { user } = useAuth();
   // Removed unused permission check
   const [currentView, setCurrentView] = useState("dashboard");
+  const [showErrorTesting, setShowErrorTesting] = useState(false);
 
   if (!user) return null;
 
@@ -644,6 +647,27 @@ const AppContent = () => {
       )}
 
       <main>{renderContent()}</main>
+
+      {/* Development Error Testing - Only show in development */}
+      {process.env.NODE_ENV === 'development' && (
+        <>
+          {/* Floating Test Button */}
+          {!showErrorTesting && (
+            <button
+              onClick={() => setShowErrorTesting(true)}
+              className="fixed bottom-4 left-4 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg z-40 transition-colors"
+              title="Open Error Testing"
+            >
+              🐛
+            </button>
+          )}
+          
+          {/* Error Testing Component */}
+          {showErrorTesting && (
+            <ErrorTestingComponent onClose={() => setShowErrorTesting(false)} />
+          )}
+        </>
+      )}
     </div>
   );
 };
@@ -662,21 +686,23 @@ const App = () => {
 // Root App with all providers
 const AppWithProviders = () => {
   return (
-    <LanguageProvider>
-      <GlobalErrorProvider>
-        <AuthProvider>
-          <PermissionsProvider>
-            <SystemProvider>
-              <NotificationProvider>
-                <CentralizedAppProvider>
-                  <App />
-                </CentralizedAppProvider>
-              </NotificationProvider>
-            </SystemProvider>
-          </PermissionsProvider>
-        </AuthProvider>
-      </GlobalErrorProvider>
-    </LanguageProvider>
+    <SentryErrorBoundary>
+      <LanguageProvider>
+        <GlobalErrorProvider>
+          <AuthProvider>
+            <PermissionsProvider>
+              <SystemProvider>
+                <NotificationProvider>
+                  <CentralizedAppProvider>
+                    <App />
+                  </CentralizedAppProvider>
+                </NotificationProvider>
+              </SystemProvider>
+            </PermissionsProvider>
+          </AuthProvider>
+        </GlobalErrorProvider>
+      </LanguageProvider>
+    </SentryErrorBoundary>
   );
 };
 

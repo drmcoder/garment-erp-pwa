@@ -29,7 +29,7 @@ class RealtimeSubscriptionManager {
 
     // Check if subscription already exists
     if (this.subscriptions.has(subscriptionId)) {
-      console.log(`⚠️ Subscription ${subscriptionId} already exists`);
+      console.log(`🔄 Reusing existing subscription: ${subscriptionId}`);
       return this.subscriptions.get(subscriptionId);
     }
 
@@ -70,8 +70,21 @@ class RealtimeSubscriptionManager {
         },
         (error) => {
           console.error(`❌ Real-time subscription error for ${subscriptionId}:`, error);
+          
+          // Handle specific Firestore errors gracefully
+          if (error.code === 'unavailable' || error.code === 'deadline-exceeded') {
+            console.log(`🔄 Firestore temporarily unavailable for ${subscriptionId}, will retry automatically`);
+          } else if (error.code === 'permission-denied') {
+            console.error(`🚫 Permission denied for ${subscriptionId}. Check Firestore rules.`);
+            this.unsubscribe(subscriptionId); // Remove invalid subscription
+          } else if (error.code === 'failed-precondition') {
+            console.log(`⚠️ Firestore connection issue for ${subscriptionId}, keeping subscription for retry`);
+          } else {
+            console.log(`⚠️ Connection error for ${subscriptionId}: ${error.message}`);
+          }
+          
           if (this.store) {
-            this.store.getState().setError(`Real-time subscription failed: ${error.message}`);
+            this.store.getState().setError(`Connection issue: ${error.message}`);
           }
         }
       );

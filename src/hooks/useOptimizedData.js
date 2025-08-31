@@ -10,6 +10,7 @@ export function useOptimizedData(dataType, options = {}) {
     autoRefresh = false,
     refreshInterval = 300000, // 5 minutes default
     immediate = true,
+    timeout = 10000, // 10 second default timeout
     onError = null
   } = options;
 
@@ -37,30 +38,38 @@ export function useOptimizedData(dataType, options = {}) {
     setError(null);
 
     try {
-      let result;
+      // Create timeout promise
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Data fetch timeout')), timeout)
+      );
+
+      let dataPromise;
       
       switch (dataType) {
         case 'operators':
-          result = await cacheService.getOperators(useCache);
+          dataPromise = cacheService.getOperators(useCache);
           break;
         case 'supervisors':
-          result = await cacheService.getSupervisors(useCache);
+          dataPromise = cacheService.getSupervisors(useCache);
           break;
         case 'management':
-          result = await cacheService.getManagement(useCache);
+          dataPromise = cacheService.getManagement(useCache);
           break;
         case 'all_users':
-          result = await cacheService.getAllUsers(useCache);
+          dataPromise = cacheService.getAllUsers(useCache);
           break;
         case 'article_templates':
-          result = await cacheService.getArticleTemplates(useCache);
+          dataPromise = cacheService.getArticleTemplates(useCache);
           break;
         case 'machine_configs':
-          result = await cacheService.getMachineConfigs(useCache);
+          dataPromise = cacheService.getMachineConfigs(useCache);
           break;
         default:
-          result = await cacheService.getCollection(dataType, useCache);
+          dataPromise = cacheService.getCollection(dataType, useCache);
       }
+
+      // Race between data fetch and timeout
+      const result = await Promise.race([dataPromise, timeoutPromise]);
 
       if (!mountedRef.current) return;
 
@@ -91,7 +100,7 @@ export function useOptimizedData(dataType, options = {}) {
         setLoading(false);
       }
     }
-  }, [dataType, onError]);
+  }, [dataType, timeout, onError]);
 
   // Force refresh (bypass cache)
   const refresh = useCallback(() => {

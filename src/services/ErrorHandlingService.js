@@ -3,6 +3,7 @@
 
 import React from 'react';
 import { ActivityLogService } from './firebase-services';
+import { sentryService } from './SentryService';
 
 // Error severity levels
 export const ERROR_SEVERITY = {
@@ -45,6 +46,9 @@ class ErrorHandlingService {
     
     // Log error
     await this.logError(errorInfo);
+    
+    // Report to Sentry
+    this.reportToSentry(error, errorInfo, context);
     
     // Queue for batch processing
     this.queueError(errorInfo);
@@ -248,6 +252,65 @@ class ErrorHandlingService {
     }
 
     // Could add other logging destinations here (Sentry, LogRocket, etc.)
+  }
+
+  // Report error to Sentry
+  reportToSentry(error, errorInfo, context) {
+    try {
+      // Map severity to Sentry levels
+      const sentryLevel = {
+        [ERROR_SEVERITY.LOW]: 'info',
+        [ERROR_SEVERITY.MEDIUM]: 'warning', 
+        [ERROR_SEVERITY.HIGH]: 'error',
+        [ERROR_SEVERITY.CRITICAL]: 'fatal'
+      }[errorInfo.severity] || 'error';
+
+      // Prepare context for Sentry
+      const sentryContext = {
+        level: sentryLevel,
+        tags: {
+          category: errorInfo.category,
+          severity: errorInfo.severity,
+          component: context.component || 'unknown',
+          action: context.action || 'unknown'
+        },
+        extra: {
+          errorId: errorInfo.id,
+          timestamp: errorInfo.timestamp,
+          userId: this.userId,
+          url: window.location.href,
+          userAgent: navigator.userAgent,
+          context: context
+        }
+      };
+
+      // Set user context if available
+      if (this.userId) {
+        sentryContext.user = {
+          id: this.userId,
+          username: context.username,
+          name: context.userName,
+          role: context.userRole
+        };
+      }
+
+      // Report to Sentry
+      sentryService.reportError(error, sentryContext);
+      
+      // Add breadcrumb for debugging trail
+      sentryService.addBreadcrumb(
+        `Error in ${context.component || 'unknown'}: ${errorInfo.message}`,
+        'error',
+        sentryLevel,
+        {
+          category: errorInfo.category,
+          action: context.action
+        }
+      );
+
+    } catch (sentryError) {
+      console.error('Failed to report error to Sentry:', sentryError);
+    }
   }
 
   // Queue error for batch processing

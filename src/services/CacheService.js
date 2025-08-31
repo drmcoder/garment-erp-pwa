@@ -121,7 +121,7 @@ class CacheService {
       
       // Add timeout to prevent infinite loading
       const timeout = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout - check network connection')), 15000)
+        setTimeout(() => reject(new Error('Request timeout - check network connection')), 3000)
       );
 
       const [operatorsSnapshot, supervisorsSnapshot, managementSnapshot] = await Promise.race([
@@ -242,6 +242,16 @@ class CacheService {
   async refreshCollection(collectionName) {
     this.clearCache(collectionName);
     return this.getCollection(collectionName, false);
+  }
+
+  // Get bundles with caching
+  async getAllBundles(useCache = true) {
+    return this.getCollection(COLLECTIONS.BUNDLES, useCache);
+  }
+
+  // Get work items with caching
+  async getAllWorkItems(useCache = true) {
+    return this.getCollection(COLLECTIONS.WORK_ITEMS, useCache);
   }
 
   // Get cache statistics

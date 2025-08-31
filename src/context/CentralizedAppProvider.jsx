@@ -76,7 +76,7 @@ export const CentralizedAppProvider = ({ children }) => {
         console.log('🧹 Cleaned up centralized systems');
       }
     };
-  }, [isAuthenticated, user, isNepali, showNotification]);
+  }, [isAuthenticated, user, isNepali]);
 
   // Sync system settings with centralized store
   useEffect(() => {

@@ -1,7 +1,7 @@
 // src/contexts/AuthContext.jsx
 // Complete Authentication Context for TSA Production Management System
 
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { LanguageContext } from './LanguageContext';
 import { ActivityLogService } from '../services/firebase-services';
 import { db, collection, getDocs, doc, updateDoc, COLLECTIONS, DEMO_USERS } from '../config/firebase';
@@ -599,7 +599,7 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     // Auth state
     user,
     loading,
@@ -628,7 +628,27 @@ export const AuthProvider = ({ children }) => {
     getAllOperators,
     getOperatorsBySpeciality,
     mockUsers // Expose for development/testing
-  };
+  }), [
+    user,
+    loading,
+    isAuthenticated,
+    isOnline,
+    login,
+    logout,
+    updateProfile,
+    changePassword,
+    refreshUserData,
+    hasPermission,
+    getUserDisplayName,
+    getUserDisplayInfo,
+    getUserRoleDisplay,
+    getUserSpecialityDisplay,
+    updateWorkAssignment,
+    completeCurrentWork,
+    getAllOperators,
+    getOperatorsBySpeciality,
+    mockUsers
+  ]);
 
   return (
     <AuthContext.Provider value={value}>

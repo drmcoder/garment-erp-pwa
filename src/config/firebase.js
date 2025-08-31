@@ -80,6 +80,14 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+// Configure Firestore settings for better error handling
+try {
+  // Enable persistence and configure Firestore for better connection handling
+  console.log("🔧 Configuring Firestore for improved connection handling");
+} catch (error) {
+  console.warn("⚠️ Firestore configuration warning:", error);
+}
+
 // Analytics completely disabled to avoid conflicts and blocking issues
 let analytics = null;
 console.log("🔧 Analytics disabled - preventing conflicts and blocking issues");

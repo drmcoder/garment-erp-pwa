@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import { useLanguage } from './LanguageContext';
 import config from '../config/environments';
 
@@ -77,46 +77,6 @@ export const NotificationProvider = ({ children }) => {
   };
 
   // Initialize empty notifications - no test data
-  
-  // Add test notifications with different timestamps for debugging (remove in production)
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      // Test notifications with different timestamps
-      setTimeout(() => {
-        const now = new Date();
-        
-        // Create notifications with different timestamps
-        const testNotifications = [
-          {
-            title: currentLanguage === 'np' ? 'सफल' : 'Success',
-            message: currentLanguage === 'np' ? 'डेटा रिफ्रेश गरियो' : 'Data refreshed',
-            type: 'success',
-            time: new Date(now.getTime() - 5 * 60 * 1000), // 5 minutes ago
-            priority: 'low'
-          },
-          {
-            title: currentLanguage === 'np' ? 'सफल' : 'Success',
-            message: '8085 assigned to bimala overlock',
-            type: 'success', 
-            time: new Date(now.getTime() - 30 * 60 * 1000), // 30 minutes ago
-            priority: 'medium'
-          },
-          {
-            title: currentLanguage === 'np' ? 'सफल' : 'Success',
-            message: currentLanguage === 'np' ? 'आपातकालीन काम सफलतापूर्वक थपियो' : 'Emergency work inserted successfully',
-            type: 'success',
-            time: new Date(now.getTime() - 60 * 60 * 1000), // 1 hour ago
-            priority: 'high'
-          }
-        ];
-        
-        // Only add test notifications if there are no existing notifications
-        if (notifications.length === 0) {
-          testNotifications.forEach(notif => addNotification(notif));
-        }
-      }, 1000);
-    }
-  }, [currentLanguage]); // Only run when language context is ready
 
   const addNotification = (notification) => {
     // Check if demo notifications are disabled
@@ -338,7 +298,7 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  const value = {
+  const value = useMemo(() => ({
     notifications,
     unreadCount,
     addNotification,
@@ -354,7 +314,23 @@ export const NotificationProvider = ({ children }) => {
     removeNotification,
     clearAllNotifications,
     getUnreadCount
-  };
+  }), [
+    notifications,
+    unreadCount,
+    addNotification,
+    showNotification,
+    sendWorkAssigned,
+    sendWorkCompleted,
+    sendWorkflowNotification,
+    sendMachineGroupNotification,
+    markAsRead,
+    markAsUnread,
+    toggleReadStatus,
+    markAllAsRead,
+    removeNotification,
+    clearAllNotifications,
+    getUnreadCount
+  ]);
 
   // Show loading state if language context is not ready
   if (!currentLanguage) {

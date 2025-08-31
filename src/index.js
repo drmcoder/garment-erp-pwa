@@ -3,6 +3,18 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 
+// Initialize Sentry error reporting
+import { sentryService } from './services/SentryService';
+sentryService.initialize();
+
+// Send a test event after 3 seconds (development only)
+if (process.env.NODE_ENV === 'development') {
+  setTimeout(() => {
+    sentryService.testError();
+    console.log('🎯 Test error sent to Sentry - check your dashboard!');
+  }, 3000);
+}
+
 // Suppress defaultProps warnings from external libraries (particularly nepali-datepicker-reactjs)
 const originalWarn = console.warn;
 const originalError = console.error;

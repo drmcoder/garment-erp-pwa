@@ -1,7 +1,7 @@
 // Centralized Data Hooks
 // Custom hooks for consistent data access across components
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAppStore, useAppActions, useAppUtils } from '../store/AppStore';
 import { dataService } from '../services/DataService';
 import { useAuth } from '../context/AuthContext';
@@ -40,7 +40,8 @@ export const useUsers = () => {
     if (!users.lastUpdated) {
       loadUsers();
     }
-  }, [loadUsers, users.lastUpdated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [users.lastUpdated]); // loadUsers is stable but causes infinite loop in dependency array
   
   const refreshUsers = useCallback(async () => {
     setLocalLoading(true);
@@ -52,20 +53,25 @@ export const useUsers = () => {
   }, [loadUsers]);
   
   const getUserById = useCallback((id) => {
-    const allUsers = [...users.operators, ...users.supervisors, ...users.management];
+    const operators = (users && users.operators) ? users.operators : [];
+    const supervisors = (users && users.supervisors) ? users.supervisors : [];
+    const management = (users && users.management) ? users.management : [];
+    const allUsers = [...operators, ...supervisors, ...management];
     return allUsers.find(user => user.id === id);
   }, [users]);
   
   const getUsersByRole = useCallback((role) => {
+    if (!users) return [];
+    
     switch (role) {
       case 'operator':
-        return users.operators;
+        return users.operators || [];
       case 'supervisor':
-        return users.supervisors;
+        return users.supervisors || [];
       case 'management':
       case 'manager':
       case 'admin':
-        return users.management;
+        return users.management || [];
       default:
         return [];
     }
@@ -78,7 +84,15 @@ export const useUsers = () => {
     updateUser,
     getUserById,
     getUsersByRole,
-    allUsers: [...users.operators, ...users.supervisors, ...users.management],
+    allUsers: [
+      ...(users.operators || []), 
+      ...(users.supervisors || []), 
+      ...(users.management || [])
+    ],
+    // Ensure operators, supervisors, management are always arrays
+    operators: users.operators || [],
+    supervisors: users.supervisors || [],
+    management: users.management || []
   };
 };
 
@@ -96,7 +110,8 @@ export const useWorkManagement = () => {
     if (!workItems.lastUpdated) {
       loadWorkItems();
     }
-  }, [loadWorkItems, workItems.lastUpdated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workItems.lastUpdated]); // loadWorkItems is stable but causes infinite loop in dependency array
   
   const assignWorkToOperator = useCallback(async (operatorId, workData) => {
     setLocalLoading(true);
@@ -178,7 +193,8 @@ export const useProductionAnalytics = () => {
     if (!production.lastUpdated) {
       loadProductionStats();
     }
-  }, [loadProductionStats, production.lastUpdated]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [production.lastUpdated]); // loadProductionStats is stable but causes infinite loop in dependency array
   
   const refreshStats = useCallback(async () => {
     setLocalLoading(true);
@@ -329,15 +345,28 @@ export const useOperatorData = () => {
 
 // Supervisor-specific hooks
 export const useSupervisorData = () => {
-  const { users } = useUsers();
-  const { workItems } = useWorkManagement();
-  const { production } = useProductionAnalytics();
+  const usersData = useUsers();
+  const workData = useWorkManagement();
+  const productionData = useProductionAnalytics();
+  
+  // Add safety checks for all data
+  const users = usersData || {};
+  const workItems = workData || {};
+  const production = productionData || {};
   
   const getLineStatus = useCallback(() => {
-    const operators = users.operators || [];
-    const assignments = workItems.assignments || [];
+    // Multiple layers of safety checks
+    if (!users || typeof users !== 'object') {
+      return { totalOperators: 0, busyOperators: 0, availableOperators: 0, utilizationRate: 0 };
+    }
+    if (!workItems || typeof workItems !== 'object') {
+      return { totalOperators: 0, busyOperators: 0, availableOperators: 0, utilizationRate: 0 };
+    }
     
-    const activeAssignments = assignments.filter(a => a.status === 'assigned');
+    const operators = Array.isArray(users.operators) ? users.operators : [];
+    const assignments = Array.isArray(workItems.assignments) ? workItems.assignments : [];
+    
+    const activeAssignments = assignments.filter(a => a && typeof a === 'object' && a.status === 'assigned');
     const busyOperators = activeAssignments.length;
     const availableOperators = operators.length - busyOperators;
     
@@ -347,21 +376,33 @@ export const useSupervisorData = () => {
       availableOperators,
       utilizationRate: operators.length > 0 ? (busyOperators / operators.length) * 100 : 0,
     };
-  }, [users.operators, workItems.assignments]);
+  }, [users, workItems]);
   
   const getPendingApprovals = useCallback(() => {
-    return workItems.assignments.filter(a => a.status === 'pending_approval');
-  }, [workItems.assignments]);
+    if (!workItems || typeof workItems !== 'object') return [];
+    const assignments = Array.isArray(workItems.assignments) ? workItems.assignments : [];
+    return assignments.filter(a => a && typeof a === 'object' && a.status === 'pending_approval');
+  }, [workItems]);
   
   const getQualityIssues = useCallback(() => {
-    return workItems.completions.filter(c => (c.quality || 100) < 95);
-  }, [workItems.completions]);
+    if (!workItems || typeof workItems !== 'object') return [];
+    const completions = Array.isArray(workItems.completions) ? workItems.completions : [];
+    return completions.filter(c => c && typeof c === 'object' && (c.quality || 100) < 95);
+  }, [workItems]);
   
+  const lineStatus = useMemo(() => getLineStatus(), [getLineStatus]);
+  const pendingApprovals = useMemo(() => getPendingApprovals(), [getPendingApprovals]);
+  const qualityIssues = useMemo(() => getQualityIssues(), [getQualityIssues]);
+  const productionStats = useMemo(() => {
+    if (!production || typeof production !== 'object') return {};
+    return (production.stats && typeof production.stats === 'object') ? production.stats : {};
+  }, [production]);
+
   return {
-    lineStatus: getLineStatus(),
-    pendingApprovals: getPendingApprovals(),
-    qualityIssues: getQualityIssues(),
-    productionStats: production.stats,
+    lineStatus,
+    pendingApprovals,
+    qualityIssues,
+    productionStats,
   };
 };
 

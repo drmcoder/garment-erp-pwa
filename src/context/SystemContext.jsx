@@ -1,7 +1,7 @@
 // src/context/SystemContext.jsx
 // Global System Configuration Context
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 
 const SystemContext = createContext();
 
@@ -133,7 +133,7 @@ export const SystemProvider = ({ children }) => {
     });
   };
 
-  const value = {
+  const value = useMemo(() => ({
     systemSettings,
     loading,
     updateSystemSettings,
@@ -143,7 +143,7 @@ export const SystemProvider = ({ children }) => {
     getLineBundles,
     currentLine: systemSettings.currentLine,
     lineName: systemSettings.lineName
-  };
+  }), [systemSettings, loading]);
 
   return (
     <SystemContext.Provider value={value}>

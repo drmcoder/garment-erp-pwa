@@ -1,4 +1,5 @@
 import React from 'react';
+import UniqueAvatarSystem from '../avatar/UniqueAvatarSystem';
 
 const OperatorAvatar = ({ 
   operator, 
@@ -53,7 +54,6 @@ const OperatorAvatar = ({
         );
       
       case 'initials':
-      default:
         return (
           <div 
             className={`${baseClasses}`}
@@ -63,6 +63,20 @@ const OperatorAvatar = ({
             }}
           >
             <span>{avatar?.value || getInitials(operator.name)}</span>
+          </div>
+        );
+
+      case 'unique':
+      default:
+        // Use UniqueAvatarSystem for unique identity avatars
+        return (
+          <div className={baseClasses}>
+            <UniqueAvatarSystem
+              userId={operator.id || operator.username}
+              name={operator.name || operator.nameEn || operator.username}
+              size={size}
+              className="w-full h-full"
+            />
           </div>
         );
     }

@@ -26,39 +26,13 @@ const LoginScreen = () => {
     error: usersError 
   } = useAllUsers({ 
     immediate: true,
-    autoRefresh: false // Don't auto-refresh on login screen
+    autoRefresh: false, // Don't auto-refresh on login screen
+    timeout: 2000 // 2 second timeout
   });
 
   // Process and filter users for login dropdown
   const availableUsers = React.useMemo(() => {
-    // If still loading for more than 3 seconds, show demo users
-    const showDemoUsers = loadingUsers || allUsers.length === 0 || usersError;
-    
-    if (showDemoUsers) {
-      // Fallback demo users
-      return [
-        {
-          username: 'button',
-          name: 'Button Operator', 
-          role: 'supervisor',
-          lastLogin: new Date(Date.now() - 1 * 60 * 60 * 1000)
-        },
-        {
-          username: 'ram.singh',
-          name: 'Ram Singh', 
-          role: 'operator',
-          lastLogin: new Date(Date.now() - 2 * 60 * 60 * 1000)
-        },
-        {
-          username: 'admin.manager',
-          name: 'Admin Manager',
-          role: 'management',
-          lastLogin: new Date(Date.now() - 30 * 60 * 1000)
-        }
-      ];
-    }
-
-    // Process real users data
+    // Only show real users from database, no demo users
     const usersData = allUsers
       .filter(user => user.username) // Only users with usernames
       .map(user => ({
@@ -316,12 +290,6 @@ const LoginScreen = () => {
                           ⌨️ Manual Entry
                         </button>
                       </div>
-                      {loadingUsers && (
-                        <div className="flex items-center justify-center mt-2">
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                          <span className="ml-2 text-xs text-gray-600">Loading users...</span>
-                        </div>
-                      )}
                     </div>
                     
                     <div className="max-h-64 overflow-y-auto">
@@ -332,7 +300,6 @@ const LoginScreen = () => {
                       ) : usersError ? (
                         <div className="p-4 text-center text-red-500">
                           <div>❌ Failed to load users</div>
-                          <div className="text-xs text-gray-500 mt-1">Using demo accounts below</div>
                         </div>
                       ) : availableUsers.length > 0 ? (
                         availableUsers.map((user) => (
