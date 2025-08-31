@@ -5,6 +5,7 @@ import { NotificationContext } from '../../context/NotificationContext';
 import { db, collection, getDocs, query, where, orderBy, doc, updateDoc, addDoc, COLLECTIONS } from '../../config/firebase';
 import { updateBundleWithReadableId } from '../../utils/bundleIdGenerator';
 import { formatDateByLanguage, formatTimeAgo } from '../../utils/nepaliDate';
+import { checkAndUpdateDependentOperations } from '../../utils/progressManager';
 import DamageReportModal from './DamageReportModal';
 import DamageNotificationSystem from '../common/DamageNotificationSystem';
 import { damageReportService } from '../../services/DamageReportService';
@@ -13,7 +14,7 @@ import OperatorAvatar from '../common/OperatorAvatar';
 const OperatorWorkDashboardNew = () => {
   const { user } = useContext(AuthContext);
   const { currentLanguage } = useContext(LanguageContext);
-  const { showNotification } = useContext(NotificationContext);
+  const { showNotification, sendWorkflowNotification, sendMachineGroupNotification } = useContext(NotificationContext);
 
   const [currentWork, setCurrentWork] = useState(null); // Currently active work
   const [readyWork, setReadyWork] = useState([]); // Work ready to start
@@ -33,6 +34,179 @@ const OperatorWorkDashboardNew = () => {
   const [selectedWorkItem, setSelectedWorkItem] = useState(null);
 
   const isNepali = currentLanguage === 'np';
+
+  // Update dependent operations when work is completed (Firebase version)
+  const updateDependentOperationsFirebase = async (completedWorkItem) => {
+    try {
+      console.log(`🔄 Checking dependencies for completed work: ${completedWorkItem.id}`);
+      
+      // Find operations in the same bundle that might depend on this completed work
+      const bundleWorkQuery = query(
+        collection(db, COLLECTIONS.WORK_ITEMS),
+        where('bundleId', '==', completedWorkItem.bundleId),
+        where('status', '==', 'waiting') // Only check waiting operations
+      );
+      
+      const bundleWorkSnapshot = await getDocs(bundleWorkQuery);
+      const waitingOperations = [];
+      
+      bundleWorkSnapshot.forEach((doc) => {
+        const workData = doc.data();
+        waitingOperations.push({
+          id: doc.id,
+          ...workData,
+          ref: doc.ref
+        });
+      });
+      
+      console.log(`📋 Found ${waitingOperations.length} waiting operations in bundle ${completedWorkItem.bundleId}`);
+      
+      // Check each waiting operation to see if its dependencies are now satisfied
+      for (const waitingOp of waitingOperations) {
+        if (!waitingOp.dependencies || waitingOp.dependencies.length === 0) {
+          continue; // No dependencies to check
+        }
+        
+        console.log(`🔍 Checking dependencies for operation ${waitingOp.id}:`, waitingOp.dependencies);
+        
+        // Check if all dependencies are completed
+        let allDependenciesCompleted = true;
+        
+        for (const depId of waitingOp.dependencies) {
+          // Query for the dependency work item
+          const depQuery = query(
+            collection(db, COLLECTIONS.WORK_ITEMS),
+            where('bundleId', '==', completedWorkItem.bundleId),
+            where('operationId', '==', depId) // Assuming dependencies reference operationId
+          );
+          
+          const depSnapshot = await getDocs(depQuery);
+          
+          let dependencyCompleted = false;
+          depSnapshot.forEach((depDoc) => {
+            const depData = depDoc.data();
+            if (['completed', 'operator_completed'].includes(depData.status)) {
+              dependencyCompleted = true;
+            }
+          });
+          
+          if (!dependencyCompleted) {
+            allDependenciesCompleted = false;
+            break;
+          }
+        }
+        
+        // If all dependencies are completed, update this operation to 'ready'
+        if (allDependenciesCompleted) {
+          console.log(`✅ All dependencies completed for ${waitingOp.id}. Updating to 'ready'`);
+          
+          await updateDoc(waitingOp.ref, {
+            status: 'ready',
+            updatedAt: new Date(),
+            readyAt: new Date()
+          });
+          
+          // Notify ALL operators who can perform this machine type
+          await notifyMachineTypeOperators(waitingOp, completedWorkItem);
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Error updating dependent operations:', error);
+    }
+  };
+
+  // Notify all operators who can perform the newly available operation
+  const notifyMachineTypeOperators = async (readyOperation, completedWorkItem) => {
+    try {
+      const machineType = readyOperation.machineType || readyOperation.machine;
+      const operation = readyOperation.operation || readyOperation.currentOperation;
+      const articleNumber = readyOperation.articleNumber || readyOperation.article;
+      
+      console.log(`📢 Notifying ${machineType} operators about new work: ${operation}`);
+      
+      // Get all operators who can work on this machine type
+      const operatorsQuery = query(
+        collection(db, 'operators'), // or COLLECTIONS.OPERATORS
+        where('machineType', '==', machineType),
+        where('active', '==', true) // Only active operators
+      );
+      
+      const operatorsSnapshot = await getDocs(operatorsQuery);
+      const targetOperators = [];
+      
+      operatorsSnapshot.forEach((doc) => {
+        const operatorData = doc.data();
+        targetOperators.push({
+          id: doc.id,
+          name: operatorData.name,
+          nameEn: operatorData.nameEn,
+          machineType: operatorData.machineType
+        });
+      });
+      
+      console.log(`👥 Found ${targetOperators.length} ${machineType} operators to notify`);
+      
+      // Create workflow notification for each operator
+      for (const operator of targetOperators) {
+        // Create targeted notification in their notification queue
+        const notificationData = {
+          operatorId: operator.id,
+          operatorName: operator.name,
+          type: 'workflow_ready',
+          priority: 'high',
+          title: isNepali ? '🔄 नयाँ काम तयार छ' : '🔄 New Work Ready',
+          message: isNepali 
+            ? `आर्टिकल ${articleNumber} - ${operation} तपाईंको ${machineType} मेसिनका लागि तयार छ`
+            : `Article ${articleNumber} - ${operation} is ready for your ${machineType} machine`,
+          data: {
+            workItemId: readyOperation.id,
+            bundleId: readyOperation.bundleId,
+            articleNumber: articleNumber,
+            operation: operation,
+            machineType: machineType,
+            pieces: readyOperation.pieces,
+            rate: readyOperation.rate || 0,
+            previousOperator: user.name,
+            previousOperation: completedWorkItem.operation || completedWorkItem.currentOperation,
+            completedAt: new Date().toISOString(),
+            actionType: 'WORKFLOW_DEPENDENCY_COMPLETED'
+          },
+          createdAt: new Date(),
+          read: false,
+          machineType: machineType,
+          workflowTriggered: true
+        };
+        
+        // Add to operator notifications collection
+        await addDoc(collection(db, 'operatorNotifications'), notificationData);
+        
+        console.log(`✅ Notified ${operator.name} (${machineType}) about ${operation}`);
+      }
+      
+      // Use the existing notification context for workflow notifications
+      if (sendMachineGroupNotification) {
+        sendMachineGroupNotification(machineType, {
+          articleNumber: articleNumber,
+          nextOperation: operation,
+          pieces: readyOperation.pieces,
+          previousOperator: user.name,
+          previousOperation: completedWorkItem.operation || completedWorkItem.currentOperation
+        });
+      }
+      
+      // Also show local notification for confirmation
+      showNotification(
+        isNepali 
+          ? `🔔 ${targetOperators.length} ${machineType} ऑपरेटरहरूलाई सूचना भेजियो`
+          : `🔔 Notified ${targetOperators.length} ${machineType} operators`,
+        'success'
+      );
+      
+    } catch (error) {
+      console.error('❌ Error notifying machine type operators:', error);
+    }
+  };
 
   // Load operator's work data
   const loadWorkData = async () => {
@@ -184,6 +358,9 @@ const OperatorWorkDashboardNew = () => {
         };
 
         await addDoc(collection(db, 'payrollEntries'), payrollEntry);
+        
+        // CRITICAL: Update dependent operations after completion
+        await updateDependentOperationsFirebase(workItem);
         
         // Show earnings notification
         showNotification(

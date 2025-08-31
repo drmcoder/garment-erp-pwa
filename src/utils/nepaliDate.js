@@ -204,8 +204,11 @@ export const formatTimeAgo = (date, language = 'np') => {
     return language === 'np' ? 'भविष्यमा' : 'In the future';
   }
   
-  if (diffMs < 60000) { // Less than 1 minute
+  if (diffMs < 5000) { // Less than 5 seconds
     return language === 'np' ? 'अहिले' : 'Just now';
+  } else if (diffMs < 60000) { // Less than 1 minute
+    const seconds = Math.floor(diffMs / 1000);
+    return language === 'np' ? `${formatNum(seconds)} सेकेन्ड पहिले` : `${seconds} seconds ago`;
   }
   
   const minutes = Math.floor(diffMs / 60000);

@@ -12,7 +12,9 @@ import { SystemProvider, useSystem } from "./context/SystemContext";
 import { GlobalErrorProvider } from "./components/common/GlobalErrorHandler";
 // Removed unused Firebase imports - using modular LoginScreen
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
+import SelfAssignmentSystemCentralized from "./components/operator/SelfAssignmentSystemCentralized";
 import OperatorWorkDashboard from "./components/operator/OperatorWorkDashboardNew";
+import OperatorWorkDashboardCentralized from "./components/operator/OperatorWorkDashboardNewCentralized";
 import SupervisorDashboard from "./components/supervisor/Dashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
 import SystemSettings from "./components/admin/SystemSettings";
@@ -24,6 +26,7 @@ import PayrollSystem from "./components/management/PayrollSystem";
 import LocationManagement from "./components/admin/LocationManagement";
 import AdvancedManagementDashboard from "./components/management/ManagementDashboard";
 import { PermissionGate, PermissionsProvider } from "./context/PermissionsContext";
+import { CentralizedAppProvider } from "./context/CentralizedAppProvider";
 import { PERMISSIONS } from "./services/permissions-service";
 import { FullScreenLoader } from "./components/common/BrandedLoader";
 import LoginScreen from "./components/auth/LoginScreen";
@@ -396,13 +399,17 @@ const AppContent = () => {
     if (user.role === "operator") {
       switch (currentView) {
         case "self-assignment":
-          return <SelfAssignmentSystem />;
+          return process.env.NODE_ENV === 'development' 
+            ? <SelfAssignmentSystemCentralized />
+            : <SelfAssignmentSystem />;
         case "old-dashboard":
           return <OperatorDashboard onNavigate={setCurrentView} />;
         case "work-dashboard":
         case "dashboard":
         default:
-          return <OperatorWorkDashboard />;
+          return process.env.NODE_ENV === 'development' 
+            ? <OperatorWorkDashboardCentralized />
+            : <OperatorWorkDashboard />;
       }
     }
 
@@ -661,7 +668,9 @@ const AppWithProviders = () => {
           <PermissionsProvider>
             <SystemProvider>
               <NotificationProvider>
-                <App />
+                <CentralizedAppProvider>
+                  <App />
+                </CentralizedAppProvider>
               </NotificationProvider>
             </SystemProvider>
           </PermissionsProvider>

@@ -9,7 +9,114 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
+  // Audio context for notification sounds
+  const [audioContext, setAudioContext] = useState(null);
+
+  // Initialize audio context after first user interaction
+  useEffect(() => {
+    const enableAudio = () => {
+      if (!window.audioContextAllowed) {
+        window.audioContextAllowed = true;
+        console.log('✅ Audio context enabled after user interaction');
+        
+        // Play any queued notification sound
+        if (window.pendingNotificationSound !== undefined) {
+          playNotificationSound(window.pendingNotificationSound);
+          window.pendingNotificationSound = undefined;
+        }
+      }
+    };
+
+    // Listen for user interactions to enable audio
+    const events = ['click', 'keydown', 'touchstart'];
+    events.forEach(event => {
+      document.addEventListener(event, enableAudio, { once: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, enableAudio);
+      });
+    };
+  }, []);
+
+  // Function to play notification sound
+  const playNotificationSound = (isSupervisorAlert = false) => {
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Resume audio context if suspended
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      
+      const frequencies = isSupervisorAlert ? [800, 600, 400] : [600];
+      
+      frequencies.forEach((freq, index) => {
+        setTimeout(() => {
+          const oscillator = audioCtx.createOscillator();
+          const gainNode = audioCtx.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+          
+          oscillator.frequency.value = freq;
+          oscillator.type = 'sine';
+          
+          gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+          gainNode.gain.linearRampToValueAtTime(0.2, audioCtx.currentTime + 0.05);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+          
+          oscillator.start(audioCtx.currentTime);
+          oscillator.stop(audioCtx.currentTime + 0.3);
+        }, index * 400);
+      });
+    } catch (error) {
+      console.log('Audio playback failed:', error.message);
+    }
+  };
+
   // Initialize empty notifications - no test data
+  
+  // Add test notifications with different timestamps for debugging (remove in production)
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      // Test notifications with different timestamps
+      setTimeout(() => {
+        const now = new Date();
+        
+        // Create notifications with different timestamps
+        const testNotifications = [
+          {
+            title: currentLanguage === 'np' ? 'सफल' : 'Success',
+            message: currentLanguage === 'np' ? 'डेटा रिफ्रेश गरियो' : 'Data refreshed',
+            type: 'success',
+            time: new Date(now.getTime() - 5 * 60 * 1000), // 5 minutes ago
+            priority: 'low'
+          },
+          {
+            title: currentLanguage === 'np' ? 'सफल' : 'Success',
+            message: '8085 assigned to bimala overlock',
+            type: 'success', 
+            time: new Date(now.getTime() - 30 * 60 * 1000), // 30 minutes ago
+            priority: 'medium'
+          },
+          {
+            title: currentLanguage === 'np' ? 'सफल' : 'Success',
+            message: currentLanguage === 'np' ? 'आपातकालीन काम सफलतापूर्वक थपियो' : 'Emergency work inserted successfully',
+            type: 'success',
+            time: new Date(now.getTime() - 60 * 60 * 1000), // 1 hour ago
+            priority: 'high'
+          }
+        ];
+        
+        // Only add test notifications if there are no existing notifications
+        if (notifications.length === 0) {
+          testNotifications.forEach(notif => addNotification(notif));
+        }
+      }, 1000);
+    }
+  }, [currentLanguage]); // Only run when language context is ready
 
   const addNotification = (notification) => {
     // Check if demo notifications are disabled
@@ -20,7 +127,7 @@ export const NotificationProvider = ({ children }) => {
 
     const newNotification = {
       id: Date.now(),
-      time: new Date(),
+      time: notification.time || new Date(),
       read: false,
       priority: 'medium',
       ...notification
@@ -29,48 +136,14 @@ export const NotificationProvider = ({ children }) => {
     setNotifications(prev => [newNotification, ...prev]);
     setUnreadCount(prev => prev + 1);
 
-    // Play enhanced beep sound for high priority notifications
+    // Play sound for high priority notifications (only after user interaction)
     if (newNotification.priority === 'high' || newNotification.type === 'supervisor_alert') {
-      try {
-        // Enhanced beep sound with multiple tones for supervisor alerts
-        const playBeepSequence = () => {
-          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-          
-          // Create a sequence of beeps for supervisor alerts
-          const frequencies = newNotification.type === 'supervisor_alert' ? [800, 600, 400] : [600];
-          
-          frequencies.forEach((freq, index) => {
-            setTimeout(() => {
-              const oscillator = audioContext.createOscillator();
-              const gainNode = audioContext.createGain();
-              
-              oscillator.connect(gainNode);
-              gainNode.connect(audioContext.destination);
-              
-              oscillator.frequency.value = freq;
-              oscillator.type = 'sine';
-              
-              gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-              gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.05);
-              gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-              
-              oscillator.start(audioContext.currentTime);
-              oscillator.stop(audioContext.currentTime + 0.3);
-            }, index * 400);
-          });
-        };
-
-        // Try to play enhanced beep, fallback to simple beep
-        playBeepSequence();
-      } catch (audioError) {
-        // Fallback to simple beep
-        try {
-          const beep = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0EJXfH8d2QQAoUXrTp66hVFApGn+DyvmwhBzmN0fLPlC0E');
-          beep.volume = 0.4;
-          beep.play().catch(() => {});
-        } catch (fallbackError) {
-          console.log('Both audio methods failed');
-        }
+      // Only play sound if user has interacted with the page
+      if (window.audioContextAllowed) {
+        playNotificationSound(newNotification.type === 'supervisor_alert');
+      } else {
+        // Queue the sound to play after first user interaction
+        window.pendingNotificationSound = newNotification.type === 'supervisor_alert';
       }
     }
 

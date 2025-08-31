@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
-import { WIPService } from '../../services/firebase-services';
+import { useWorkManagement } from '../../hooks/useAppData';
 import ProcessTemplateManager from './ProcessTemplateManager';
 
 const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
   const { currentLanguage } = useLanguage();
   const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
+  const { bundles: centralBundles, assignWork } = useWorkManagement();
   
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [showTemplateManager, setShowTemplateManager] = useState(false);
@@ -26,9 +27,8 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
 
   const processBundlesWithTemplate = async (template) => {
     try {
-      // Load existing work items from Firestore to avoid duplicates
-      const existingWorkItemsResult = await WIPService.getWorkItemsFromWIP();
-      const existingWorkItems = existingWorkItemsResult.success ? existingWorkItemsResult.workItems : [];
+      // Use centralized bundles data to avoid duplicates
+      const existingWorkItems = centralBundles || [];
       
       const allWorkItems = [];
 

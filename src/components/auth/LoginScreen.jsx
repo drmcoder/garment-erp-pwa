@@ -470,42 +470,6 @@ const LoginScreen = () => {
           </div>
         </form>
 
-        {/* Demo Accounts Section */}
-        <div className="bg-gradient-to-r from-gray-50 to-blue-50/50 backdrop-blur-sm rounded-2xl border border-gray-200 p-6">
-          <div className="text-center mb-4">
-            <h3 className="text-lg font-bold text-gray-800">🎭 Demo Accounts</h3>
-            <p className="text-sm text-gray-600">Quick access for testing</p>
-          </div>
-          <div className="grid grid-cols-1 gap-3">
-            <div className="bg-white/70 rounded-xl p-3 border border-gray-200">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <span className="text-lg">👤</span>
-                  <span className="font-medium text-gray-800">Operator</span>
-                </div>
-                <div className="text-sm font-mono text-blue-600">ram.singh / password123</div>
-              </div>
-            </div>
-            <div className="bg-white/70 rounded-xl p-3 border border-gray-200">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <span className="text-lg">👨‍💼</span>
-                  <span className="font-medium text-gray-800">Supervisor</span>
-                </div>
-                <div className="text-sm font-mono text-purple-600">hari.supervisor / password123</div>
-              </div>
-            </div>
-            <div className="bg-white/70 rounded-xl p-3 border border-gray-200">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <span className="text-lg">👔</span>
-                  <span className="font-medium text-gray-800">Manager</span>
-                </div>
-                <div className="text-sm font-mono text-red-600">admin.manager / password123</div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );

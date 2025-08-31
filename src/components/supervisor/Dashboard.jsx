@@ -31,11 +31,12 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { 
-  useHybridDashboard,
-  useOperatorStatus,
-  useLiveMetrics,
-  useConnectionStatus
-} from "../../hooks/useRealtimeData";
+  useSupervisorData,
+  useUsers,
+  useWorkManagement,
+  useProductionAnalytics,
+  useCentralizedStatus
+} from "../../hooks/useAppData";
 import { CompactLoader } from "../common/BrandedLoader";
 import { loginControlService } from "../../services/LoginControlService";
 import { locationService } from "../../services/LocationService";
@@ -71,22 +72,21 @@ const Dashboard = () => {
 
   const userInfo = getUserDisplayInfo();
 
-  // Use hybrid real-time data approach
-  const {
-    dashboardData,
-    loading: hybridLoading,
-    error: hybridError,
-    lastUpdated
-  } = useHybridDashboard();
+  // Use centralized data hooks
+  const { 
+    lineStatus, 
+    pendingApprovals: supervisorPendingApprovals, 
+    qualityIssues
+  } = useSupervisorData();
+  
+  const { allUsers, loading: usersLoading } = useUsers();
+  const { workItems, loading: workLoading } = useWorkManagement();
+  const { stats, analytics, loading: productionLoading } = useProductionAnalytics();
+  const { isReady, isLoading: centralizedLoading, error: centralizedError } = useCentralizedStatus();
 
-  // Real-time operator status
-  const { operatorStatuses, connected: rtdbConnected } = useOperatorStatus();
-
-  // Live production metrics
-  const { metrics: liveMetrics } = useLiveMetrics();
-
-  // Connection monitoring
-  const { isConnected: realtimeConnected, connectionStats } = useConnectionStatus();
+  // Combine loading states
+  const hybridLoading = usersLoading || workLoading || productionLoading || centralizedLoading;
+  const hybridError = centralizedError;
 
   // Update current time
   useEffect(() => {
@@ -126,73 +126,83 @@ const Dashboard = () => {
     }
   };
 
-  // Process hybrid data into component-ready format
-  const { lineData, productionStats, efficiencyAlerts } = React.useMemo(() => {
-    const { operatorProfiles, operatorStatuses, liveMetrics, stationStatuses } = dashboardData;
+  // Process centralized data into component-ready format
+  const { lineData, efficiencyAlerts, dashboardProductionStats } = React.useMemo(() => {
+    if (!allUsers || !isReady) {
+      return { 
+        lineData: [], 
+        efficiencyAlerts: [],
+        dashboardProductionStats: {
+          totalProduction: 0,
+          targetProduction: 5000,
+          efficiency: 0,
+          qualityScore: 95,
+          activeOperators: 0,
+          totalOperators: 0
+        }
+      };
+    }
     
-    // Merge static profiles with real-time status
-    const processedLineData = operatorProfiles.map(operator => {
-      const liveStatus = operatorStatuses[operator.id] || {};
-      const stationKey = `${operator.machineType}-${operator.station || '1'}`;
+    // Create line data from centralized users data
+    const operators = allUsers.filter(user => user.role === 'operator');
+    const processedLineData = operators.map(operator => {
+      const stationKey = `${operator.machineType || 'general'}-${operator.station || '1'}`;
       
       return {
         id: stationKey,
         station: operator.machineType === 'overlock' ? 'ओभरलक स्टेसन' :
                operator.machineType === 'flatlock' ? 'फ्ल्यालक स्टेसन' :
                operator.machineType === 'single-needle' ? 'एकल सुई स्टेसन' :
-               operator.machineType,
+               operator.machineType || 'सामान्य स्टेसन',
         stationEn: operator.machineType === 'overlock' ? 'Overlock Station' :
                   operator.machineType === 'flatlock' ? 'Flatlock Station' :
                   operator.machineType === 'single-needle' ? 'Single Needle Station' :
-                  operator.machineType,
+                  operator.machineType || 'General Station',
         operator: operator.name,
         operatorEn: operator.nameEn || operator.name,
-        status: liveStatus.status || (operator.active ? 'active' : 'idle'),
-        efficiency: liveStatus.efficiency || operator.efficiency || 0,
-        currentWork: liveStatus.currentWork || null,
+        status: operator.isActive ? 'active' : 'idle',
+        efficiency: operator.efficiency || 0,
+        currentWork: null, // Will be populated from work assignments
         nextWork: null
       };
     });
 
-    // Use live metrics if available, otherwise calculate from static data
-    const stats = {
-      totalProduction: liveMetrics.totalProduction || 0,
-      targetProduction: liveMetrics.targetProduction || 5000,
-      efficiency: liveMetrics.averageEfficiency || 0,
-      qualityScore: liveMetrics.qualityScore || 95,
-      activeOperators: liveMetrics.activeOperators || operatorProfiles.filter(op => op.active).length,
-      totalOperators: operatorProfiles.length,
-      completedBundles: liveMetrics.completedBundles || 0,
-      pendingBundles: 0
-    };
-
-    // Generate efficiency alerts from real-time data
+    // Generate efficiency alerts for low-performing operators
     const alerts = [];
     let alertId = 1;
     
-    Object.values(operatorStatuses).forEach(status => {
-      if (status.status === 'idle' && !status.currentWork) {
-        const operator = operatorProfiles.find(op => op.id === status.id);
-        if (operator) {
+    if (analytics?.operatorEfficiency) {
+      analytics.operatorEfficiency.forEach(operatorStat => {
+        if (operatorStat.completionRate < 80) { // Alert for operators below 80% completion rate
           alerts.push({
             id: alertId++,
-            type: 'idle-station',
-            station: operator.machineType,
-            stationEn: operator.machineType,
-            operator: operator.name,
-            idleTime: 15,
-            priority: 'high'
+            type: 'low-efficiency',
+            station: operatorStat.operatorName,
+            stationEn: operatorStat.operatorName,
+            operator: operatorStat.operatorName,
+            efficiency: operatorStat.completionRate,
+            priority: operatorStat.completionRate < 60 ? 'high' : 'medium'
           });
         }
-      }
-    });
+      });
+    }
+
+    // Create production stats from centralized data
+    const dashboardProductionStatsData = {
+      totalProduction: stats?.todayPieces || 0,
+      targetProduction: 5000, // Could be from settings
+      efficiency: stats?.efficiency || 0,
+      qualityScore: 95, // Could be calculated from quality issues
+      activeOperators: stats?.activeOperators || 0,
+      totalOperators: stats?.totalOperators || operators.length
+    };
 
     return {
       lineData: processedLineData,
-      productionStats: stats,
-      efficiencyAlerts: alerts
+      efficiencyAlerts: alerts,
+      dashboardProductionStats: dashboardProductionStatsData
     };
-  }, [dashboardData, operatorStatuses, liveMetrics]);
+  }, [allUsers, analytics, stats, isReady]);
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -690,10 +700,10 @@ const EfficiencyAlertsView = () => (
               {t("today")} {t("production")}
             </h3>
             <div className="text-3xl font-bold text-blue-600">
-              {formatNumber(productionStats.totalProduction)}
+              {formatNumber(dashboardProductionStats.totalProduction)}
             </div>
             <div className="text-sm text-gray-500">
-              / {formatNumber(productionStats.targetProduction)} {t("target")}
+              / {formatNumber(dashboardProductionStats.targetProduction)} {t("target")}
             </div>
           </div>
           <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -706,8 +716,8 @@ const EfficiencyAlertsView = () => (
               className="bg-blue-600 h-2 rounded-full"
               style={{
                 width: `${
-                  (productionStats.totalProduction /
-                    productionStats.targetProduction) *
+                  (dashboardProductionStats.totalProduction /
+                    dashboardProductionStats.targetProduction) *
                   100
                 }%`,
               }}
@@ -715,8 +725,8 @@ const EfficiencyAlertsView = () => (
           </div>
           <div className="text-xs text-gray-500 mt-1">
             {Math.round(
-              (productionStats.totalProduction /
-                productionStats.targetProduction) *
+              (dashboardProductionStats.totalProduction /
+                dashboardProductionStats.targetProduction) *
                 100
             )}
             % {t("completed")}
@@ -732,10 +742,10 @@ const EfficiencyAlertsView = () => (
             </h3>
             <div
               className={`text-3xl font-bold ${getEfficiencyColor(
-                productionStats.efficiency
+                dashboardProductionStats.efficiency
               )}`}
             >
-              {formatNumber(productionStats.efficiency)}%
+              {formatNumber(dashboardProductionStats.efficiency)}%
             </div>
             <div className="text-sm text-gray-500">
               {currentLanguage === "np" ? "लक्ष्य: ९०%" : "Target: 90%"}
@@ -754,7 +764,7 @@ const EfficiencyAlertsView = () => (
               {t("quality")} {t("score")}
             </h3>
             <div className="text-3xl font-bold text-purple-600">
-              {formatNumber(productionStats.qualityScore)}%
+              {formatNumber(dashboardProductionStats.qualityScore)}%
             </div>
             <div className="text-sm text-gray-500">
               {currentLanguage === "np" ? "लक्ष्य: ९५%" : "Target: 95%"}
@@ -773,10 +783,10 @@ const EfficiencyAlertsView = () => (
               {t("active")} {t("operators")}
             </h3>
             <div className="text-3xl font-bold text-orange-600">
-              {formatNumber(productionStats.activeOperators)}
+              {formatNumber(dashboardProductionStats.activeOperators)}
             </div>
             <div className="text-sm text-gray-500">
-              / {formatNumber(productionStats.totalOperators)} {t("total")}
+              / {formatNumber(dashboardProductionStats.totalOperators)} {t("total")}
             </div>
           </div>
           <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
@@ -821,14 +831,14 @@ const EfficiencyAlertsView = () => (
               {/* Realtime DB Status */}
               <div
                 className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium ${
-                  realtimeConnected && rtdbConnected
+                  isReady && isOnline
                     ? "bg-green-100 text-green-700"
                     : "bg-orange-100 text-orange-700"
                 }`}
                 title="Realtime Database Connection"
               >
                 <span>🔥</span>
-                <span>{realtimeConnected && rtdbConnected ? "RT" : "RT⚠️"}</span>
+                <span>{isReady && isOnline ? "RT" : "RT⚠️"}</span>
               </div>
             </div>
 

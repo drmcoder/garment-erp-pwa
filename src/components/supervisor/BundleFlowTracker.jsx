@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import { db, collection, getDocs, query, orderBy, COLLECTIONS } from '../../config/firebase';
-import { WIPService } from '../../services/firebase-services';
+import { useWorkManagement } from '../../hooks/useAppData';
 import BundleWorkflowCards from '../common/BundleWorkflowCards';
 
 const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
   const { currentLanguage, t } = useLanguage();
+  const { bundles: centralBundles, workItems } = useWorkManagement();
   const [bundles, setBundles] = useState([]);
   const [filteredBundles, setFilteredBundles] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -18,57 +18,32 @@ const BundleFlowTracker = ({ onBundleUpdate, onClose }) => {
   const [selectedBundles, setSelectedBundles] = useState([]);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'workflow'
 
-  // Load work items from WIP instead of old bundles
+  // Use centralized data instead of manual loading
   useEffect(() => {
-    const loadBundles = async () => {
-      try {
-        console.log('🔄 Loading work items from WIP for Bundle Flow Tracker...');
-        
-        // Load work items from WIP (this is where real data is)
-        const wipWorkItemsResult = await WIPService.getWorkItemsFromWIP();
-        
-        if (wipWorkItemsResult.success && wipWorkItemsResult.workItems.length > 0) {
-          // Convert work items to bundle format for display
-          const workItemsAsBundles = wipWorkItemsResult.workItems.map(workItem => ({
-            id: workItem.id,
-            bundleNumber: workItem.bundleNumber || workItem.lotNumber || `WI-${workItem.id?.slice(-4)}`,
-            article: workItem.articleNumber || workItem.article,
-            articleName: workItem.styleName || `Article ${workItem.articleNumber}`,
-            color: workItem.colorName || workItem.color || 'N/A',
-            size: workItem.size || 'N/A',
-            quantity: workItem.pieces || workItem.quantity || 0,
-            operation: workItem.currentOperation || 'सिलाई',
-            machineType: workItem.machineType || 'single-needle',
-            status: workItem.status || 'pending',
-            priority: workItem.priority || 'medium',
-            assignedOperator: workItem.assignedOperator,
-            createdAt: workItem.createdAt,
-            wipEntryId: workItem.wipEntryId,
-            rollNumber: workItem.rollNumber
-          }));
-          
-          console.log('✅ Loaded work items as bundles:', workItemsAsBundles.length);
-          setBundles(workItemsAsBundles);
-        } else {
-          console.log('ℹ️ No work items from WIP found, Bundle Flow Tracker empty');
-          setBundles([]);
-        }
-      } catch (error) {
-        console.error('❌ Failed to load work items for Bundle Flow Tracker:', error);
-        setBundles([]);
-      }
-    };
-
-    loadBundles();
+    console.log('🔄 Bundle Flow Tracker using centralized data...');
     
-    // Auto-refresh every 30 seconds to catch new WIP work items
-    const refreshInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing Bundle Flow Tracker...');
-      loadBundles();
-    }, 30000);
-
-    return () => clearInterval(refreshInterval);
-  }, []);
+    // Convert centralized work items to bundle format for display
+    const workItemsAsBundles = (workItems || []).map(workItem => ({
+      id: workItem.id,
+      bundleNumber: workItem.bundleNumber || workItem.lotNumber || `WI-${workItem.id?.slice(-4)}`,
+      article: workItem.articleNumber || workItem.article,
+      articleName: workItem.styleName || `Article ${workItem.articleNumber}`,
+      color: workItem.colorName || workItem.color || 'N/A',
+      size: workItem.size || 'N/A',
+      quantity: workItem.pieces || workItem.quantity || 0,
+      operation: workItem.currentOperation || 'सिलाई',
+      machineType: workItem.machineType || 'single-needle',
+      status: workItem.status || 'pending',
+      priority: workItem.priority || 'medium',
+      assignedOperator: workItem.assignedOperator,
+      createdAt: workItem.createdAt,
+      wipEntryId: workItem.wipEntryId,
+      rollNumber: workItem.rollNumber
+    }));
+    
+    console.log('✅ Using centralized work items as bundles:', workItemsAsBundles.length);
+    setBundles(workItemsAsBundles);
+  }, [workItems]);
 
   // Filter bundles based on search and filters
   useEffect(() => {

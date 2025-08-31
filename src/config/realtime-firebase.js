@@ -2,7 +2,7 @@
 // Firebase Realtime Database configuration and utilities
 
 import { getDatabase, ref, set, get, push, onValue, off, remove, serverTimestamp } from 'firebase/database';
-import { app } from './firebase';
+import app from './firebase';
 
 // Initialize Realtime Database
 export const rtdb = getDatabase(app);

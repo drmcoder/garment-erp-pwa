@@ -1,19 +1,19 @@
 // src/components/supervisor/WorkCreation.jsx
 // Work/Bundle Creation Interface for Supervisors
 
-import React, { useState, useContext } from 'react';
-import { AuthContext } from '../../context/AuthContext';
-import { LanguageContext } from '../../context/LanguageContext';
-import { NotificationContext } from '../../context/NotificationContext';
+import React, { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useLanguage } from '../../context/LanguageContext';
+import { useNotifications } from '../../context/NotificationContext';
 import { useSystem } from '../../context/SystemContext';
-import { collection, addDoc, serverTimestamp } from '../../config/firebase';
-import { db, COLLECTIONS } from '../../config/firebase';
+import { useWorkManagement } from '../../hooks/useAppData';
 
 const WorkCreation = () => {
-  const { user } = useContext(AuthContext);
-  const { isNepali } = useContext(LanguageContext);
-  const { showNotification } = useContext(NotificationContext);
+  const { user } = useAuth();
+  const { isNepali } = useLanguage();
+  const { showNotification } = useNotifications();
   const { currentLine } = useSystem();
+  const { createBundle } = useWorkManagement();
 
   const [loading, setLoading] = useState(false);
   const [bundleForm, setBundleForm] = useState({
@@ -146,17 +146,14 @@ const WorkCreation = () => {
         updatedAt: new Date().toISOString()
       };
 
-      // Save to Firebase
-      const docRef = await addDoc(collection(db, COLLECTIONS.BUNDLES), {
-        ...bundleData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
+      // Create bundle using centralized service
+      const result = await createBundle(bundleData);
       
-      console.log('Bundle created with ID:', docRef.id);
+      if (!result.success) {
+        throw new Error(result.error || (isNepali ? 'बन्डल सिर्जना असफल' : 'Failed to create bundle'));
+      }
       
-      // Update the bundle data with the actual Firebase ID
-      bundleData.id = docRef.id;
+      console.log('Bundle created with ID:', result.id);
 
       // Reset form
       setBundleForm({

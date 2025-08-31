@@ -1,29 +1,76 @@
 // src/components/supervisor/LineMonitoring.jsx
 // Real-time monitoring of all 50 operators simultaneously
 
-import React, { useState, useContext, useEffect } from "react";
-import { AuthContext } from "../../contexts/AuthContext";
-import { LanguageContext } from "../../contexts/LanguageContext";
-import { NotificationContext } from "../../contexts/NotificationContext";
-import { db, collection, getDocs, query, where, orderBy, COLLECTIONS } from "../../config/firebase";
+import React, { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { useLanguage } from "../../context/LanguageContext";
+import { useNotifications } from "../../context/NotificationContext";
+import { 
+  useUsers,
+  useSupervisorData,
+  useProductionAnalytics,
+  useCentralizedStatus
+} from "../../hooks/useAppData";
 
 const LineMonitoring = () => {
-  const { user } = useContext(AuthContext);
-  const { t, isNepali, formatNumber, formatCurrency } =
-    useContext(LanguageContext);
-  const { showNotification, sendEfficiencyAlert } =
-    useContext(NotificationContext);
+  const { user } = useAuth();
+  const { t, isNepali, formatNumber, formatCurrency } = useLanguage();
+  const { showNotification } = useNotifications();
+  
+  // Use centralized data hooks
+  const { allUsers, loading: usersLoading } = useUsers();
+  const { lineStatus, qualityIssues } = useSupervisorData();
+  const { stats, analytics, loading: productionLoading } = useProductionAnalytics();
+  const { isReady } = useCentralizedStatus();
 
-  const [lineData, setLineData] = useState({
-    lineInfo: null,
-    stations: [],
-    operators: [],
-    currentProduction: 0,
-    targetProduction: 2800,
-    efficiency: 0,
-    bottlenecks: [],
-  });
-  const [loading, setLoading] = useState(false);
+  // Derive line data from centralized hooks
+  const loading = usersLoading || productionLoading;
+  
+  const lineData = React.useMemo(() => {
+    if (!allUsers || !isReady) return {
+      lineInfo: null,
+      stations: [],
+      operators: [],
+      currentProduction: 0,
+      targetProduction: 2800,
+      efficiency: 0,
+      bottlenecks: [],
+    };
+    
+    const operators = allUsers.filter(user => user.role === 'operator');
+    
+    // Group operators by station/machine type
+    const stations = {};
+    operators.forEach(operator => {
+      const stationKey = operator.machineType || 'general';
+      if (!stations[stationKey]) {
+        stations[stationKey] = {
+          id: stationKey,
+          name: stationKey,
+          operators: [],
+          status: 'active',
+          efficiency: 0
+        };
+      }
+      stations[stationKey].operators.push(operator);
+    });
+    
+    // Calculate station efficiencies
+    Object.values(stations).forEach(station => {
+      const totalEfficiency = station.operators.reduce((sum, op) => sum + (op.efficiency || 0), 0);
+      station.efficiency = totalEfficiency / station.operators.length || 0;
+    });
+    
+    return {
+      lineInfo: { id: 'line-1', name: 'Production Line 1' },
+      stations: Object.values(stations),
+      operators,
+      currentProduction: stats?.todayPieces || 0,
+      targetProduction: 2800,
+      efficiency: stats?.efficiency || 0,
+      bottlenecks: [],
+    };
+  }, [allUsers, stats, isReady]);
   const [refreshInterval, setRefreshInterval] = useState(30); // seconds
   const [view, setView] = useState("stations"); // stations, operators, analytics
   const [selectedStation, setSelectedStation] = useState(null);
@@ -33,95 +80,27 @@ const LineMonitoring = () => {
     autoAlerts: true,
   });
 
+  // Data auto-refreshes through centralized hooks
   useEffect(() => {
-    loadLineData();
-
-    // Set up auto-refresh
-    const interval = setInterval(() => {
-      loadLineData();
-    }, refreshInterval * 1000);
-
-    return () => clearInterval(interval);
-  }, [refreshInterval]);
-
-  const loadLineData = async () => {
-    setLoading(true);
-    try {
-      let stations = [];
-      let operators = [];
-      
-      // Try loading from Firestore first
-      try {
-        // Load line stations from Firestore
-        const stationsSnapshot = await getDocs(collection(db, COLLECTIONS.LINE_STATUS));
-        stations = stationsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        // Load operators from Firestore
-        const operatorsSnapshot = await getDocs(collection(db, COLLECTIONS.OPERATORS));
-        operators = operatorsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        
-        console.log('✅ Loaded line data from Firestore - stations:', stations.length, 'operators:', operators.length);
-      } catch (firestoreError) {
-        console.warn('Failed to load line data from Firestore, falling back to localStorage:', firestoreError);
-        
-        // No localStorage fallback - use empty arrays
-        stations = [];
-        operators = savedOperators.length > 0 ? savedOperators : [];
-      }
-
-      // Calculate real-time production metrics
-      const totalProduction = stations.reduce(
-        (sum, station) => sum + (station.currentWork || 0),
-        0
-      );
-      const totalTarget = stations.reduce(
-        (sum, station) => sum + (station.targetWork || 0),
-        0
-      );
-      const overallEfficiency = totalTarget > 0 ? Math.round(
-        (totalProduction / totalTarget) * 100
-      ) : 0;
-      const bottlenecks = stations.filter((station) => station.bottleneck);
-
-      setLineData({
-        lineInfo: {
-          id: "line_1",
-          name: isNepali ? "उत्पादन लाइन १" : "Production Line 1",
-          shift: "morning",
-          startTime: "08:00",
-          endTime: "17:00",
-        },
-        stations,
-        operators,
-        currentProduction: totalProduction,
-        targetProduction: totalTarget,
-        efficiency: overallEfficiency,
-        bottlenecks,
+    console.log('📊 LineMonitoring using centralized data:', {
+      operators: lineData.operators.length,
+      stations: lineData.stations.length,
+      efficiency: lineData.efficiency
+    });
+  }, [lineData]);
+  // Auto-alerting for idle operators using centralized data
+  useEffect(() => {
+    if (alertSettings.autoAlerts && lineData.operators.length > 0) {
+      lineData.operators.forEach((operator) => {
+        if (!operator.isActive) { // Idle operators
+          showNotification(
+            `${operator.machineType || 'Station'} (${operator.name}) ${isNepali ? 'निष्क्रिय छ' : 'is idle'}`,
+            'warning'
+          );
+        }
       });
-
-      // Send alerts for idle operators if auto-alerts enabled
-      if (alertSettings.autoAlerts && operators.length > 0) {
-        operators.forEach((operator) => {
-          if (
-            operator.status === "idle" &&
-            operator.idleTime >= alertSettings.idleTimeThreshold
-          ) {
-            sendEfficiencyAlert(
-              `${operator.station} (${operator.name})`,
-              operator.idleTime
-            );
-          }
-        });
-      }
-    } catch (error) {
-      showNotification(
-        isNepali ? "लाइन डेटा लोड गर्न समस्या भयो" : "Failed to load line data",
-        "error"
-      );
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [lineData.operators, alertSettings.autoAlerts, isNepali, showNotification]);
 
   const getStatusColor = (status) => {
     const colors = {
@@ -184,7 +163,7 @@ const LineMonitoring = () => {
       }
 
       // Reload data after action
-      loadLineData();
+      // Data refreshes automatically through centralized hooks
     } catch (error) {
       showNotification(isNepali ? "कार्य असफल भयो" : "Action failed", "error");
     }
@@ -228,7 +207,7 @@ const LineMonitoring = () => {
               </select>
             </div>
             <button
-              onClick={loadLineData}
+              onClick={() => showNotification(isNepali ? 'डेटा अटो रिफ्रेश हुन्छ' : 'Data auto-refreshes', 'info')}
               disabled={loading}
               className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50"
             >
