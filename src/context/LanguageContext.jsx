@@ -236,6 +236,18 @@ export const languages = {
     analytics: "विश्लेषण",
     trends: "प्रवृत्ति",
     statistics: "तथ्याङ्क",
+    
+    // AI Analytics Terms
+    predictions: "पूर्वानुमान",
+    bottlenecks: "बाटलनेक",
+    opportunities: "अवसरहरू",
+    anomalies: "असामान्यता",
+    recommendations: "सिफारिसहरू",
+    daily: "दैनिक",
+    weekly: "साप्ताहिक", 
+    monthly: "मासिक",
+    quarterly: "त्रैमासिक",
+    analyzing: "विश्लेषण हुँदै...",
 
     // Supervisor Terms
     lineMonitoring: "लाइन मनिटरिङ",
@@ -510,6 +522,18 @@ export const languages = {
     analytics: "Analytics",
     trends: "Trends",
     statistics: "Statistics",
+    
+    // AI Analytics Terms
+    predictions: "Predictions",
+    bottlenecks: "Bottlenecks",
+    opportunities: "Opportunities",
+    anomalies: "Anomalies",
+    recommendations: "Recommendations",
+    daily: "Daily",
+    weekly: "Weekly",
+    monthly: "Monthly", 
+    quarterly: "Quarterly",
+    analyzing: "Analyzing...",
 
     // Supervisor Terms
     lineMonitoring: "Line Monitoring",

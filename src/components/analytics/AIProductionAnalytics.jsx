@@ -726,10 +726,10 @@ const AIProductionAnalytics = ({ onBack }) => {
               onChange={(e) => setSelectedTimeframe(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500"
             >
-              <option value="day">{currentLanguage === "np" ? "दैनिक" : "Daily"}</option>
-              <option value="week">{currentLanguage === "np" ? "साप्ताहिक" : "Weekly"}</option>
-              <option value="month">{currentLanguage === "np" ? "मासिक" : "Monthly"}</option>
-              <option value="quarter">{currentLanguage === "np" ? "त्रैमासिक" : "Quarterly"}</option>
+              <option value="day">{t.daily}</option>
+              <option value="week">{t.weekly}</option>
+              <option value="month">{t.monthly}</option>
+              <option value="quarter">{t.quarterly}</option>
             </select>
 
             <button
@@ -740,10 +740,7 @@ const AIProductionAnalytics = ({ onBack }) => {
               <RefreshCw
                 className={`w-4 h-4 mr-2 ${isAnalyzing ? "animate-spin" : ""}`}
               />
-              {isAnalyzing 
-                ? (currentLanguage === "np" ? "विश्लेषण हुँदै..." : "Analyzing...")
-                : (currentLanguage === "np" ? "नवीकरण गर्नुहोस्" : "Refresh")
-              }
+              {isAnalyzing ? t.analyzing : t.refresh}
             </button>
           </div>
         </div>
@@ -751,11 +748,11 @@ const AIProductionAnalytics = ({ onBack }) => {
         {/* Navigation Tabs */}
         <div className="flex space-x-1 mb-6 bg-gray-100 p-1 rounded-lg">
           {[
-            { key: "predictions", label: currentLanguage === "np" ? "पूर्वानुमान" : "Predictions", icon: TrendingUp },
-            { key: "bottlenecks", label: currentLanguage === "np" ? "बाटलनेक" : "Bottlenecks", icon: AlertTriangle },
-            { key: "opportunities", label: currentLanguage === "np" ? "अवसरहरू" : "Opportunities", icon: Target },
-            { key: "anomalies", label: currentLanguage === "np" ? "असामान्यता" : "Anomalies", icon: Eye },
-            { key: "recommendations", label: currentLanguage === "np" ? "सिफारिसहरू" : "Recommendations", icon: Brain },
+            { key: "predictions", label: t.predictions, icon: TrendingUp },
+            { key: "bottlenecks", label: t.bottlenecks, icon: AlertTriangle },
+            { key: "opportunities", label: t.opportunities, icon: Target },
+            { key: "anomalies", label: t.anomalies, icon: Eye },
+            { key: "recommendations", label: t.recommendations, icon: Brain },
           ].map((tab) => (
             <button
               key={tab.key}
