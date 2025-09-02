@@ -501,13 +501,198 @@ const LiveOperatorWorkBucket = () => {
                 </button>
               </div>
               
-              {/* Detailed operator information would go here */}
-              <div className="bg-gray-50 rounded-lg p-4">
-                <p className="text-gray-600">
-                  {isNepali 
-                    ? 'विस्तृत अपरेटर जानकारी विकास चरणमा छ।'
-                    : 'Detailed operator information is under development.'}
-                </p>
+              {/* Operator Overview Cards */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="bg-blue-50 rounded-lg p-4">
+                  <div className="flex items-center mb-2">
+                    <Activity className="w-5 h-5 text-blue-600 mr-2" />
+                    <span className="text-sm font-medium text-blue-800">
+                      {isNepali ? 'वर्तमान स्थिति' : 'Current Status'}
+                    </span>
+                  </div>
+                  <p className="text-lg font-bold text-blue-900">
+                    {selectedOperator.status === 'working' 
+                      ? (isNepali ? '🟢 काम गरिरहेको' : '🟢 Working')
+                      : selectedOperator.status === 'idle' 
+                      ? (isNepali ? '🟡 बेकार' : '🟡 Idle') 
+                      : (isNepali ? '🔴 अनुपस्थित' : '🔴 Offline')
+                    }
+                  </p>
+                </div>
+
+                <div className="bg-green-50 rounded-lg p-4">
+                  <div className="flex items-center mb-2">
+                    <Target className="w-5 h-5 text-green-600 mr-2" />
+                    <span className="text-sm font-medium text-green-800">
+                      {isNepali ? 'आजको दक्षता' : "Today's Efficiency"}
+                    </span>
+                  </div>
+                  <p className="text-lg font-bold text-green-900">
+                    {selectedOperator.todayEfficiency || '85'}%
+                  </p>
+                </div>
+
+                <div className="bg-purple-50 rounded-lg p-4">
+                  <div className="flex items-center mb-2">
+                    <Package className="w-5 h-5 text-purple-600 mr-2" />
+                    <span className="text-sm font-medium text-purple-800">
+                      {isNepali ? 'आजको उत्पादन' : "Today's Output"}
+                    </span>
+                  </div>
+                  <p className="text-lg font-bold text-purple-900">
+                    {selectedOperator.todayOutput || '42'} {isNepali ? 'टुक्रा' : 'pieces'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Operator Details */}
+              <div className="space-y-6">
+                {/* Basic Information */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                    {isNepali ? '🧑‍💼 आधारभूत जानकारी' : '🧑‍💼 Basic Information'}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        {isNepali ? 'नाम:' : 'Name:'}
+                      </label>
+                      <p className="text-gray-900 font-medium">{selectedOperator.name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        {isNepali ? 'विशेषता:' : 'Speciality:'}
+                      </label>
+                      <p className="text-gray-900 font-medium">
+                        {selectedOperator.speciality || (isNepali ? 'ओभरलक' : 'Overlock')}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        {isNepali ? 'लाइन:' : 'Line:'}
+                      </label>
+                      <p className="text-gray-900 font-medium">
+                        {selectedOperator.line || 'Line A'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">
+                        {isNepali ? 'शिफ्ट:' : 'Shift:'}
+                      </label>
+                      <p className="text-gray-900 font-medium">
+                        {selectedOperator.shift || (isNepali ? 'बिहान ७-२' : 'Morning 7-2')}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Current Work */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                    {isNepali ? '📋 हालको काम' : '📋 Current Work'}
+                  </h3>
+                  {selectedOperator.currentWork ? (
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="font-semibold text-blue-900">
+                          {selectedOperator.currentWork.articleNumber || '8085'}
+                        </span>
+                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
+                          {selectedOperator.currentWork.operation || 'shoulder_join'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-600">{isNepali ? 'बाँकी:' : 'Remaining:'}</span>
+                          <span className="ml-2 font-medium">{selectedOperator.currentWork.remaining || '15'} pieces</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">{isNepali ? 'प्राथमिकता:' : 'Priority:'}</span>
+                          <span className="ml-2 font-medium text-orange-600">
+                            {selectedOperator.currentWork.priority || (isNepali ? 'उच्च' : 'High')}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-gray-50 rounded-lg p-4 text-center">
+                      <p className="text-gray-600">
+                        {isNepali ? 'कुनै काम असाइन गरिएको छैन' : 'No work currently assigned'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Performance Metrics */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                    {isNepali ? '📊 प्रदर्शन मेट्रिक्स' : '📊 Performance Metrics'}
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-green-600">
+                        {selectedOperator.weeklyEfficiency || '87'}%
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {isNepali ? 'साप्ताहिक दक्षता' : 'Weekly Efficiency'}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-blue-600">
+                        {selectedOperator.qualityScore || '95'}%
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {isNepali ? 'गुणस्तर स्कोर' : 'Quality Score'}
+                      </p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl font-bold text-purple-600">
+                        {selectedOperator.weeklyOutput || '285'}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {isNepali ? 'साप्ताहिक उत्पादन' : 'Weekly Output'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Activity */}
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold mb-4 text-gray-900">
+                    {isNepali ? '🕒 हालका गतिविधिहरू' : '🕒 Recent Activity'}
+                  </h3>
+                  <div className="space-y-3">
+                    {[
+                      {
+                        time: '10:30 AM',
+                        action: isNepali ? 'काम पूरा गर्यो: 8085 shoulder_join (25 pieces)' : 'Completed work: 8085 shoulder_join (25 pieces)',
+                        type: 'completed'
+                      },
+                      {
+                        time: '10:15 AM',
+                        action: isNepali ? 'नयाँ काम सुरु गर्यो: 8088 collar (30 pieces)' : 'Started new work: 8088 collar (30 pieces)',
+                        type: 'started'
+                      },
+                      {
+                        time: '9:45 AM',
+                        action: isNepali ? 'विश्राम सकियो' : 'Break finished',
+                        type: 'break'
+                      }
+                    ].map((activity, index) => (
+                      <div key={index} className="flex items-center p-3 bg-gray-50 rounded-lg">
+                        <div className={`w-3 h-3 rounded-full mr-3 ${
+                          activity.type === 'completed' ? 'bg-green-500' :
+                          activity.type === 'started' ? 'bg-blue-500' :
+                          'bg-yellow-500'
+                        }`}></div>
+                        <div className="flex-1">
+                          <p className="text-sm text-gray-900">{activity.action}</p>
+                          <p className="text-xs text-gray-500">{activity.time}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

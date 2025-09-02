@@ -40,8 +40,7 @@ export const useUsers = () => {
     if (!users.lastUpdated) {
       loadUsers();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [users.lastUpdated]); // loadUsers is stable but causes infinite loop in dependency array
+  }, [users.lastUpdated, loadUsers]);
   
   const refreshUsers = useCallback(async () => {
     setLocalLoading(true);
@@ -110,8 +109,7 @@ export const useWorkManagement = () => {
     if (!workItems.lastUpdated) {
       loadWorkItems();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workItems.lastUpdated]); // loadWorkItems is stable but causes infinite loop in dependency array
+  }, [workItems.lastUpdated, loadWorkItems]);
   
   const assignWorkToOperator = useCallback(async (operatorId, workData) => {
     setLocalLoading(true);
@@ -193,8 +191,7 @@ export const useProductionAnalytics = () => {
     if (!production.lastUpdated) {
       loadProductionStats();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [production.lastUpdated]); // loadProductionStats is stable but causes infinite loop in dependency array
+  }, [production.lastUpdated, loadProductionStats]);
   
   const refreshStats = useCallback(async () => {
     setLocalLoading(true);
@@ -349,10 +346,24 @@ export const useSupervisorData = () => {
   const workData = useWorkManagement();
   const productionData = useProductionAnalytics();
   
-  // Add safety checks for all data
-  const users = usersData || {};
-  const workItems = workData || {};
-  const production = productionData || {};
+  // Add safety checks for all data with proper null/undefined handling wrapped in useMemo
+  const users = useMemo(() => {
+    return usersData && typeof usersData === 'object' ? {
+      ...usersData,
+      operators: Array.isArray(usersData.operators) ? usersData.operators : []
+    } : { operators: [] };
+  }, [usersData]);
+  
+  const workItems = useMemo(() => {
+    return workData && typeof workData === 'object' ? {
+      ...workData,
+      assignments: Array.isArray(workData.assignments) ? workData.assignments : []
+    } : { assignments: [] };
+  }, [workData]);
+  
+  const production = useMemo(() => {
+    return productionData && typeof productionData === 'object' ? productionData : {};
+  }, [productionData]);
   
   const getLineStatus = useCallback(() => {
     // Multiple layers of safety checks

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Users,
   Clock,
@@ -122,8 +122,8 @@ const Dashboard = () => {
     }
   };
 
-  // Process centralized data into component-ready format
-  const { lineData, efficiencyAlerts, dashboardProductionStats } = React.useMemo(() => {
+  // Process centralized data into component-ready format (cached to prevent infinite getSnapshot loops)
+  const { lineData, efficiencyAlerts, dashboardProductionStats } = useMemo(() => {
     if (!allUsers || !isReady) {
       return { 
         lineData: [], 
@@ -186,7 +186,7 @@ const Dashboard = () => {
     // Create production stats from centralized data
     const dashboardProductionStatsData = {
       totalProduction: stats?.todayPieces || 0,
-      targetProduction: 5000, // Could be from settings
+      targetProduction: 15000, // Updated target
       efficiency: stats?.efficiency || 0,
       qualityScore: 95, // Could be calculated from quality issues
       activeOperators: stats?.activeOperators || 0,
