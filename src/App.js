@@ -16,7 +16,7 @@ import { roleUtils } from "./lib";
 // Removed unused Firebase imports - using modular LoginScreen
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import OperatorWorkDashboard from "./components/operator/OperatorWorkDashboardNew";
-import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
+import SupervisorDashboard from "./components/supervisor/Dashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
 import SystemSettings from "./components/admin/SystemSettings";
 import UserManagement from "./components/admin/UserManagement";
