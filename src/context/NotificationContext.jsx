@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useLanguage } from './LanguageContext';
 import config from '../config/environments';
 
@@ -297,7 +297,7 @@ export const NotificationProvider = ({ children }) => {
     }
   }, []);
 
-  const value = useMemo(() => ({
+  const value = {
     notifications,
     unreadCount,
     addNotification,
@@ -313,23 +313,7 @@ export const NotificationProvider = ({ children }) => {
     removeNotification,
     clearAllNotifications,
     getUnreadCount
-  }), [
-    notifications,
-    unreadCount,
-    addNotification,
-    showNotification,
-    sendWorkAssigned,
-    sendWorkCompleted,
-    sendWorkflowNotification,
-    sendMachineGroupNotification,
-    markAsRead,
-    markAsUnread,
-    toggleReadStatus,
-    markAllAsRead,
-    removeNotification,
-    clearAllNotifications,
-    getUnreadCount
-  ]);
+  };
 
   // Show loading state if language context is not ready
   if (!currentLanguage) {

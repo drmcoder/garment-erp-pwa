@@ -2,9 +2,9 @@
 // Complete work queue with full day visibility and management
 
 import React, { useState, useContext, useEffect } from "react";
-import { AuthContext } from "../../contexts/AuthContext";
+import { AuthContext } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
-import { NotificationContext } from "../../contexts/NotificationContext";
+import { NotificationContext } from "../../context/NotificationContext";
 import { db, collection, getDocs, query, where, orderBy, COLLECTIONS } from "../../config/firebase";
 
 const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {

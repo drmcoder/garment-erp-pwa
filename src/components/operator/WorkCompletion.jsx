@@ -2,9 +2,9 @@
 // Complete work completion flow with piece counting and handoffs
 
 import React, { useState, useContext, useEffect } from "react";
-import { AuthContext } from "../../contexts/AuthContext";
-import { LanguageContext } from "../../contexts/LanguageContext";
-import { NotificationContext } from "../../contexts/NotificationContext";
+import { AuthContext } from "../../context/AuthContext";
+import { LanguageContext } from "../../context/LanguageContext";
+import { NotificationContext } from "../../context/NotificationContext";
 import { damageReportService } from "../../services/DamageReportService";
 import { operatorWalletService } from "../../services/OperatorWalletService";
 

@@ -74,7 +74,8 @@ const Dashboard = () => {
 
   const userInfo = getUserDisplayInfo();
 
-  // Use centralized data hooks
+  // Use centralized data hooks - INFINITE LOOP FIXED
+  
   const { 
     lineStatus, 
     pendingApprovals: supervisorPendingApprovals, 

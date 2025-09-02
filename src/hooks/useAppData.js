@@ -1,7 +1,7 @@
 // Centralized Data Hooks
 // Custom hooks for consistent data access across components
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRobustEffect, useRobustCallback } from './useRobustHook';
 import { useAppStore, useAppActions, useAppUtils } from '../store/AppStore';
 import { dataService } from '../services/DataService';
@@ -14,15 +14,15 @@ export const useAppData = () => {
   const actions = useAppActions();
   const utils = useAppUtils();
   
-  // Memoize the initialize function to prevent infinite re-renders
-  const initializeApp = useCallback(async () => {
+  // Initialize app - no memoization needed to prevent loops
+  const initializeApp = async () => {
     try {
       await actions.refreshAll();
     } catch (error) {
       console.error('Failed to initialize app data:', error);
       actions.setError('Failed to load application data');
     }
-  }, []); // Remove actions from dependencies to break circular dependency
+  };
   
   return {
     ...store,
@@ -50,25 +50,25 @@ export const useUsers = () => {
     }
   }, []); // Empty deps - only run once
   
-  const refreshUsers = useCallback(async () => {
+  const refreshUsers = async () => {
     setLocalLoading(true);
     try {
       await loadUsers();
     } finally {
       setLocalLoading(false);
     }
-  }, [loadUsers]);
+  };
   
-  const getUserById = useCallback((id) => {
+  const getUserById = (id) => {
     if (!users) return null;
     const operators = users.operators || [];
     const supervisors = users.supervisors || [];
     const management = users.management || [];
     const allUsers = [...operators, ...supervisors, ...management];
     return allUsers.find(user => user.id === id);
-  }, [users]);
+  };
   
-  const getUsersByRole = useCallback((role) => {
+  const getUsersByRole = (role) => {
     if (!users || typeof users !== 'object') return [];
     
     switch (role) {
@@ -83,7 +83,7 @@ export const useUsers = () => {
       default:
         return [];
     }
-  }, [users]);
+  };
   
   return {
     ...users,
@@ -125,7 +125,7 @@ export const useWorkManagement = () => {
     }
   }, []); // Empty deps - only run once
   
-  const assignWorkToOperator = useCallback(async (operatorId, workData) => {
+  const assignWorkToOperator = async (operatorId, workData) => {
     setLocalLoading(true);
     try {
       const result = await assignWork(operatorId, workData);
@@ -139,9 +139,9 @@ export const useWorkManagement = () => {
     } finally {
       setLocalLoading(false);
     }
-  }, [assignWork, showNotification]);
+  };
   
-  const completeWorkAssignment = useCallback(async (assignmentId, completionData) => {
+  const completeWorkAssignment = async (assignmentId, completionData) => {
     setLocalLoading(true);
     try {
       const result = await completeWork(assignmentId, {
@@ -159,24 +159,24 @@ export const useWorkManagement = () => {
     } finally {
       setLocalLoading(false);
     }
-  }, [completeWork, showNotification, user]);
+  };
   
-  const getMyAssignments = useCallback(() => {
+  const getMyAssignments = () => {
     if (!user || !workItems || !Array.isArray(workItems.assignments)) return [];
     return workItems.assignments.filter(assignment => 
       assignment && assignment.operatorId === user.id && 
       ['assigned', 'in_progress'].includes(assignment.status)
     );
-  }, [workItems.assignments, user]);
+  };
   
-  const refreshWorkItems = useCallback(async () => {
+  const refreshWorkItems = async () => {
     setLocalLoading(true);
     try {
       await loadWorkItems();
     } finally {
       setLocalLoading(false);
     }
-  }, [loadWorkItems]);
+  };
   
   return {
     ...workItems,
@@ -213,16 +213,16 @@ export const useProductionAnalytics = () => {
     }
   }, []); // Empty deps - only run once
   
-  const refreshStats = useCallback(async () => {
+  const refreshStats = async () => {
     setLocalLoading(true);
     try {
       await loadProductionStats();
     } finally {
       setLocalLoading(false);
     }
-  }, [loadProductionStats]);
+  };
   
-  const getEfficiencyTrend = useCallback(() => {
+  const getEfficiencyTrend = () => {
     const { analytics } = production;
     if (!analytics?.operatorEfficiency) return [];
     
@@ -231,16 +231,16 @@ export const useProductionAnalytics = () => {
       efficiency: op.completionRate,
       pieces: op.totalPieces,
     }));
-  }, [production]);
+  };
   
-  const getTopPerformers = useCallback((limit = 5) => {
+  const getTopPerformers = (limit = 5) => {
     const { analytics } = production;
     if (!analytics?.operatorEfficiency) return [];
     
     return analytics.operatorEfficiency
       .sort((a, b) => b.completionRate - a.completionRate)
       .slice(0, limit);
-  }, [production]);
+  };
   
   return {
     ...production,
@@ -262,7 +262,7 @@ export const useRealTimeData = (collectionName, options = {}) => {
   const unsubscribeRef = useRef(null);
   
   // Memoize options to prevent infinite re-renders
-  const memoizedOptions = useMemo(() => options, [JSON.stringify(options)]);
+  const memoizedOptions = options;
   
   useEffect(() => {
     setLoading(true);
@@ -299,7 +299,7 @@ export const useRealTimeData = (collectionName, options = {}) => {
     };
   }, [collectionName, memoizedOptions]);
   
-  const refresh = useCallback(async () => {
+  const refresh = async () => {
     setLoading(true);
     try {
       const result = await dataService.fetchCollection(collectionName, {
@@ -318,7 +318,7 @@ export const useRealTimeData = (collectionName, options = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [collectionName, memoizedOptions]);
+  };
   
   return { data, loading, error, refresh };
 };
@@ -330,7 +330,7 @@ export const useOperatorData = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   
-  const loadMyStats = useRobustCallback(async () => {
+  const loadMyStats = async () => {
     if (!user || user.role !== 'operator') return;
     
     setLoading(true);
@@ -344,15 +344,13 @@ export const useOperatorData = () => {
     } finally {
       setLoading(false);
     }
-  }, [user], { hookId: 'useOperatorData_loadStatsCallback' });
+  };
   
-  useRobustEffect(() => {
-    loadMyStats();
-  }, [user?.id], { 
-    hookId: 'useOperatorData_statsEffect',
-    maxExecutionsPerSecond: 1,
-    debounceMs: 200 
-  });
+  useEffect(() => {
+    if (user?.id) {
+      loadMyStats();
+    }
+  }, [user?.id]);
   
   const myAssignments = getMyAssignments();
   const hasActiveWork = myAssignments.length > 0;
@@ -430,7 +428,7 @@ export const useSupervisorData = () => {
 export const useDataPersistence = () => {
   const { showNotification } = useNotifications();
   
-  const saveToCache = useCallback(async (key, data) => {
+  const saveToCache = async (key, data) => {
     try {
       localStorage.setItem(key, JSON.stringify({
         data,
@@ -440,9 +438,9 @@ export const useDataPersistence = () => {
     } catch (error) {
       return { success: false, error: error.message };
     }
-  }, []);
+  };
   
-  const loadFromCache = useCallback((key, maxAge = 5 * 60 * 1000) => {
+  const loadFromCache = (key, maxAge = 5 * 60 * 1000) => {
     try {
       const cached = localStorage.getItem(key);
       if (!cached) return { success: false, error: 'No cached data' };
@@ -458,9 +456,9 @@ export const useDataPersistence = () => {
     } catch (error) {
       return { success: false, error: error.message };
     }
-  }, []);
+  };
   
-  const clearCache = useCallback((pattern = null) => {
+  const clearCache = (pattern = null) => {
     try {
       if (pattern) {
         Object.keys(localStorage).forEach(key => {
@@ -475,7 +473,7 @@ export const useDataPersistence = () => {
     } catch (error) {
       showNotification('Failed to clear cache', 'error');
     }
-  }, [showNotification]);
+  };
   
   return { saveToCache, loadFromCache, clearCache };
 };

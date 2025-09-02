@@ -1,18 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Clock,
   AlertTriangle,
   Package,
   CheckCircle,
   Lock,
-  Unlock,
   RefreshCw,
-  User,
-  Calendar,
-  Wrench,
-  PlayCircle,
-  Eye,
-  MessageSquare
+  Wrench
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';

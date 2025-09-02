@@ -12,7 +12,7 @@ import {
   RefreshCw,
   Calendar,
   MessageSquare,
-  Tool
+  Wrench
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -199,7 +199,7 @@ const BundlePaymentHolds = () => {
                 {heldBundles.filter(b => b.status === 'rework_assigned').length}
               </p>
             </div>
-            <Tool className="w-8 h-8 opacity-80" />
+            <Wrench className="w-8 h-8 opacity-80" />
           </div>
         </div>
 
