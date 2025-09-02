@@ -65,6 +65,19 @@ export const USER_ROLES = {
     permissions: ['view_analytics', 'manage_schedules', 'view_all_reports'],
     level: 4
   },
+  'management': {
+    id: 'management',
+    name: 'Management',
+    nameNp: 'व्यवस्थापन',
+    icon: '🏢',
+    color: 'emerald',
+    bgColor: 'bg-emerald-100',
+    textColor: 'text-emerald-800',
+    borderColor: 'border-emerald-300',
+    description: 'Executive management with full business oversight',
+    permissions: ['view_analytics', 'manage_all', 'view_all_reports', 'financial_access'],
+    level: 5
+  },
   'guest': {
     id: 'guest',
     name: 'Guest',

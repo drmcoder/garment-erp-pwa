@@ -293,7 +293,7 @@
       ]
     },
     {
-      "collectionGroup": "bundles",
+      "collectionGroup": "workItems",
       "queryScope": "COLLECTION",
       "fields": [
         {
@@ -302,7 +302,11 @@
         },
         {
           "fieldPath": "selfAssignedAt",
-          "order": "DESCENDING"
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "__name__",
+          "order": "ASCENDING"
         }
       ]
     },

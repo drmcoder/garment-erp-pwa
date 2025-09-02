@@ -9,12 +9,14 @@ import {
   useNotifications,
 } from "./context/NotificationContext";
 import { SystemProvider, useSystem } from "./context/SystemContext";
+import { GlobalErrorProvider } from "./components/common/GlobalErrorHandler";
+import ErrorBoundary from "./components/ErrorBoundary";
+import performanceMonitor from "./utils/performanceMonitor";
+import { roleUtils } from "./lib";
 // Removed unused Firebase imports - using modular LoginScreen
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
-import SelfAssignmentSystemCentralized from "./components/operator/SelfAssignmentSystemCentralized";
 import OperatorWorkDashboard from "./components/operator/OperatorWorkDashboardNew";
-import OperatorWorkDashboardCentralized from "./components/operator/OperatorWorkDashboardNewCentralized";
-import SupervisorDashboard from "./components/supervisor/Dashboard";
+import SupervisorDashboard from "./components/supervisor/SupervisorDashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
 import SystemSettings from "./components/admin/SystemSettings";
 import UserManagement from "./components/admin/UserManagement";
@@ -25,7 +27,6 @@ import PayrollSystem from "./components/management/PayrollSystem";
 import LocationManagement from "./components/admin/LocationManagement";
 import AdvancedManagementDashboard from "./components/management/ManagementDashboard";
 import { PermissionGate, PermissionsProvider } from "./context/PermissionsContext";
-import { CentralizedAppProvider } from "./context/CentralizedAppProvider";
 import { PERMISSIONS } from "./services/permissions-service";
 import { FullScreenLoader } from "./components/common/BrandedLoader";
 import LoginScreen from "./components/auth/LoginScreen";
@@ -390,31 +391,26 @@ const AppContent = () => {
   const { user } = useAuth();
   // Removed unused permission check
   const [currentView, setCurrentView] = useState("dashboard");
-  const [showErrorTesting, setShowErrorTesting] = useState(false);
 
   if (!user) return null;
 
   // Show different content based on user role
   const renderContent = () => {
-    if (user.role === "operator") {
+    if (roleUtils.isOperator(user.role)) {
       switch (currentView) {
         case "self-assignment":
-          return process.env.NODE_ENV === 'development' 
-            ? <SelfAssignmentSystemCentralized />
-            : <SelfAssignmentSystem />;
+          return <SelfAssignmentSystem />;
         case "old-dashboard":
           return <OperatorDashboard onNavigate={setCurrentView} />;
         case "work-dashboard":
         case "dashboard":
         default:
-          return process.env.NODE_ENV === 'development' 
-            ? <OperatorWorkDashboardCentralized />
-            : <OperatorWorkDashboard />;
+          return <OperatorWorkDashboard />;
       }
     }
 
     // Supervisor views
-    if (user.role === "supervisor") {
+    if (roleUtils.isSupervisor(user.role)) {
       switch (currentView) {
         case "work-assignment":
           return (
@@ -451,7 +447,7 @@ const AppContent = () => {
     }
 
     // Management views (includes all admin capabilities)
-    if (user.role === "management" || user.role === "manager" || user.role === "admin") {
+    if (roleUtils.hasManagementAccess(user.role)) {
       switch (currentView) {
         case "settings":
           return (
@@ -644,27 +640,6 @@ const AppContent = () => {
       )}
 
       <main>{renderContent()}</main>
-
-      {/* Development Error Testing - Only show in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <>
-          {/* Floating Test Button */}
-          {!showErrorTesting && (
-            <button
-              onClick={() => setShowErrorTesting(true)}
-              className="fixed bottom-4 left-4 bg-red-600 hover:bg-red-700 text-white p-3 rounded-full shadow-lg z-40 transition-colors"
-              title="Open Error Testing"
-            >
-              🐛
-            </button>
-          )}
-          
-          {/* Error Testing Component */}
-          {showErrorTesting && (
-            <ErrorTestingComponent onClose={() => setShowErrorTesting(false)} />
-          )}
-        </>
-      )}
     </div>
   );
 };
@@ -682,20 +657,32 @@ const App = () => {
 
 // Root App with all providers
 const AppWithProviders = () => {
+  React.useEffect(() => {
+    // Start performance monitoring
+    performanceMonitor.start();
+    
+    // Cleanup on unmount
+    return () => {
+      performanceMonitor.stop();
+    };
+  }, []);
+
   return (
-    <LanguageProvider>
-      <AuthProvider>
-        <PermissionsProvider>
-          <SystemProvider>
-            <NotificationProvider>
-              <CentralizedAppProvider>
-                <App />
-              </CentralizedAppProvider>
-            </NotificationProvider>
-          </SystemProvider>
-        </PermissionsProvider>
-      </AuthProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <GlobalErrorProvider>
+          <AuthProvider>
+            <PermissionsProvider>
+              <SystemProvider>
+                <NotificationProvider>
+                  <App />
+                </NotificationProvider>
+              </SystemProvider>
+            </PermissionsProvider>
+          </AuthProvider>
+        </GlobalErrorProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 };
 
