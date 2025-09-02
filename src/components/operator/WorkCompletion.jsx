@@ -5,6 +5,8 @@ import React, { useState, useContext, useEffect } from "react";
 import { AuthContext } from "../../contexts/AuthContext";
 import { LanguageContext } from "../../contexts/LanguageContext";
 import { NotificationContext } from "../../contexts/NotificationContext";
+import { damageReportService } from "../../services/DamageReportService";
+import { operatorWalletService } from "../../services/OperatorWalletService";
 
 const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
   const { user } = useContext(AuthContext);
@@ -164,11 +166,44 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
   const handleSubmit = async () => {
     setLoading(true);
     try {
+      // CRITICAL: Check if bundle has pending damage reports that block payment
+      const damageCheckResult = await checkBundleDamageStatus(bundleData.id);
+      
+      if (damageCheckResult.hasUnresolvedDamage) {
+        showNotification(
+          isNepali 
+            ? `⚠️ भुक्तानी रोकिएको छ! ${damageCheckResult.pendingPieces} टुक्रा रिवर्क मा छ। पहिले क्षतिग्रस्त टुक्रा पूरा गर्नुहोस्।`
+            : `⚠️ Payment held! ${damageCheckResult.pendingPieces} pieces in rework. Complete damaged pieces first.`,
+          "error"
+        );
+        
+        // Show detailed damage info
+        console.log("🔒 PAYMENT BLOCKED - Unresolved damage reports:", damageCheckResult.damageReports);
+        setLoading(false);
+        return;
+      }
+
       const validPieces =
         completionData.piecesCompleted - completionData.defectivePieces;
+      
+      // Check if operator is trying to complete work without finishing all assigned pieces
+      const totalAssignedPieces = bundleData.pieces;
+      const remainingPieces = totalAssignedPieces - validPieces - completionData.defectivePieces;
+      
+      if (remainingPieces > 0 && !damageCheckResult.hasPendingRework) {
+        showNotification(
+          isNepali
+            ? `⚠️ ${remainingPieces} टुक्रा बाँकी छ। सबै टुक्रा पूरा गर्नुहोस्।`
+            : `⚠️ ${remainingPieces} pieces remaining. Complete all pieces.`,
+          "error"
+        );
+        setLoading(false);
+        return;
+      }
+
       const earnings = validPieces * bundleData.rate;
 
-      // Simulate API call to complete work
+      // Enhanced API call with damage report awareness
       const response = await fetch("/api/bundles/complete", {
         method: "POST",
         headers: {
@@ -180,6 +215,9 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
           ...completionData,
           validPieces,
           earnings,
+          damageStatus: damageCheckResult.status,
+          totalAssignedPieces: totalAssignedPieces,
+          hasCompletedAllWork: remainingPieces === 0
         }),
       });
 
@@ -277,6 +315,59 @@ const WorkCompletion = ({ bundleId, onWorkCompleted, onCancel }) => {
     if (!completionData.timeSpent || !completionData.piecesCompleted) return 0;
     const expectedTime = completionData.piecesCompleted * 1.2; // 1.2 minutes per piece
     return Math.round((expectedTime / completionData.timeSpent) * 100);
+  };
+
+  /**
+   * Check if bundle has unresolved damage reports that would block payment
+   */
+  const checkBundleDamageStatus = async (bundleId) => {
+    try {
+      // Get pending damage reports for this bundle
+      const damageReports = await damageReportService.getDamageReports({
+        bundleId: bundleId,
+        operatorId: user.id,
+        status: ['reported_to_supervisor', 'acknowledged', 'in_supervisor_queue', 'rework_in_progress', 'returned_to_operator']
+      });
+
+      if (!damageReports.success) {
+        console.warn('Could not check damage status:', damageReports.error);
+        return { 
+          hasUnresolvedDamage: false, 
+          status: 'unknown',
+          pendingPieces: 0,
+          damageReports: []
+        };
+      }
+
+      const pendingReports = damageReports.data || [];
+      const hasUnresolvedDamage = pendingReports.length > 0;
+      
+      // Count total pending pieces in damage reports
+      const pendingPieces = pendingReports.reduce((total, report) => {
+        return total + (report.pieceCount || report.pieceNumbers?.length || 0);
+      }, 0);
+
+      // Check if there are pieces returned to operator that need completion
+      const hasPendingRework = pendingReports.some(report => 
+        report.status === 'returned_to_operator'
+      );
+
+      return {
+        hasUnresolvedDamage,
+        status: hasUnresolvedDamage ? 'damage_pending' : 'clean',
+        pendingPieces,
+        hasPendingRework,
+        damageReports: pendingReports
+      };
+    } catch (error) {
+      console.error('Error checking bundle damage status:', error);
+      return { 
+        hasUnresolvedDamage: false, 
+        status: 'error',
+        pendingPieces: 0,
+        damageReports: []
+      };
+    }
   };
 
   if (loading && !bundleData) {

@@ -34,7 +34,7 @@ export class DamageReportService {
   }
 
   /**
-   * Submit a new damage report
+   * Submit a new damage report and hold bundle payment
    */
   async submitDamageReport(reportData) {
     try {
@@ -54,30 +54,56 @@ export class DamageReportService {
         pieceCount: reportData.pieceNumbers?.length || 0
       };
 
-      // Create the document structure
-      const reportDocument = createDamageReportDocument(enhancedData);
+      // Use batch transaction to ensure atomicity
+      const batch = writeBatch(db);
       
-      // Add to Firestore
-      const docRef = await addDoc(collection(db, this.collectionName), reportDocument);
+      // Create the damage report document
+      const reportDocument = createDamageReportDocument(enhancedData);
+      const reportRef = doc(collection(db, this.collectionName));
+      batch.set(reportRef, reportDocument);
+      
+      // Hold bundle payment - Update work item/bundle status
+      await this.holdBundlePayment(batch, reportData.bundleId || reportData.workItemId, reportData.operatorId, {
+        reason: 'DAMAGE_REPORTED',
+        damageReportId: reportRef.id,
+        heldAmount: reportData.pieces * reportData.rate,
+        heldPieces: reportData.pieces || reportData.pieceNumbers?.length,
+        reportedAt: new Date()
+      });
+
+      // Commit the batch transaction
+      await batch.commit();
       
       // Create notifications for supervisor
       await this.createDamageNotification({
         type: 'damage_reported',
         recipientId: reportData.supervisorId,
         recipientRole: 'supervisor',
-        damageReportId: docRef.id,
+        damageReportId: reportRef.id,
         bundleNumber: reportData.bundleNumber,
         operatorName: reportData.operatorName,
         priority: reportData.urgency,
         title: '🔧 New Damage Report',
-        message: `${reportData.operatorName} reported ${reportData.pieceNumbers?.length} damaged pieces in ${reportData.bundleNumber}`
+        message: `${reportData.operatorName} reported ${reportData.pieceNumbers?.length} damaged pieces in ${reportData.bundleNumber}. Payment held pending rework completion.`
       });
 
-      console.log('✅ Damage report submitted:', docRef.id);
+      // Notify operator about payment hold
+      await this.createDamageNotification({
+        type: 'payment_held',
+        recipientId: reportData.operatorId,
+        recipientRole: 'operator',
+        damageReportId: reportRef.id,
+        bundleNumber: reportData.bundleNumber,
+        priority: 'normal',
+        title: '⏳ Bundle Payment On Hold',
+        message: `Payment for ${reportData.bundleNumber} is held until damage is resolved. You can continue working on other bundles.`
+      });
+
+      console.log('✅ Damage report submitted and payment held:', reportRef.id);
       return {
         success: true,
-        reportId: docRef.id,
-        data: { ...reportDocument, id: docRef.id }
+        reportId: reportRef.id,
+        data: { ...reportDocument, id: reportRef.id }
       };
     } catch (error) {
       console.error('❌ Error submitting damage report:', error);
@@ -342,7 +368,137 @@ export class DamageReportService {
   }
 
   /**
-   * Mark report as finally completed by operator and release held payment
+   * Hold bundle payment when damage is reported
+   */
+  async holdBundlePayment(batch, bundleId, operatorId, holdData) {
+    try {
+      // Update work item/bundle with payment hold status
+      const bundleRef = doc(db, 'workItems', bundleId);
+      batch.update(bundleRef, {
+        paymentStatus: 'HELD_FOR_DAMAGE',
+        paymentHoldReason: holdData.reason,
+        heldAmount: holdData.heldAmount,
+        heldPieces: holdData.heldPieces,
+        damageReportId: holdData.damageReportId,
+        paymentHeldAt: serverTimestamp(),
+        canWithdraw: false,
+        'systemInfo.updatedAt': serverTimestamp()
+      });
+
+      // Update operator's wallet/earnings to show held amount
+      const operatorWalletRef = doc(db, 'operatorWallets', operatorId);
+      const walletSnap = await getDoc(operatorWalletRef);
+      
+      if (walletSnap.exists()) {
+        batch.update(operatorWalletRef, {
+          heldAmount: (walletSnap.data().heldAmount || 0) + holdData.heldAmount,
+          heldBundles: [...(walletSnap.data().heldBundles || []), bundleId],
+          lastUpdated: serverTimestamp()
+        });
+      } else {
+        batch.set(operatorWalletRef, {
+          operatorId: operatorId,
+          availableAmount: 0,
+          heldAmount: holdData.heldAmount,
+          totalEarned: 0,
+          heldBundles: [bundleId],
+          lastUpdated: serverTimestamp(),
+          createdAt: serverTimestamp()
+        });
+      }
+
+      console.log(`💰 Bundle payment held: ${holdData.heldAmount} for bundle ${bundleId}`);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error holding bundle payment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Release held bundle payment when all work is completed
+   */
+  async releaseBundlePayment(bundleId, operatorId, releaseData = {}) {
+    try {
+      const batch = writeBatch(db);
+      
+      // Get current bundle data
+      const bundleRef = doc(db, 'workItems', bundleId);
+      const bundleSnap = await getDoc(bundleRef);
+      const bundleData = bundleSnap.data();
+      
+      if (!bundleData || bundleData.paymentStatus !== 'HELD_FOR_DAMAGE') {
+        throw new Error('Bundle payment is not held or bundle not found');
+      }
+
+      // Release payment - Update bundle status
+      batch.update(bundleRef, {
+        paymentStatus: 'RELEASED',
+        paymentReleasedAt: serverTimestamp(),
+        canWithdraw: true,
+        finalCompletionStatus: 'COMPLETED',
+        'systemInfo.updatedAt': serverTimestamp()
+      });
+
+      // Update operator wallet - move from held to available
+      const operatorWalletRef = doc(db, 'operatorWallets', operatorId);
+      const walletSnap = await getDoc(operatorWalletRef);
+      const currentWallet = walletSnap.data();
+      
+      batch.update(operatorWalletRef, {
+        availableAmount: (currentWallet.availableAmount || 0) + bundleData.heldAmount,
+        heldAmount: Math.max(0, (currentWallet.heldAmount || 0) - bundleData.heldAmount),
+        totalEarned: (currentWallet.totalEarned || 0) + bundleData.heldAmount,
+        heldBundles: currentWallet.heldBundles.filter(id => id !== bundleId),
+        lastUpdated: serverTimestamp()
+      });
+
+      // Create wage record for released payment
+      const wageRecordRef = doc(collection(db, 'wageRecords'));
+      batch.set(wageRecordRef, {
+        operatorId: operatorId,
+        bundleId: bundleId,
+        bundleNumber: bundleData.bundleNumber || bundleId,
+        operation: bundleData.operation || 'N/A',
+        pieces: bundleData.heldPieces || bundleData.pieces,
+        rate: bundleData.rate || 0,
+        amount: bundleData.heldAmount,
+        workType: 'bundle_completion_with_damage',
+        date: new Date().toISOString().split('T')[0],
+        paymentType: 'released_after_damage',
+        damageReportId: bundleData.damageReportId,
+        paymentNotes: `Bundle completed after damage rework - Payment released: ₹${bundleData.heldAmount}`,
+        createdAt: serverTimestamp()
+      });
+
+      await batch.commit();
+
+      // Notify operator about payment release
+      await this.createDamageNotification({
+        type: 'payment_released',
+        recipientId: operatorId,
+        recipientRole: 'operator',
+        damageReportId: bundleData.damageReportId,
+        bundleNumber: bundleData.bundleNumber || bundleId,
+        priority: 'normal',
+        title: '💰 Bundle Payment Released!',
+        message: `Payment of ₹${bundleData.heldAmount} released for ${bundleData.bundleNumber}. Amount added to your wallet.`
+      });
+
+      console.log(`✅ Bundle payment released: ₹${bundleData.heldAmount} for ${bundleId}`);
+      return { 
+        success: true, 
+        releasedAmount: bundleData.heldAmount,
+        bundleId: bundleId
+      };
+    } catch (error) {
+      console.error('❌ Error releasing bundle payment:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Mark report as finally completed by operator and release held bundle payment
    */
   async markFinalCompletion(reportId, operatorId, completionData = {}) {
     try {
@@ -350,64 +506,42 @@ export class DamageReportService {
       const reportSnap = await getDoc(reportRef);
       const reportData = reportSnap.data();
       
-      // Calculate the payment to be released
-      const baseRate = parseFloat(reportData.rate) || 0;
-      const pieceCount = reportData.pieceCount || 0;
-      const operatorFault = isOperatorFault(reportData.damageType);
-      
-      // Always release full payment for reworked pieces after completion
-      // Payment was held during damage report, now released after rework completion
-      let paymentToRelease = pieceCount * baseRate;
-      
+      if (!reportData) {
+        throw new Error('Damage report not found');
+      }
+
+      // Update damage report status
       const updateData = {
         status: DAMAGE_STATUS.FINAL_COMPLETION,
         finalCompletionAt: serverTimestamp(),
         'operatorCompletion.completedAt': serverTimestamp(),
         'operatorCompletion.completionNotes': completionData.notes || '',
         'operatorCompletion.qualityScore': completionData.qualityScore || 100,
-        'paymentImpact.paymentReleased': paymentToRelease,
-        'paymentImpact.releasedAt': serverTimestamp(),
-        'paymentImpact.finalPaymentStatus': 'released',
         'systemInfo.updatedAt': serverTimestamp()
       };
 
       await updateDoc(reportRef, updateData);
 
-      // Create wage record for the released payment
-      const wageRecord = {
-        operatorId: operatorId,
-        operatorName: reportData.operatorName,
-        bundleNumber: `${reportData.bundleNumber}-REWORK`,
-        operation: reportData.operation,
-        pieces: pieceCount,
-        rate: baseRate,
-        amount: paymentToRelease,
-        workType: 'rework_completion',
-        date: new Date().toISOString().split('T')[0],
-        isReworkPayment: true,
-        originalDamageReportId: reportId,
-        paymentNotes: `Rework completion payment - Original damage: ${reportData.damageType}`,
-        createdAt: serverTimestamp()
-      };
-
-      await addDoc(collection(db, 'wageRecords'), wageRecord);
-
-      // Notify operator about payment release
-      await this.createDamageNotification({
-        type: 'payment_released',
-        recipientId: operatorId,
-        recipientRole: 'operator',
+      // Release the entire bundle payment since all work is now complete
+      const bundleId = reportData.bundleId || reportData.workItemId;
+      const releaseResult = await this.releaseBundlePayment(bundleId, operatorId, {
+        completionType: 'damage_rework_final',
         damageReportId: reportId,
-        bundleNumber: reportData.bundleNumber,
-        priority: 'normal',
-        title: '💰 Payment Released',
-        message: `Payment of ₹${paymentToRelease.toFixed(2)} released for completing reworked pieces from ${reportData.bundleNumber}`
+        qualityScore: completionData.qualityScore || 100
       });
 
+      if (!releaseResult.success) {
+        console.warn('⚠️ Could not release bundle payment:', releaseResult.error);
+        // Continue with completion even if payment release fails
+      }
+
+      console.log(`✅ Final completion marked for ${reportId}, bundle payment: ${releaseResult.success ? 'released' : 'failed'}`);
+      
       return { 
         success: true, 
-        paymentReleased: paymentToRelease,
-        wageRecord: wageRecord
+        paymentReleased: releaseResult.success ? releaseResult.releasedAmount : 0,
+        bundleId: bundleId,
+        paymentReleaseStatus: releaseResult.success ? 'released' : 'failed'
       };
     } catch (error) {
       console.error('❌ Error marking final completion:', error);
@@ -551,6 +685,175 @@ export class DamageReportService {
       });
       callback(notifications);
     });
+  }
+
+  /**
+   * Check for overdue damage reports and escalate to admin
+   */
+  async checkAndEscalateOverdueReports() {
+    try {
+      const now = new Date();
+      const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const twoHoursAgo = new Date(now.getTime() - 2 * 60 * 60 * 1000);
+      
+      // Get reports that might be overdue
+      const q = query(
+        collection(db, this.collectionName),
+        where('status', 'in', ['reported_to_supervisor', 'acknowledged', 'in_supervisor_queue']),
+        where('reportedAt', '<=', oneDayAgo),
+        orderBy('reportedAt', 'asc')
+      );
+
+      const snapshot = await getDocs(q);
+      const overdueReports = [];
+
+      snapshot.forEach(doc => {
+        const report = { id: doc.id, ...doc.data() };
+        const reportTime = report.reportedAt?.toDate?.() || new Date(report.reportedAt);
+        const hoursSinceReport = (now - reportTime) / (1000 * 60 * 60);
+        
+        // Check if report is overdue based on urgency
+        const urgencyLevel = report.urgency || 'normal';
+        let maxHours = 24; // Default
+        
+        switch (urgencyLevel) {
+          case 'urgent': maxHours = 1; break;
+          case 'high': maxHours = 4; break;
+          case 'normal': maxHours = 24; break;
+          case 'low': maxHours = 72; break;
+        }
+        
+        if (hoursSinceReport > maxHours) {
+          overdueReports.push({
+            ...report,
+            hoursSinceReport: Math.round(hoursSinceReport),
+            maxHours,
+            overdueBy: Math.round(hoursSinceReport - maxHours)
+          });
+        }
+      });
+
+      // Escalate overdue reports to admin
+      for (const overdueReport of overdueReports) {
+        await this.escalateToAdmin(overdueReport);
+      }
+
+      console.log(`📈 Checked ${snapshot.docs.length} reports, escalated ${overdueReports.length} overdue reports to admin`);
+      
+      return {
+        success: true,
+        totalChecked: snapshot.docs.length,
+        escalatedCount: overdueReports.length,
+        overdueReports: overdueReports
+      };
+    } catch (error) {
+      console.error('❌ Error checking overdue reports:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Escalate damage report to admin/management
+   */
+  async escalateToAdmin(overdueReport) {
+    try {
+      const reportRef = doc(db, this.collectionName, overdueReport.id);
+      
+      // Update report status to escalated
+      await updateDoc(reportRef, {
+        status: 'escalated_to_admin',
+        escalatedAt: serverTimestamp(),
+        escalationReason: `Supervisor response overdue by ${overdueReport.overdueBy} hours (${overdueReport.urgency} priority)`,
+        originalSupervisorId: overdueReport.supervisorId,
+        'systemInfo.updatedAt': serverTimestamp()
+      });
+
+      // Send notification to admin/management
+      await this.createDamageNotification({
+        type: 'damage_escalated',
+        recipientId: 'admin', // Or get from management roles
+        recipientRole: 'management',
+        damageReportId: overdueReport.id,
+        bundleNumber: overdueReport.bundleNumber,
+        operatorName: overdueReport.operatorName,
+        supervisorId: overdueReport.supervisorId,
+        priority: 'urgent',
+        title: '🚨 Damage Report Escalated',
+        message: `URGENT: Damage report for ${overdueReport.bundleNumber} overdue by ${overdueReport.overdueBy}hrs. Supervisor ${overdueReport.supervisorId} unresponsive.`
+      });
+
+      // Send notification to supervisor about escalation
+      await this.createDamageNotification({
+        type: 'escalation_warning',
+        recipientId: overdueReport.supervisorId,
+        recipientRole: 'supervisor',
+        damageReportId: overdueReport.id,
+        bundleNumber: overdueReport.bundleNumber,
+        priority: 'urgent',
+        title: '⚠️ Report Escalated to Admin',
+        message: `Damage report ${overdueReport.bundleNumber} escalated to management due to delayed response (${overdueReport.overdueBy}hrs overdue)`
+      });
+
+      // Send notification to operator about escalation
+      await this.createDamageNotification({
+        type: 'escalation_update',
+        recipientId: overdueReport.operatorId,
+        recipientRole: 'operator',
+        damageReportId: overdueReport.id,
+        bundleNumber: overdueReport.bundleNumber,
+        priority: 'normal',
+        title: '📈 Report Escalated',
+        message: `Your damage report for ${overdueReport.bundleNumber} has been escalated to management for faster resolution.`
+      });
+
+      console.log(`🚨 Escalated overdue damage report ${overdueReport.id} to admin`);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Error escalating to admin:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get escalated damage reports for admin dashboard
+   */
+  async getEscalatedReports(limit_count = 20) {
+    try {
+      const q = query(
+        collection(db, this.collectionName),
+        where('status', '==', 'escalated_to_admin'),
+        orderBy('escalatedAt', 'desc'),
+        limit(limit_count)
+      );
+
+      const snapshot = await getDocs(q);
+      const reports = [];
+
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        reports.push({
+          id: doc.id,
+          ...data,
+          reportedAt: data.reportedAt?.toDate?.() || data.reportedAt,
+          escalatedAt: data.escalatedAt?.toDate?.() || data.escalatedAt
+        });
+      });
+
+      return {
+        success: true,
+        data: reports
+      };
+    } catch (error) {
+      console.error('❌ Error getting escalated reports:', error);
+      return {
+        success: false,
+        error: error.message,
+        data: []
+      };
+    }
   }
 
   /**

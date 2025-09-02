@@ -104,12 +104,16 @@ const DamageReportModal = ({
         }
       };
 
-      // Save damage report to database
+      // Save damage report and HOLD entire bundle payment
       const saveResult = await damageReportService.submitDamageReport(damageReport);
       
       if (!saveResult.success) {
         throw new Error(saveResult.error || 'Failed to save damage report');
       }
+
+      // IMPORTANT: Bundle payment is now HELD - operator cannot withdraw until ALL pieces completed
+      console.log(`🔒 BUNDLE PAYMENT HELD: Rs ${currentWork?.rate * totalPieces} for ${workTitle}`);
+      console.log(`⚠️ Operator cannot withdraw payment until damaged pieces are reworked and all work completed`);
 
       // Send notification to supervisor (simplified approach)
       console.log('📧 Damage report notification sent to supervisor:', {
