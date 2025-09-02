@@ -14,6 +14,7 @@ import {
 import SelfAssignmentApprovalQueue from './SelfAssignmentApprovalQueue';
 import EmergencyWorkInsertion from './EmergencyWorkInsertion';
 import WorkflowAnalyticsDashboard from './WorkflowAnalyticsDashboard';
+import OperatorAvatar from '../common/OperatorAvatar';
 
 const WorkAssignment = () => {
   const { user } = useAuth();
@@ -1016,13 +1017,26 @@ const WorkAssignment = () => {
                     <div className="flex items-center space-x-3">
                       {/* Avatar */}
                       <div className="relative">
-                        <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                          {operator.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'OP'}
-                        </div>
+                        <OperatorAvatar
+                          operator={{
+                            ...operator,
+                            avatar: {
+                              type: 'unique',
+                              bgColor: '#4F46E5',
+                              textColor: '#FFFFFF'
+                            }
+                          }}
+                          size="md"
+                          showStatus={true}
+                          showWorkload={false}
+                          className="shadow-md"
+                        />
                         {/* Online Status Indicator */}
-                        <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white ${
-                          operator.isOnline ? 'bg-green-500' : 'bg-gray-400'
-                        }`}></div>
+                        {operator.isOnline && (
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full border-2 border-white bg-green-500">
+                            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse absolute top-0.5 left-0.5"></div>
+                          </div>
+                        )}
                       </div>
                       
                       <div>

@@ -6,6 +6,8 @@ import { useOperatorData, useWorkManagement, useAppData } from '../../hooks/useA
 import DamageReportModal from './DamageReportModal';
 import DamageNotificationSystem from '../common/DamageNotificationSystem';
 import OperatorAvatar from '../common/OperatorAvatar';
+import OperatorWallet from './OperatorWallet';
+import { damageReportService } from '../../services/DamageReportService';
 
 const OperatorWorkDashboardNewCentralized = () => {
   const { user } = useAuth();
@@ -46,6 +48,33 @@ const OperatorWorkDashboardNewCentralized = () => {
       }));
     }
   }, [stats, myAssignments]);
+
+  // Fetch pending rework data
+  useEffect(() => {
+    const fetchReworkData = async () => {
+      if (!user?.id) return;
+
+      try {
+        const pendingReworkResult = await damageReportService.getPendingReworkPieces(user.id);
+        
+        if (pendingReworkResult.success) {
+          setLocalStats(prev => ({
+            ...prev,
+            pendingReworkPieces: pendingReworkResult.count || 0
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching rework data:', error);
+      }
+    };
+
+    fetchReworkData();
+    
+    // Set up periodic refresh every 30 seconds
+    const refreshInterval = setInterval(fetchReworkData, 30000);
+    
+    return () => clearInterval(refreshInterval);
+  }, [user?.id]);
 
   // Get current active work
   const currentWork = myAssignments.find(assignment => assignment.status === 'in_progress') || null;
@@ -211,7 +240,7 @@ const OperatorWorkDashboardNewCentralized = () => {
         </div>
 
         {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white p-6 rounded-lg shadow-sm border">
             <div className="text-2xl font-bold text-blue-600">
               {localStats.todayPieces || 0}
@@ -244,6 +273,26 @@ const OperatorWorkDashboardNewCentralized = () => {
               {isNepali ? 'आज पूरा भएको' : 'Completed Today'}
             </div>
           </div>
+          <div className="bg-white p-6 rounded-lg shadow-sm border">
+            <div className="text-2xl font-bold text-red-600">
+              {localStats.pendingReworkPieces || 0}
+            </div>
+            <div className="text-sm text-gray-500">
+              {isNepali ? '🔧 रिवर्क पेन्डिङ' : '🔧 Rework Pending'}
+            </div>
+          </div>
+        </div>
+
+        {/* Operator Wallet */}
+        <div className="mb-8">
+          <OperatorWallet 
+            operatorId={user?.id}
+            isNepali={isNepali}
+            onWalletUpdate={(walletData) => {
+              // Handle wallet updates if needed
+              console.log('Wallet updated:', walletData);
+            }}
+          />
         </div>
 
         {/* Current Work Section */}
@@ -296,10 +345,10 @@ const OperatorWorkDashboardNewCentralized = () => {
               </div>
               <div>
                 <div className="text-sm text-gray-500">
-                  {isNepali ? 'दर' : 'Rate'}
+                  {isNepali ? 'पेमेन्ट' : 'Payment'}
                 </div>
-                <div className="font-medium text-green-600">
-                  Rs. {currentWork.workData?.rate || currentWork.rate || 0}
+                <div className="font-medium text-gray-500">
+                  {isNepali ? 'काम पछि' : 'After completion'}
                 </div>
               </div>
             </div>
@@ -354,10 +403,10 @@ const OperatorWorkDashboardNewCentralized = () => {
                         </div>
                         <div>
                           <div className="text-sm text-gray-500">
-                            {isNepali ? 'दर' : 'Rate'}
+                            {isNepali ? 'पेमेन्ट' : 'Payment'}
                           </div>
-                          <div className="font-medium text-green-600">
-                            Rs. {workItem.workData?.rate || workItem.rate || 0}
+                          <div className="font-medium text-gray-500">
+                            {isNepali ? 'काम पछि' : 'After completion'}
                           </div>
                         </div>
                       </div>

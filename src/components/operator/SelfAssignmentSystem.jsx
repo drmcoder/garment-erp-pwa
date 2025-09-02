@@ -775,8 +775,8 @@ const SelfAssignmentSystem = () => {
                     }`}>
                       {work.difficulty}
                     </div>
-                    <span className="text-sm font-medium text-green-600">
-                      Rs. {work.rate || 0}
+                    <span className="text-xs text-gray-500">
+                      💰 {isNepali ? 'काम पूरा पछि' : 'After completion'}
                     </span>
                   </div>
                 </div>
@@ -828,7 +828,7 @@ const SelfAssignmentSystem = () => {
                       {selectedWork.operation}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      {selectedWork.pieces} pcs • {selectedWork.estimatedTime}m • Rs. {selectedWork.rate}
+                      {selectedWork.pieces} pcs • {selectedWork.estimatedTime}m • {isNepali ? 'पेमेन्ट काम पछि' : 'Payment after work'}
                     </p>
                   </div>
                 </div>

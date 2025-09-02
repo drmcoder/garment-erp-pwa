@@ -14,6 +14,7 @@ import {
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage, LanguageToggle } from "../../context/LanguageContext";
 import NotificationSettings from "./NotificationSettings";
+import UniversalAvatar from "./UniversalAvatar";
 
 const Header = ({
   onMenuToggle,
@@ -38,19 +39,36 @@ const Header = ({
   // Close dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+      // Use setTimeout to ensure the click event is processed after state updates
+      setTimeout(() => {
+        if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+          setShowUserMenu(false);
+        }
+        if (
+          notificationRef.current &&
+          !notificationRef.current.contains(event.target)
+        ) {
+          setShowNotifications(false);
+        }
+      }, 0);
+    };
+
+    const handleEscapeKey = (event) => {
+      if (event.key === 'Escape') {
         setShowUserMenu(false);
-      }
-      if (
-        notificationRef.current &&
-        !notificationRef.current.contains(event.target)
-      ) {
         setShowNotifications(false);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside); // Add touch support
+    document.addEventListener("keydown", handleEscapeKey);
+    
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+      document.removeEventListener("keydown", handleEscapeKey);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -229,7 +247,11 @@ const Header = ({
             {/* User Menu */}
             <div className="relative" ref={userMenuRef}>
               <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setShowUserMenu(!showUserMenu);
+                }}
                 className="flex items-center space-x-3 p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 aria-label="User menu"
               >
@@ -245,19 +267,12 @@ const Header = ({
                 </div>
 
                 {/* Avatar */}
-                <div className="bg-blue-100 text-blue-700 p-2 rounded-lg flex items-center justify-center">
-                  {userInfo?.avatar ? (
-                    <img
-                      src={userInfo.avatar}
-                      alt={userInfo.name}
-                      className="w-6 h-6 rounded-full"
-                    />
-                  ) : (
-                    <span className="text-sm font-medium">
-                      {userInfo?.initials}
-                    </span>
-                  )}
-                </div>
+                <UniversalAvatar
+                  user={user}
+                  size="sm"
+                  showStatus={false}
+                  style="unique"
+                />
 
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </button>
@@ -268,11 +283,13 @@ const Header = ({
                   {/* User Info Header */}
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
-                      <div className="bg-blue-100 text-blue-700 p-2 rounded-lg">
-                        <span className="text-sm font-medium">
-                          {userInfo?.initials}
-                        </span>
-                      </div>
+                      <UniversalAvatar
+                        user={user}
+                        size="md"
+                        showStatus={false}
+                        style="unique"
+                        className="shadow-sm"
+                      />
                       <div>
                         <p className="font-medium text-gray-800">
                           {userInfo?.name}
