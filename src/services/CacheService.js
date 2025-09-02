@@ -5,7 +5,6 @@ import {
   db, 
   collection, 
   getDocs, 
-  onSnapshot, 
   COLLECTIONS,
   DEMO_USERS 
 } from '../config/firebase';

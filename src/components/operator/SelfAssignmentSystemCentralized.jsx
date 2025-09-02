@@ -1,7 +1,7 @@
 // Centralized Self-Assignment System
 // Uses centralized hooks and business logic instead of direct Firebase calls
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { useNotifications } from "../../context/NotificationContext";
@@ -26,7 +26,7 @@ const SelfAssignmentSystemCentralized = () => {
   
   // Centralized data hooks
   const { bundles, assignments, assignWork, loading: workLoading } = useWorkManagement();
-  const { operators } = useUsers();
+  useUsers(); // Initialize users data
   const { isReady, isLoading: centralizedLoading } = useCentralizedStatus();
   
   // Local state

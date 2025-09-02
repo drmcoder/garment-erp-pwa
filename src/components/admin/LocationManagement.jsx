@@ -7,7 +7,6 @@ import {
   XCircle, 
   Users, 
   Activity,
-  Clock,
   Map,
   BarChart3,
   Settings,
@@ -16,11 +15,7 @@ import {
   Save,
   X,
   Navigation,
-  Plus,
-  Trash2,
-  ToggleLeft,
-  ToggleRight,
-  Check
+  Plus
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -44,11 +39,10 @@ const LocationManagement = () => {
   const [approvalRequired, setApprovalRequired] = useState(locationService.isApprovalRequired());
   
   // Multi-location settings state
-  const [locations, setLocations] = useState(locationService.getAllLocations());
-  const [editingLocationId, setEditingLocationId] = useState(null);
+  const [locations, setLocations] = useState([]);
+  const [showAddLocation, setShowAddLocation] = useState(false);
   const [editingLocation, setEditingLocation] = useState(false);
   const [editingRadius, setEditingRadius] = useState(false);
-  const [showAddLocation, setShowAddLocation] = useState(false);
   const [newLocation, setNewLocation] = useState({
     name: '',
     address: '',

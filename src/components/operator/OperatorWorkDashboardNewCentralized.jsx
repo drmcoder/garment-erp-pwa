@@ -3,7 +3,6 @@ import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { useOperatorData, useWorkManagement, useAppData } from '../../hooks/useAppData';
-import { formatDateByLanguage, formatTimeAgo } from '../../utils/nepaliDate';
 import DamageReportModal from './DamageReportModal';
 import DamageNotificationSystem from '../common/DamageNotificationSystem';
 import OperatorAvatar from '../common/OperatorAvatar';
@@ -14,7 +13,7 @@ const OperatorWorkDashboardNewCentralized = () => {
   const { showNotification } = useNotifications();
   
   // Centralized data hooks
-  const { stats, myAssignments, hasActiveWork, refreshStats, loading: operatorLoading } = useOperatorData();
+  const { stats, myAssignments, refreshStats, loading: operatorLoading } = useOperatorData();
   const { assignWork, completeWork, refreshWorkItems, loading: workLoading } = useWorkManagement();
   const { initializeApp } = useAppData();
   

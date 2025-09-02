@@ -533,7 +533,7 @@ const OperatorDashboard = () => {
   };
 
   // Start work from queue
-  const handleStartWork = async (work) => {
+  const handleStartWorkFromQueue = async (work) => {
     try {
       setLoading(true);
       
@@ -1064,7 +1064,7 @@ const OperatorDashboard = () => {
             <div className="grid grid-cols-2 gap-3">
               {!isWorkStarted ? (
                 <button
-                  onClick={handleStartWork}
+                  onClick={() => handleStartWorkFromQueue(work)}
                   className="flex items-center justify-center space-x-2 bg-green-600 text-white py-3 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors"
                 >
                   <PlayCircle className="w-5 h-5" />

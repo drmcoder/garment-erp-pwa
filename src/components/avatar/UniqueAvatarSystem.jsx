@@ -2,7 +2,7 @@
 // Advanced 3D-style avatar system with unique combinations
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, Palette, Shuffle, Download, Save } from 'lucide-react';
+import { User, Palette, Shuffle, Download } from 'lucide-react';
 
 const UniqueAvatarSystem = ({ 
   userId, 

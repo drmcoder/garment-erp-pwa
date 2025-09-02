@@ -13,8 +13,6 @@ import {
   Bell,
   Zap,
   X,
-  Wifi,
-  WifiOff,
   MapPin,
   Shield,
   ToggleLeft,
@@ -23,9 +21,6 @@ import {
   CheckCircle,
   XCircle,
   Save,
-  Edit2,
-  Calendar,
-  Play,
   Pause,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";

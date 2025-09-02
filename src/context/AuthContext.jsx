@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, useContext, useMemo } from 'react';
 import { LanguageContext } from './LanguageContext';
 import { ActivityLogService } from '../services/firebase-services';
-import { db, collection, getDocs, doc, updateDoc, COLLECTIONS, DEMO_USERS } from '../config/firebase';
+import { db, doc, updateDoc, COLLECTIONS, DEMO_USERS } from '../config/firebase';
 import { cacheService } from '../services/CacheService';
 
 export const AuthContext = createContext();
@@ -109,7 +109,7 @@ export const AuthProvider = ({ children }) => {
         const savedSession = localStorage.getItem('tsaAuthSession');
         if (savedSession) {
           const sessionData = JSON.parse(savedSession);
-          const { userId, username, role, timestamp, rememberMe } = sessionData;
+          const { userId, username, timestamp, rememberMe } = sessionData;
           
           // Check if session is still valid (24 hours for regular, 30 days if remember me)
           const sessionAge = Date.now() - timestamp;
@@ -334,24 +334,6 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Create mock JWT token
-  const createMockToken = (user) => {
-    const header = { alg: 'HS256', typ: 'JWT' };
-    const payload = {
-      sub: user.id,
-      username: user.username,
-      role: user.role,
-      iat: Math.floor(Date.now() / 1000),
-      exp: Math.floor(Date.now() / 1000) + (24 * 60 * 60) // 24 hours
-    };
-    
-    // Simple base64 encoding (not secure, just for demo)
-    const encodedHeader = btoa(JSON.stringify(header));
-    const encodedPayload = btoa(JSON.stringify(payload));
-    const signature = btoa(`${encodedHeader}.${encodedPayload}.secret`);
-    
-    return `${encodedHeader}.${encodedPayload}.${signature}`;
-  };
 
   // Update user profile
   const updateProfile = async (updates) => {

@@ -13,10 +13,7 @@ import {
   query,
   where,
   orderBy,
-  limit,
-  serverTimestamp,
-  writeBatch,
-  COLLECTIONS
+  serverTimestamp
 } from '../config/firebase';
 
 export class WorkflowAnalyticsService {

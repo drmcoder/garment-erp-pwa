@@ -9,8 +9,7 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Audio context for notification sounds
-  const [audioContext, setAudioContext] = useState(null);
+  // Audio context for notification sounds (using window.audioContextAllowed)
 
   // Initialize audio context after first user interaction
   useEffect(() => {

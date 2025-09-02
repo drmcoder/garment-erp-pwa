@@ -6,8 +6,6 @@
   "homepage": "./",
   "dependencies": {
     "@netlify/functions": "^2.8.2",
-    "@sentry/react": "^10.8.0",
-    "@sentry/tracing": "^7.120.4",
     "date-fns": "^4.1.0",
     "es-toolkit": "^1.39.10",
     "firebase": "^10.14.1",

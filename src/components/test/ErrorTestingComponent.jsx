@@ -4,7 +4,6 @@
 import React, { useState } from 'react';
 import { Bug, AlertTriangle, X } from 'lucide-react';
 import { errorHandlingService, ERROR_SEVERITY, ERROR_CATEGORIES } from '../../services/ErrorHandlingService';
-import { sentryService } from '../../services/SentryService';
 
 const ErrorTestingComponent = ({ onClose }) => {
   const [testResults, setTestResults] = useState([]);
@@ -55,7 +54,8 @@ const ErrorTestingComponent = ({ onClose }) => {
 
   const testSentryDirect = async () => {
     await runTest('Direct Sentry Test', () => {
-      sentryService.testError();
+      console.log('Sentry testing disabled - service removed');
+      throw new Error('Test error - Sentry service removed');
     });
   };
 

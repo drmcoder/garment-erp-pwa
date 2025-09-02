@@ -4,8 +4,7 @@ import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { db, collection, getDocs, query, where, orderBy, doc, updateDoc, addDoc, COLLECTIONS } from '../../config/firebase';
 import { updateBundleWithReadableId } from '../../utils/bundleIdGenerator';
-import { formatDateByLanguage, formatTimeAgo } from '../../utils/nepaliDate';
-import { checkAndUpdateDependentOperations } from '../../utils/progressManager';
+import { formatTimeAgo } from '../../utils/nepaliDate';
 import DamageReportModal from './DamageReportModal';
 import DamageNotificationSystem from '../common/DamageNotificationSystem';
 import { damageReportService } from '../../services/DamageReportService';
@@ -14,7 +13,7 @@ import OperatorAvatar from '../common/OperatorAvatar';
 const OperatorWorkDashboardNew = () => {
   const { user } = useContext(AuthContext);
   const { currentLanguage } = useContext(LanguageContext);
-  const { showNotification, sendWorkflowNotification, sendMachineGroupNotification } = useContext(NotificationContext);
+  const { showNotification, sendMachineGroupNotification } = useContext(NotificationContext);
 
   const [currentWork, setCurrentWork] = useState(null); // Currently active work
   const [readyWork, setReadyWork] = useState([]); // Work ready to start

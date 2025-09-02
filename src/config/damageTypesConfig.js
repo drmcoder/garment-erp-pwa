@@ -410,7 +410,7 @@ export const DAMAGE_URGENCY_LEVELS = {
   }
 };
 
-export default {
+const config = {
   DAMAGE_CATEGORIES,
   DAMAGE_PREVENTION_TIPS,
   DAMAGE_URGENCY_LEVELS,
@@ -419,3 +419,5 @@ export default {
   isOperatorFault,
   getDamagePenalty
 };
+
+export default config;

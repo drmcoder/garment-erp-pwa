@@ -3,7 +3,6 @@
 
 import React from 'react';
 import { ActivityLogService } from './firebase-services';
-import { sentryService } from './SentryService';
 
 // Error severity levels
 export const ERROR_SEVERITY = {
@@ -294,22 +293,16 @@ class ErrorHandlingService {
         };
       }
 
-      // Report to Sentry
-      sentryService.reportError(error, sentryContext);
-      
-      // Add breadcrumb for debugging trail
-      sentryService.addBreadcrumb(
-        `Error in ${context.component || 'unknown'}: ${errorInfo.message}`,
-        'error',
-        sentryLevel,
-        {
-          category: errorInfo.category,
-          action: context.action
-        }
-      );
+      // Sentry integration removed
+      console.warn('Error reported:', {
+        error: errorInfo.message,
+        component: context.component || 'unknown',
+        category: errorInfo.category,
+        action: context.action
+      });
 
-    } catch (sentryError) {
-      console.error('Failed to report error to Sentry:', sentryError);
+    } catch (reportError) {
+      console.error('Failed to report error:', reportError);
     }
   }
 

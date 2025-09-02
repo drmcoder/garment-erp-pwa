@@ -294,7 +294,7 @@ export const DAMAGE_NOTIFICATION_SCHEMA = {
   expiresAt: 'timestamp'                 // Auto-delete after this time
 };
 
-export default {
+const schema = {
   DAMAGE_REPORT_SCHEMA,
   DAMAGE_STATUS,
   FIRESTORE_COLLECTIONS,
@@ -303,3 +303,5 @@ export default {
   createDamageReportDocument,
   generateReportId
 };
+
+export default schema;

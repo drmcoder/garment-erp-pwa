@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import { useGlobalError } from '../common/GlobalErrorHandler';
 import { useWorkManagement } from '../../hooks/useAppData';
 import ProcessTemplateManager from './ProcessTemplateManager';
 
 const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
   const { currentLanguage } = useLanguage();
-  const { addError, ERROR_TYPES, ERROR_SEVERITY } = useGlobalError();
   const { bundles: centralBundles, assignWork } = useWorkManagement();
   
   const [selectedTemplate, setSelectedTemplate] = useState(null);
@@ -120,39 +118,27 @@ const BundleManager = ({ bundles, wipData, onWorkItemsCreated, onCancel }) => {
 
       // Log results - only warn if no work items created
       if (allWorkItems.length === 0) {
-        addError({
-          message: currentLanguage === 'np' 
-            ? `कुनै काम आइटमहरू सिर्जना भएनन् - टेम्प्लेट र बन्डल जाँच गर्नुहोस्`
-            : `No work items created - check template and bundle compatibility`,
-          component: 'BundleManager',
-          action: 'Process Bundles',
-          data: { 
-            bundleCount: bundles.length,
-            templateId: template.id,
-            templateType: template.articleType,
-            templateArticles: template.articleNumbers,
-            bundleArticles: bundles.map(b => b.articleNumber),
-            bundleDetails: bundles.map(b => ({ 
-              id: b.bundleId || b.id, 
-              article: b.articleNumber,
-              color: b.color,
-              size: b.size 
-            })),
-            templateOperations: template.operations?.length || 0
-          }
-        }, ERROR_TYPES.USER, ERROR_SEVERITY.MEDIUM);
+        console.error(`No work items created - check template and bundle compatibility`, {
+          bundleCount: bundles.length,
+          templateId: template.id,
+          templateType: template.articleType,
+          templateArticles: template.articleNumbers,
+          bundleArticles: bundles.map(b => b.articleNumber),
+          bundleDetails: bundles.map(b => ({ 
+            id: b.bundleId || b.id, 
+            article: b.articleNumber,
+            color: b.color,
+            size: b.size 
+          })),
+          templateOperations: template.operations?.length || 0
+        });
       } else {
         // Success message - no need to log as warning, just console log
         console.log(`✅ Bundle processing success: ${allWorkItems.length} work items created from ${bundles.length} bundles using template ${template.id}`);
       }
 
     } catch (error) {
-      addError({
-        message: 'Failed to process bundles with template',
-        component: 'BundleManager',
-        action: 'Process Bundles',
-        data: { error: error.message }
-      }, ERROR_TYPES.SYSTEM, ERROR_SEVERITY.HIGH);
+      console.error('Failed to process bundles with template', error);
     }
   };
 

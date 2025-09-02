@@ -5,7 +5,7 @@ import React, { useState, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
-import { DAMAGE_CATEGORIES, DAMAGE_URGENCY_LEVELS, getDamageTypeById } from '../../config/damageTypesConfig';
+import { DAMAGE_CATEGORIES, DAMAGE_URGENCY_LEVELS } from '../../config/damageTypesConfig';
 import { damageReportService } from '../../services/DamageReportService';
 
 const DamageReportModal = ({ 

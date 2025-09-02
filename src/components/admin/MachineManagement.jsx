@@ -4,8 +4,7 @@ import { AuthContext } from '../../context/AuthContext';
 import BackButton from '../common/BackButton';
 import { 
   universalDelete, 
-  DELETE_PERMISSIONS, 
-  DeleteConfirmationModal 
+  DELETE_PERMISSIONS
 } from '../../utils/deleteUtils';
 import { 
   db, 

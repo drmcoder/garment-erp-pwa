@@ -54,7 +54,9 @@
       "Bash(npx eslint:*)",
       "Bash(timeout 30 npm run build)",
       "Bash(PORT=3000 timeout 10 npm start)",
-      "Bash(PORT=3000 timeout 20 npm start)"
+      "Bash(PORT=3000 timeout 20 npm start)",
+      "Bash(tree:*)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

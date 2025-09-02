@@ -1,7 +1,7 @@
 // Real-time Subscription Manager
 // Centralized management for all real-time data subscriptions
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { onSnapshot, query, where, orderBy, collection } from '../config/firebase';
 import { db } from '../config/firebase';
 import { useAppStore } from '../store/AppStore';

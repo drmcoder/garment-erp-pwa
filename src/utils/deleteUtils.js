@@ -228,7 +228,7 @@ export const DeleteConfirmationModal = ({
   );
 };
 
-export default {
+const deleteUtils = {
   DELETE_PERMISSIONS,
   checkDeletePermission,
   showDeleteConfirmation,
@@ -236,3 +236,5 @@ export default {
   universalDelete,
   DeleteConfirmationModal
 };
+
+export default deleteUtils;

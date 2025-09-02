@@ -75,7 +75,6 @@ export const formatNepaliDate = (adDate, includeTime = false) => {
   ];
   
   const monthName = nepaliMonths[bsDate.month - 1] || bsDate.month;
-  const dayName = nepaliDays[date.getDay()];
   
   let formatted = `${bsDate.year} ${monthName} ${bsDate.day}`;
   
@@ -204,6 +203,10 @@ export const formatTimeAgo = (date, language = 'np') => {
     return language === 'np' ? 'भविष्यमा' : 'In the future';
   }
   
+  const formatNum = (num) => {
+    return language === 'np' ? toNepaliNumerals(num) : num.toString();
+  };
+
   if (diffMs < 5000) { // Less than 5 seconds
     return language === 'np' ? 'अहिले' : 'Just now';
   } else if (diffMs < 60000) { // Less than 1 minute
@@ -216,10 +219,6 @@ export const formatTimeAgo = (date, language = 'np') => {
   const days = Math.floor(diffMs / 86400000);
   const months = Math.floor(days / 30);
   const years = Math.floor(days / 365);
-
-  const formatNum = (num) => {
-    return language === 'np' ? toNepaliNumerals(num) : num.toString();
-  };
 
   if (language === 'np') {
     if (years > 0) {
@@ -272,7 +271,7 @@ export const getBSFiscalYear = (date = new Date()) => {
   }
 };
 
-export default {
+const nepaliDateUtils = {
   convertADtoBS,
   formatBSDate,
   formatTimeAgo,
@@ -283,6 +282,8 @@ export default {
   NEPALI_DAYS,
   NEPALI_NUMERALS
 };
+
+export default nepaliDateUtils;
 
 // Get relative time in English
 export const getRelativeTimeEnglish = (adDate) => {

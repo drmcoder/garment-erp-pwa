@@ -129,7 +129,7 @@ const WorkflowTemplateManagement = ({ onBack }) => {
   };
 
   const handleDeleteTemplate = async (templateId) => {
-    if (!confirm('Are you sure you want to delete this template?')) return;
+    if (!window.confirm('Are you sure you want to delete this template?')) return;
     
     try {
       await deleteDoc(doc(db, 'workflow_templates', templateId));

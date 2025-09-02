@@ -9,9 +9,6 @@ import {
   useNotifications,
 } from "./context/NotificationContext";
 import { SystemProvider, useSystem } from "./context/SystemContext";
-import { GlobalErrorProvider } from "./components/common/GlobalErrorHandler";
-import SentryErrorBoundary from "./components/error/SentryErrorBoundary";
-import ErrorTestingComponent from "./components/test/ErrorTestingComponent";
 // Removed unused Firebase imports - using modular LoginScreen
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import SelfAssignmentSystemCentralized from "./components/operator/SelfAssignmentSystemCentralized";
@@ -686,23 +683,19 @@ const App = () => {
 // Root App with all providers
 const AppWithProviders = () => {
   return (
-    <SentryErrorBoundary>
-      <LanguageProvider>
-        <GlobalErrorProvider>
-          <AuthProvider>
-            <PermissionsProvider>
-              <SystemProvider>
-                <NotificationProvider>
-                  <CentralizedAppProvider>
-                    <App />
-                  </CentralizedAppProvider>
-                </NotificationProvider>
-              </SystemProvider>
-            </PermissionsProvider>
-          </AuthProvider>
-        </GlobalErrorProvider>
-      </LanguageProvider>
-    </SentryErrorBoundary>
+    <LanguageProvider>
+      <AuthProvider>
+        <PermissionsProvider>
+          <SystemProvider>
+            <NotificationProvider>
+              <CentralizedAppProvider>
+                <App />
+              </CentralizedAppProvider>
+            </NotificationProvider>
+          </SystemProvider>
+        </PermissionsProvider>
+      </AuthProvider>
+    </LanguageProvider>
   );
 };
 

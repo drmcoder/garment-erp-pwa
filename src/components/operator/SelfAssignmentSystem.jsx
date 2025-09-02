@@ -6,10 +6,10 @@ import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
 import { BundleService, WIPService, ActivityLogService } from "../../services/firebase-services";
-import { db, collection, getDocs, setDoc, doc, updateDoc, COLLECTIONS } from "../../config/firebase";
+import { db, collection, getDocs, doc, updateDoc, COLLECTIONS } from "../../config/firebase";
 import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
 import MachineSpecialitySelector from './MachineSpecialitySelector';
-import { updateBundleWithReadableId, getBundleDisplayName } from '../../utils/bundleIdGenerator';
+import { updateBundleWithReadableId } from '../../utils/bundleIdGenerator';
 
 // Mock operation types for fallback
 const mockOperationTypes = [
@@ -604,49 +604,6 @@ const SelfAssignmentSystem = () => {
     setSelectedWork(work);
   };
 
-  // Test function for notification system
-  const testNotificationSystem = () => {
-    // Test supervisor alert
-    addNotification({
-      title: isNepali ? '🎯 टेस्ट सुपरवाइजर अलर्ट' : '🎯 Test Supervisor Alert',
-      message: isNepali 
-        ? 'यो एक टेस्ट सुपरवाइजर नोटिफिकेशन हो - बीप र पुश नोटिफिकेशन सहित'
-        : 'This is a test supervisor notification - with beep and push notification',
-      type: 'supervisor_alert',
-      priority: 'high'
-    });
-
-    // Test workflow notification
-    setTimeout(() => {
-      const mockCompletedWork = {
-        operatorName: user?.name || 'Test Operator',
-        operation: 'Overlock Side Seam',
-        articleNumber: 'TEST123',
-        pieces: 30
-      };
-
-      const mockNextOperators = [
-        { operation: 'Flatlock Shoulder', machineType: 'Flatlock' },
-        { operation: 'Button Attach', machineType: 'Button Machine' }
-      ];
-
-      sendWorkflowNotification(mockCompletedWork, mockNextOperators);
-    }, 1000);
-
-    // Test machine group notification
-    setTimeout(() => {
-      sendMachineGroupNotification('Overlock', {
-        articleNumber: 'TEST456',
-        nextOperation: 'Side Seam',
-        pieces: 25
-      });
-    }, 2000);
-
-    showNotification(
-      isNepali ? 'टेस्ट नोटिफिकेशन पठाइयो!' : 'Test notifications sent!',
-      'success'
-    );
-  };
 
 
   return (

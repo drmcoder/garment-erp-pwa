@@ -5,7 +5,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
-import { Bell, CheckCircle, AlertTriangle, X, User, Package } from 'lucide-react';
+import { Bell, CheckCircle, AlertTriangle, X, Package } from 'lucide-react';
 
 const DamageNotificationSystem = () => {
   const { user } = useContext(AuthContext);

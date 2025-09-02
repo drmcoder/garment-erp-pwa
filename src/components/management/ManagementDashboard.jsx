@@ -36,21 +36,18 @@ import {
   useSupervisorData,
   useCentralizedStatus
 } from "../../hooks/useAppData";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import DamageAnalyticsDashboard from './DamageAnalyticsDashboard';
-import AIProductionAnalytics from '../analytics/AIProductionAnalytics';
 import SupervisorManagement from '../admin/SupervisorManagement';
 import MachineManagement from '../admin/MachineManagement';
 
 const AdvancedManagementDashboard = () => {
   const { user } = useAuth();
-  const { t, currentLanguage, formatNumber } = useLanguage();
+  const { currentLanguage, formatNumber } = useLanguage();
   
   // Use centralized data hooks
   const { allUsers, loading: usersLoading } = useUsers();
-  const { stats, analytics, loading: productionLoading } = useProductionAnalytics();
-  const { lineStatus, qualityIssues, workData } = useSupervisorData();
+  const { loading: productionLoading } = useProductionAnalytics();
+  const { workData } = useSupervisorData();
   const { isReady } = useCentralizedStatus();
 
   // State Management

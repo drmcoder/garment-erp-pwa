@@ -16,11 +16,7 @@ import {
   where,
   orderBy,
   limit,
-  onSnapshot,
   serverTimestamp,
-  runTransaction,
-  increment,
-  writeBatch,
 } from "../config/firebase";
 
 // User Activity Logging Service

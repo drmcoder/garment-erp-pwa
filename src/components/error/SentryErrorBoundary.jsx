@@ -1,48 +1,55 @@
 // File: src/components/error/SentryErrorBoundary.jsx
-// Enhanced React Error Boundary with Sentry Integration
+// React Error Boundary Component (Sentry removed)
 
 import React from 'react';
-import * as Sentry from '@sentry/react';
 import { AlertTriangle, RefreshCw, Home, Bug } from 'lucide-react';
+
+class ReactErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    this.setState({
+      error: error,
+      errorInfo: errorInfo
+    });
+    
+    // Log error to console instead of Sentry
+    console.error('Error caught by boundary:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <ErrorFallbackComponent 
+          error={this.state.error}
+          errorInfo={this.state.errorInfo}
+          resetError={() => this.setState({ hasError: false, error: null, errorInfo: null })}
+          showDetails={this.props.showDetails}
+        />
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const SentryErrorBoundary = ({ children, fallback = null, showDetails = false }) => {
   return (
-    <Sentry.ErrorBoundary
-      fallback={({ error, resetError, eventId }) => (
-        <ErrorFallbackComponent 
-          error={error} 
-          resetError={resetError} 
-          eventId={eventId}
-          showDetails={showDetails}
-        />
-      )}
-      beforeCapture={(scope) => {
-        // Add additional context before sending to Sentry
-        scope.setTag('errorBoundary', true);
-        scope.setLevel('error');
-        scope.setContext('errorBoundary', {
-          component: 'SentryErrorBoundary',
-          timestamp: new Date().toISOString(),
-          userAgent: navigator.userAgent,
-          url: window.location.href
-        });
-      }}
-      showDialog={{
-        // Show user report dialog in production
-        showDialog: process.env.NODE_ENV === 'production',
-        user: {
-          name: 'User',
-          email: 'user@example.com', // Could be populated from auth context
-        },
-      }}
-    >
+    <ReactErrorBoundary showDetails={showDetails}>
       {children}
-    </Sentry.ErrorBoundary>
+    </ReactErrorBoundary>
   );
 };
 
 // Custom error fallback component
-const ErrorFallbackComponent = ({ error, resetError, eventId, showDetails }) => {
+const ErrorFallbackComponent = ({ error, errorInfo, resetError, showDetails }) => {
   const [showErrorDetails, setShowErrorDetails] = React.useState(showDetails);
 
   const handleReload = () => {
@@ -58,10 +65,10 @@ const ErrorFallbackComponent = ({ error, resetError, eventId, showDetails }) => 
   };
 
   const handleReportBug = () => {
-    // Open Sentry user feedback dialog
-    if (eventId) {
-      Sentry.showReportDialog({ eventId });
-    }
+    // Create mailto link for bug reporting
+    const subject = 'Bug Report - TSA ERP';
+    const body = `Error Details:\n\n${error ? error.toString() : 'Unknown error'}\n\nStack Trace:\n${error && error.stack ? error.stack : 'No stack trace available'}\n\nURL: ${window.location.href}\nTimestamp: ${new Date().toISOString()}`;
+    window.location.href = `mailto:support@example.com?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   };
 
   return (
@@ -81,17 +88,8 @@ const ErrorFallbackComponent = ({ error, resetError, eventId, showDetails }) => 
           </h1>
           
           <p className="text-gray-600 text-center mb-6">
-            We're sorry for the inconvenience. The error has been automatically reported to our team.
+            We're sorry for the inconvenience. Please try refreshing the page or contact support if the problem persists.
           </p>
-
-          {/* Error ID for reference */}
-          {eventId && (
-            <div className="bg-gray-50 rounded-lg p-3 mb-6">
-              <p className="text-sm text-gray-700 text-center">
-                <span className="font-medium">Error ID:</span> <code className="bg-gray-200 px-2 py-1 rounded text-xs">{eventId}</code>
-              </p>
-            </div>
-          )}
 
           {/* Error Details Toggle */}
           {error && (
@@ -144,15 +142,13 @@ const ErrorFallbackComponent = ({ error, resetError, eventId, showDetails }) => 
               </button>
             </div>
 
-            {eventId && (
-              <button
-                onClick={handleReportBug}
-                className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
-              >
-                <Bug className="w-4 h-4" />
-                Report Bug
-              </button>
-            )}
+            <button
+              onClick={handleReportBug}
+              className="w-full bg-orange-600 hover:bg-orange-700 text-white font-medium py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors text-sm"
+            >
+              <Bug className="w-4 h-4" />
+              Report Bug
+            </button>
           </div>
         </div>
 

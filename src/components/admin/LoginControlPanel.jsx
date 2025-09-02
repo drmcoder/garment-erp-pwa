@@ -152,27 +152,7 @@ const LoginControlPanel = () => {
     }
   };
 
-  const toggleTimeControl = () => {
-    setSettings(prev => ({
-      ...prev,
-      timeControl: {
-        ...prev.timeControl,
-        enabled: !prev.timeControl.enabled
-      }
-    }));
-  };
 
-  const toggleShift = (shiftId) => {
-    setSettings(prev => ({
-      ...prev,
-      timeControl: {
-        ...prev.timeControl,
-        allowedShifts: prev.timeControl.allowedShifts.map(shift =>
-          shift.id === shiftId ? { ...shift, active: !shift.active } : shift
-        )
-      }
-    }));
-  };
 
   return (
     <div className="space-y-6">
