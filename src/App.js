@@ -10,6 +10,7 @@ import {
 } from "./context/NotificationContext";
 import { SystemProvider, useSystem } from "./context/SystemContext";
 import { GlobalErrorProvider } from "./components/common/GlobalErrorHandler";
+import { roleUtils } from "./lib";
 // Removed unused Firebase imports - using modular LoginScreen
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import OperatorWorkDashboard from "./components/operator/OperatorWorkDashboardNew";
@@ -393,7 +394,7 @@ const AppContent = () => {
 
   // Show different content based on user role
   const renderContent = () => {
-    if (user.role === "operator") {
+    if (roleUtils.isOperator(user.role)) {
       switch (currentView) {
         case "self-assignment":
           return <SelfAssignmentSystem />;
@@ -407,7 +408,7 @@ const AppContent = () => {
     }
 
     // Supervisor views
-    if (user.role === "supervisor") {
+    if (roleUtils.isSupervisor(user.role)) {
       switch (currentView) {
         case "work-assignment":
           return (
@@ -444,7 +445,7 @@ const AppContent = () => {
     }
 
     // Management views (includes all admin capabilities)
-    if (user.role === "management" || user.role === "manager" || user.role === "admin") {
+    if (roleUtils.hasManagementAccess(user.role)) {
       switch (currentView) {
         case "settings":
           return (

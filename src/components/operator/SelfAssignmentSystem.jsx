@@ -10,14 +10,8 @@ import { db, collection, getDocs, setDoc, doc, updateDoc, COLLECTIONS } from "..
 import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
 import MachineSpecialitySelector from './MachineSpecialitySelector';
 import { updateBundleWithReadableId, getBundleDisplayName } from '../../utils/bundleIdGenerator';
-
-// Mock operation types for fallback
-const mockOperationTypes = [
-  { id: 'overlock', english: 'Overlock Stitching', nepali: 'ओभरलक सिलाई', machine: 'Overlock' },
-  { id: 'flatlock', english: 'Flatlock Stitching', nepali: 'फ्ल्याटलक सिलाई', machine: 'Flatlock' },
-  { id: 'singleNeedle', english: 'Single Needle', nepali: 'एकल सुई', machine: 'Single Needle' },
-  { id: 'buttonhole', english: 'Buttonhole', nepali: 'बटनहोल', machine: 'Buttonhole' },
-];
+import { MOCK_DATA, COMPONENT_STATES } from '../../constants';
+import { storageUtils, arrayUtils, debugUtils } from '../../lib';
 
 const SelfAssignmentSystem = () => {
   const { user } = useContext(AuthContext);
@@ -49,13 +43,13 @@ const SelfAssignmentSystem = () => {
           console.log('✅ Loaded operation types from Firestore:', operations.length);
         } else {
           // Use mock data if Firestore is empty
-          setOperationTypes(mockOperationTypes);
-          console.log('ℹ️ Using mock operation types - Firestore collection empty');
+          setOperationTypes(MOCK_DATA.OPERATION_TYPES);
+          debugUtils.log('Using mock operation types - Firestore collection empty');
         }
       } catch (error) {
-        console.warn('Failed to load operation types from Firestore, using mock data:', error);
+        debugUtils.warn('Failed to load operation types from Firestore, using mock data:', error);
         // Use mock data as fallback instead of localStorage
-        setOperationTypes(mockOperationTypes);
+        setOperationTypes(MOCK_DATA.OPERATION_TYPES);
       }
     };
     

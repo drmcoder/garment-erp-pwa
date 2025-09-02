@@ -1852,7 +1852,7 @@ export class WIPService {
       const q = query(
         collection(db, COLLECTIONS.WORK_ITEMS),
         where('status', '==', 'self_assigned'),
-        orderBy('selfAssignedAt', 'asc')
+        orderBy('selfAssignedAt', 'desc')
       );
       
       const snapshot = await getDocs(q);
