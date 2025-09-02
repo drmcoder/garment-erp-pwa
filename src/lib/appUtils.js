@@ -1,25 +1,24 @@
 // src/lib/appUtils.js
 // Centralized application utility functions and common logic
 
-import { USER_ROLES } from '../constants/userRoles';
 
 // Role-based utilities
 export const roleUtils = {
-  isOperator: (userRole) => userRole === USER_ROLES.OPERATOR,
-  isSupervisor: (userRole) => userRole === USER_ROLES.SUPERVISOR,
-  isManager: (userRole) => userRole === USER_ROLES.MANAGER || userRole === USER_ROLES.MANAGEMENT,
-  isAdmin: (userRole) => userRole === USER_ROLES.ADMIN,
+  isOperator: (userRole) => userRole === 'operator',
+  isSupervisor: (userRole) => userRole === 'supervisor',
+  isManager: (userRole) => userRole === 'manager' || userRole === 'management',
+  isAdmin: (userRole) => userRole === 'admin',
   
   hasManagementAccess: (userRole) => {
-    return [USER_ROLES.MANAGER, USER_ROLES.MANAGEMENT, USER_ROLES.ADMIN].includes(userRole);
+    return ['manager', 'management', 'admin'].includes(userRole);
   },
   
   canAssignWork: (userRole) => {
-    return [USER_ROLES.SUPERVISOR, USER_ROLES.MANAGER, USER_ROLES.MANAGEMENT, USER_ROLES.ADMIN].includes(userRole);
+    return ['supervisor', 'manager', 'management', 'admin'].includes(userRole);
   },
   
   canManageUsers: (userRole) => {
-    return [USER_ROLES.ADMIN, USER_ROLES.MANAGER, USER_ROLES.MANAGEMENT].includes(userRole);
+    return ['admin', 'manager', 'management'].includes(userRole);
   }
 };
 
