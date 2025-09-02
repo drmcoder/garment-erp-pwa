@@ -13,6 +13,8 @@ import { useNotifications } from '../../context/NotificationContext';
 import BundlePaymentHoldService from '../../services/BundlePaymentHoldService';
 import EarningsService from '../../services/EarningsService';
 import EnhancedDamageReport from './EnhancedDamageReport';
+import SelfAssignmentSystem from './SelfAssignmentSystem';
+import { getOperationRate, updateWorkAssignmentRate } from '../../utils/operationRateMapping';
 
 const OperatorPendingWork = () => {
   const { user } = useAuth();
@@ -29,6 +31,7 @@ const OperatorPendingWork = () => {
   const [loading, setLoading] = useState(true);
   const [selectedWork, setSelectedWork] = useState(null);
   const [showDamageReport, setShowDamageReport] = useState(false);
+  const [showSelfAssignment, setShowSelfAssignment] = useState(false);
   const [completingWork, setCompletingWork] = useState(false);
 
   // Load pending work
@@ -42,7 +45,16 @@ const OperatorPendingWork = () => {
       const result = await BundlePaymentHoldService.getOperatorPendingWork(user.uid);
       
       if (result.success) {
-        setPendingWork(result.data);
+        // Fix rates for all work items
+        const fixedData = {
+          ...result.data,
+          regularWork: result.data.regularWork.map(work => updateWorkAssignmentRate(work)),
+          heldBundles: result.data.heldBundles.map(bundle => ({
+            ...bundle,
+            rate: bundle.rate || getOperationRate(bundle.operation)
+          }))
+        };
+        setPendingWork(fixedData);
       }
     } catch (error) {
       console.error('Error loading pending work:', error);
@@ -68,7 +80,7 @@ const OperatorPendingWork = () => {
         operation: workItem.operation,
         machineType: workItem.machineType,
         pieces: workItem.pieces,
-        ratePerPiece: workItem.ratePerPiece || 5, // Default rate
+        ratePerPiece: workItem.ratePerPiece || getOperationRate(workItem.operation), // Get correct rate
         startTime: workItem.assignedAt,
         completedAt: new Date(),
         qualityNotes: '',
@@ -396,7 +408,7 @@ const OperatorPendingWork = () => {
                         <div>
                           <span className="text-gray-600">{isNepali ? 'अनुमानित कमाई:' : 'Est. Earnings:'}</span>
                           <p className="font-medium text-green-600">
-                            {formatCurrency((work.pieces || 0) * (work.ratePerPiece || 5))}
+                            {formatCurrency((work.pieces || 0) * (work.ratePerPiece || getOperationRate(work.operation)))}
                           </p>
                         </div>
                         <div>
@@ -447,12 +459,18 @@ const OperatorPendingWork = () => {
           <h3 className="text-lg font-medium text-gray-900 mb-2">
             {isNepali ? 'कुनै प्रतीक्षित काम छैन' : 'No Pending Work'}
           </h3>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-4">
             {isNepali 
               ? 'तपाईंसँग हाल कुनै काम छैन। नयाँ काम असाइन भएको बेला तपाईंलाई सूचना दिइनेछ।'
               : 'You have no pending work items. You will be notified when new work is assigned.'
             }
           </p>
+          <button
+            onClick={() => setShowSelfAssignment(true)}
+            className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+          >
+            🎯 {isNepali ? 'काम छनोट गर्नुहोस्' : 'Choose Work'}
+          </button>
         </div>
       )}
 
@@ -466,7 +484,7 @@ const OperatorPendingWork = () => {
                 pieces: selectedWork.pieces,
                 articleNumber: selectedWork.articleNumber,
                 operation: selectedWork.operation,
-                estimatedEarnings: (selectedWork.pieces || 0) * (selectedWork.ratePerPiece || 5)
+                estimatedEarnings: (selectedWork.pieces || 0) * (selectedWork.ratePerPiece || getOperationRate(selectedWork.operation))
               }}
               onReportSubmitted={(holdData) => {
                 setShowDamageReport(false);
@@ -477,6 +495,25 @@ const OperatorPendingWork = () => {
                 setShowDamageReport(false);
                 setSelectedWork(null);
               }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Self Assignment Modal */}
+      {showSelfAssignment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <SelfAssignmentSystem
+              onWorkSelected={(workData) => {
+                setShowSelfAssignment(false);
+                loadPendingWork(); // Refresh pending work after selection
+                showNotification(
+                  isNepali ? 'काम सुपरवाइजर स्वीकृतिका लागि पठाइयो' : 'Work sent for supervisor approval',
+                  'info'
+                );
+              }}
+              onClose={() => setShowSelfAssignment(false)}
             />
           </div>
         </div>

@@ -43,6 +43,7 @@ import LineInspection from "./LineInspection";
 import DailyReports from "./DailyReports";
 import IssueResolution from "./IssueResolution";
 import BundlePaymentHolds from "./BundlePaymentHolds";
+import SelfAssignmentApprovalQueue from "./SelfAssignmentApprovalQueue";
 
 const Dashboard = () => {
   const { getUserDisplayInfo, isOnline } = useAuth();
@@ -1097,6 +1098,16 @@ const EfficiencyAlertsView = () => (
           >
             🔒 {currentLanguage === "np" ? "भुक्तानी होल्ड" : "Payment Holds"}
           </button>
+          <button
+            onClick={() => setActiveTab("self-assignments")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+              activeTab === "self-assignments"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            📋 {currentLanguage === "np" ? "स्व-असाइनमेन्ट स्वीकृति" : "Self-Assignment Approval"}
+          </button>
         </div>
       </div>
 
@@ -1184,6 +1195,11 @@ const EfficiencyAlertsView = () => (
         {/* Bundle Payment Holds Tab */}
         {activeTab === "payment-holds" && (
           <BundlePaymentHolds />
+        )}
+
+        {/* Self-Assignment Approval Tab */}
+        {activeTab === "self-assignments" && (
+          <SelfAssignmentApprovalQueue />
         )}
       </div>
 

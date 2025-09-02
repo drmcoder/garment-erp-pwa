@@ -6,11 +6,14 @@ import { AuthContext } from "../../context/AuthContext";
 import { useLanguage } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
 import { db, collection, getDocs, query, where, orderBy, COLLECTIONS } from "../../config/firebase";
+import { updateWorkAssignmentRate, updateWorkAssignmentRateAsync } from "../../utils/operationRateMapping";
+import { getFirestoreRate } from "../../utils/firestoreRateLoader";
 
 const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
   const { user } = useContext(AuthContext);
   const { t, currentLanguage, formatNumber, formatCurrency, formatRelativeTime, formatDate } =
     useLanguage();
+  const isNepali = currentLanguage === 'np';
   const { showNotification } = useContext(NotificationContext);
 
   const [workQueue, setWorkQueue] = useState([]);
@@ -58,9 +61,10 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
         q = query(q, orderBy('createdAt', 'desc'));
         const snapshot = await getDocs(q);
         
-        workQueueData = snapshot.docs.map((doc, index) => {
+        // Map and fix rates asynchronously
+        const workItemPromises = snapshot.docs.map(async (doc, index) => {
           const item = doc.data();
-          return {
+          const workItem = {
             id: doc.id,
             bundleId: item.bundleId,
             articleNumber: item.articleNumber || item.article,
@@ -80,7 +84,13 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
             completedPieces: item.completedPieces || 0,
             earnings: item.earnings || 0,
           };
+          
+          // Fix zero rates using Firestore data
+          return await updateWorkAssignmentRateAsync(workItem);
         });
+        
+        // Wait for all rate updates to complete
+        workQueueData = await Promise.all(workItemPromises);
         
         console.log('✅ Loaded work queue from Firestore:', workQueueData.length);
       } catch (firestoreError) {
@@ -88,25 +98,6 @@ const WorkQueue = ({ onWorkSelected, onSelfAssign }) => {
         
         // No localStorage fallback - use empty array
         workQueueData = [];
-          id: `queue_${String(index + 1).padStart(3, '0')}`,
-          bundleId: item.bundleId,
-          articleNumber: item.articleNumber,
-          articleName: item.articleName,
-          color: item.color,
-          size: item.size,
-          pieces: item.pieces || item.quantity,
-          operation: item.operation,
-          machineType: item.machineType,
-          rate: item.rate,
-          estimatedTime: item.estimatedTime,
-          priority: item.priority || "Normal",
-          status: item.status || "pending",
-          assignedAt: item.assignedAt,
-          startedAt: item.startedAt,
-          progress: item.progress || 0,
-          completedPieces: item.completedPieces || 0,
-          earnings: item.earnings || 0,
-        }));
       }
 
       // Apply filter

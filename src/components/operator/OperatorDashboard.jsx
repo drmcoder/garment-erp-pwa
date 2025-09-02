@@ -187,10 +187,11 @@ const OperatorDashboard = () => {
       // Load operator's assigned bundles with machine filtering
       const operatorMachine = user?.machine;
       const bundlesResult = await BundleService.getOperatorBundles(user.id, operatorMachine);
+      let bundles = []; // Declare bundles outside the if block
 
       if (bundlesResult.success) {
         // Filter out problematic bundles before processing
-        const bundles = bundlesResult.bundles.filter(bundle => {
+        bundles = bundlesResult.bundles.filter(bundle => {
           // Comprehensive bundle validation
           const hasValidId = bundle.id && typeof bundle.id === 'string' && bundle.id.trim().length > 0;
           const hasValidStatus = bundle.status && bundle.status.trim().length > 0;
