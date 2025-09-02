@@ -189,7 +189,7 @@ const BundleWorkflowCards = ({
                   <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-200 rounded-b-lg">
                     <div 
                       className="bg-blue-500 h-1 rounded-b-lg transition-all duration-300"
-                      style={{ width: `${(operation.completedPieces / operation.totalPieces) * 100}%` }}
+                      style={{ width: `${operation.totalPieces > 0 ? (operation.completedPieces / operation.totalPieces) * 100 : 0}%` }}
                     />
                   </div>
                 )}

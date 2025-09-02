@@ -36,6 +36,7 @@ import { CompactLoader } from "../common/BrandedLoader";
 import { loginControlService } from "../../services/LoginControlService";
 import { locationService } from "../../services/LocationService";
 import MoneyManagement from "./MoneyManagement";
+import WorkAssignmentSystem from "../common/WorkAssignmentSystem";
 
 const Dashboard = () => {
   const { getUserDisplayInfo, isOnline } = useAuth();
@@ -895,31 +896,6 @@ const EfficiencyAlertsView = () => (
             📦 {t("workAssignment")}
           </button>
           <button
-            onClick={() => setActiveTab("location")}
-            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap relative ${
-              activeTab === "location"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            📍 {currentLanguage === "np" ? "स्थान" : "Location"}
-            {pendingApprovals.length > 0 && (
-              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                {pendingApprovals.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setActiveTab("loginControl")}
-            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
-              activeTab === "loginControl"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            🔐 {currentLanguage === "np" ? "लगइन नियन्त्रण" : "Login Control"}
-          </button>
-          <button
             onClick={() => setActiveTab("money")}
             className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
               activeTab === "money"
@@ -975,496 +951,13 @@ const EfficiencyAlertsView = () => (
         )}
 
         {activeTab === "assignment" && (
-          <div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">
-              📦 {t("workAssignment")} & {t("lineBalancing")}
-            </h2>
-            <div className="text-center text-gray-600 py-8">
-              {currentLanguage === "np"
-                ? "काम असाइनमेन्ट मोड्युल निर्माणाधीन..."
-                : "Work assignment module under construction..."}
-            </div>
-          </div>
+          <WorkAssignmentSystem 
+            currentLanguage={currentLanguage} 
+            t={t} 
+            getEfficiencyColor={getEfficiencyColor}
+          />
         )}
 
-        {/* Location Management Tab */}
-        {activeTab === "location" && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-800">
-                📍 {currentLanguage === "np" ? "स्थान व्यवस्थापन" : "Location Management"}
-              </h2>
-              <button
-                onClick={loadLocationControlData}
-                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <RefreshCw className="w-4 h-4" />
-                <span>{currentLanguage === "np" ? "रिफ्रेस" : "Refresh"}</span>
-              </button>
-            </div>
-
-            {/* Statistics Cards */}
-            {locationStats && (
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg p-4 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-blue-100 text-sm font-medium">
-                        {currentLanguage === "np" ? "कुल पहुँच प्रयास" : "Total Access Attempts"}
-                      </h3>
-                      <p className="text-2xl font-bold mt-1">{locationStats.totalAttempts || 0}</p>
-                    </div>
-                    <Users className="w-8 h-8 text-blue-200" />
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-4 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-green-100 text-sm font-medium">
-                        {currentLanguage === "np" ? "वैध पहुँच" : "Valid Access"}
-                      </h3>
-                      <p className="text-2xl font-bold mt-1">{locationStats.validAttempts || 0}</p>
-                    </div>
-                    <CheckCircle className="w-8 h-8 text-green-200" />
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-red-500 to-red-600 rounded-lg p-4 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-red-100 text-sm font-medium">
-                        {currentLanguage === "np" ? "अवैध पहुँच" : "Invalid Access"}
-                      </h3>
-                      <p className="text-2xl font-bold mt-1">{locationStats.invalidAttempts || 0}</p>
-                    </div>
-                    <XCircle className="w-8 h-8 text-red-200" />
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg p-4 text-white">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-purple-100 text-sm font-medium">
-                        {currentLanguage === "np" ? "औसत दूरी" : "Average Distance"}
-                      </h3>
-                      <p className="text-2xl font-bold mt-1">{formatDistance(locationStats.averageDistance || 0)}</p>
-                    </div>
-                    <MapPin className="w-8 h-8 text-purple-200" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Pending Approvals */}
-            <div className="bg-white rounded-lg shadow-md border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">
-                  {currentLanguage === "np" ? "पेन्डिङ अनुमोदन" : "Pending Approvals"}
-                </h3>
-                <span className="text-sm text-gray-500">
-                  {pendingApprovals.length} {currentLanguage === "np" ? "अनुरोध" : "requests"}
-                </span>
-              </div>
-
-              {pendingApprovals.length === 0 ? (
-                <div className="text-center py-8">
-                  <Shield className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">
-                    {currentLanguage === "np" ? "कुनै पेन्डिङ अनुमोदन छैन" : "No pending approvals"}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {pendingApprovals.slice(0, 5).map((approval) => (
-                    <div key={approval.id} className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-2">
-                            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Users className="w-4 h-4 text-blue-600" />
-                            </div>
-                            <div>
-                              <h4 className="font-semibold text-gray-800">{approval.userName}</h4>
-                              <p className="text-sm text-gray-600">{approval.userRole}</p>
-                            </div>
-                            <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-medium rounded-full">
-                              {currentLanguage === "np" ? "पेन्डिङ" : "PENDING"}
-                            </span>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-4 mb-3">
-                            <div className="bg-gray-50 rounded p-2">
-                              <p className="text-xs text-gray-600">
-                                {currentLanguage === "np" ? "फ्याक्ट्रीबाट दूरी" : "Distance from Factory"}
-                              </p>
-                              <p className="font-semibold text-red-600">
-                                {formatDistance(approval.validation?.distance || 0)}
-                              </p>
-                            </div>
-                            <div className="bg-gray-50 rounded p-2">
-                              <p className="text-xs text-gray-600">
-                                {currentLanguage === "np" ? "अनुरोध समय" : "Request Time"}
-                              </p>
-                              <p className="font-semibold text-gray-800">
-                                {formatTimeAgo(approval.requestedAt)}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="bg-blue-50 rounded p-2 mb-3">
-                            <p className="text-sm text-blue-800">
-                              <strong>{currentLanguage === "np" ? "कारण:" : "Reason:"}</strong> {approval.reason}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => handleApprovalAction(approval.id, 'denied', 'Supervisor denied remote access')}
-                          className="px-3 py-1 bg-red-100 text-red-700 text-sm rounded hover:bg-red-200 transition-colors"
-                        >
-                          <XCircle className="w-4 h-4 inline mr-1" />
-                          {currentLanguage === "np" ? "अस्वीकार" : "Deny"}
-                        </button>
-                        <button
-                          onClick={() => handleApprovalAction(approval.id, 'approved', 'Supervisor approved remote access for 8 hours')}
-                          className="px-3 py-1 bg-green-100 text-green-700 text-sm rounded hover:bg-green-200 transition-colors"
-                        >
-                          <CheckCircle className="w-4 h-4 inline mr-1" />
-                          {currentLanguage === "np" ? "स्वीकृत" : "Approve"}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Location Alerts */}
-            <div className="bg-white rounded-lg shadow-md border p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-800">
-                  {currentLanguage === "np" ? "स्थान अलर्ट" : "Location Alerts"}
-                </h3>
-                <span className="text-sm text-gray-500">
-                  {locationAlerts.filter(alert => alert.status === 'unread').length} {currentLanguage === "np" ? "नयाँ" : "new"}
-                </span>
-              </div>
-
-              {locationAlerts.length === 0 ? (
-                <div className="text-center py-8">
-                  <AlertTriangle className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-500">
-                    {currentLanguage === "np" ? "कुनै अलर्ट छैन" : "No alerts"}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {locationAlerts.slice(0, 10).map((alert) => (
-                    <div 
-                      key={alert.id} 
-                      className={`border rounded-lg p-3 ${alert.status === 'unread' ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'}`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <AlertTriangle className="w-4 h-4 text-red-600" />
-                            <h4 className="font-semibold text-gray-800">{alert.title}</h4>
-                            {alert.status === 'unread' && (
-                              <span className="w-2 h-2 bg-red-500 rounded-full"></span>
-                            )}
-                          </div>
-                          <p className="text-gray-700 text-sm mb-1">{alert.message}</p>
-                          <div className="flex items-center space-x-4 text-xs text-gray-500">
-                            <span>{alert.userName} ({alert.userRole})</span>
-                            <span>•</span>
-                            <span>{formatDistance(alert.distance)} {currentLanguage === "np" ? "दूरी" : "away"}</span>
-                            <span>•</span>
-                            <span>{formatTimeAgo(alert.timestamp)}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <span className={`px-2 py-1 text-xs font-medium rounded ${
-                            alert.severity === 'HIGH' 
-                              ? 'bg-red-100 text-red-800' 
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {alert.severity}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Login Control Tab */}
-        {activeTab === "loginControl" && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-800">
-                  🔐 {currentLanguage === "np" ? "लगइन नियन्त्रण प्रणाली" : "Login Control System"}
-                </h2>
-                <p className="text-gray-600">
-                  {currentLanguage === "np" 
-                    ? "समय र स्थान आधारित लगइन नियन्त्रण प्रबन्धन गर्नुहोस्"
-                    : "Manage time-based and location-based login controls"}
-                </p>
-              </div>
-              <button
-                onClick={handleSaveLoginControls}
-                disabled={saving}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                <Save className="w-4 h-4 mr-2" />
-                {saving ? (currentLanguage === "np" ? "सेभ गर्दै..." : "Saving...") : (currentLanguage === "np" ? "सेभ" : "Save")}
-              </button>
-            </div>
-
-            {/* Status Overview Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="bg-white border rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {currentLanguage === "np" ? "वर्तमान समय" : "Current Time"}
-                    </p>
-                    <p className="text-lg font-semibold text-gray-900">
-                      {formatTime(currentTime)}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {formatDate(currentTime)}
-                    </p>
-                  </div>
-                  <Clock className="w-8 h-8 text-blue-600" />
-                </div>
-              </div>
-
-              <div className="bg-white border rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {currentLanguage === "np" ? "स्थान नियन्त्रण" : "Location Control"}
-                    </p>
-                    <p className={`text-lg font-semibold ${loginControlSettings.locationControl.enabled ? 'text-green-600' : 'text-gray-400'}`}>
-                      {loginControlSettings.locationControl.enabled 
-                        ? (currentLanguage === "np" ? "सक्रिय" : "Active")
-                        : (currentLanguage === "np" ? "निष्क्रिय" : "Inactive")
-                      }
-                    </p>
-                  </div>
-                  <MapPin className={`w-8 h-8 ${loginControlSettings.locationControl.enabled ? 'text-green-600' : 'text-gray-400'}`} />
-                </div>
-              </div>
-
-              <div className="bg-white border rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {currentLanguage === "np" ? "समय नियन्त्रण" : "Time Control"}
-                    </p>
-                    <p className={`text-lg font-semibold ${loginControlSettings.timeControl.enabled ? 'text-green-600' : 'text-gray-400'}`}>
-                      {loginControlSettings.timeControl.enabled 
-                        ? (currentLanguage === "np" ? "सक्रिय" : "Active")
-                        : (currentLanguage === "np" ? "निष्क्रिय" : "Inactive")
-                      }
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {loginControlSettings.timeControl.allowedShifts.filter(s => s.active).length} {currentLanguage === "np" ? "सक्रिय शिफ्ट" : "active shifts"}
-                    </p>
-                  </div>
-                  <Clock className={`w-8 h-8 ${loginControlSettings.timeControl.enabled ? 'text-green-600' : 'text-gray-400'}`} />
-                </div>
-              </div>
-
-              <div className="bg-white border rounded-lg p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">
-                      {currentLanguage === "np" ? "प्रणाली स्थिति" : "System Status"}
-                    </p>
-                    <p className={`text-lg font-semibold ${
-                      loginControlSettings.emergencyAccess.enabled ? 'text-red-600' : 'text-green-600'
-                    }`}>
-                      {loginControlSettings.emergencyAccess.enabled 
-                        ? (currentLanguage === "np" ? "आपातकालीन" : "Emergency")
-                        : (currentLanguage === "np" ? "सामान्य" : "Normal")
-                      }
-                    </p>
-                  </div>
-                  <Shield className={`w-8 h-8 ${
-                    loginControlSettings.emergencyAccess.enabled ? 'text-red-600' : 'text-green-600'
-                  }`} />
-                </div>
-              </div>
-            </div>
-
-            {/* Quick Control Toggles */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-white border rounded-lg p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      {currentLanguage === "np" ? "स्थान नियन्त्रण" : "Location Control"}
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      {currentLanguage === "np" ? "GPS आधारित लगइन प्रतिबन्ध" : "GPS-based login restrictions"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={toggleLocationControl}
-                    className="flex items-center"
-                  >
-                    {loginControlSettings.locationControl.enabled ? (
-                      <ToggleRight className="w-8 h-8 text-green-600" />
-                    ) : (
-                      <ToggleLeft className="w-8 h-8 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              <div className="bg-white border rounded-lg p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h4 className="font-medium text-gray-900">
-                      {currentLanguage === "np" ? "समय नियन्त्रण" : "Time Control"}
-                    </h4>
-                    <p className="text-sm text-gray-600">
-                      {currentLanguage === "np" ? "काम को समय आधारित प्रतिबन्ध" : "Working hours-based restrictions"}
-                    </p>
-                  </div>
-                  <button
-                    onClick={toggleTimeControl}
-                    className="flex items-center"
-                  >
-                    {loginControlSettings.timeControl.enabled ? (
-                      <ToggleRight className="w-8 h-8 text-green-600" />
-                    ) : (
-                      <ToggleLeft className="w-8 h-8 text-gray-400" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Shift Management */}
-            {loginControlSettings.timeControl.enabled && (
-              <div className="bg-white border rounded-lg p-6">
-                <h4 className="font-medium text-gray-900 mb-4">
-                  {currentLanguage === "np" ? "शिफ्ट व्यवस्थापन" : "Shift Management"}
-                </h4>
-                <div className="space-y-3">
-                  {loginControlSettings.timeControl.allowedShifts.map(shift => (
-                    <div key={shift.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <h5 className="font-medium text-gray-900">{shift.name}</h5>
-                        <p className="text-sm text-gray-600">
-                          {shift.start} - {shift.end}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => toggleShift(shift.id)}
-                        className="flex items-center"
-                      >
-                        {shift.active ? (
-                          <ToggleRight className="w-8 h-8 text-green-600" />
-                        ) : (
-                          <ToggleLeft className="w-8 h-8 text-gray-400" />
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Emergency Access Control */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-medium text-yellow-800">
-                  {currentLanguage === "np" ? "आपातकालीन पहुँच" : "Emergency Access"}
-                </h4>
-                <span className={`px-2 py-1 text-xs rounded ${
-                  loginControlSettings.emergencyAccess.enabled 
-                    ? 'bg-red-100 text-red-800' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {loginControlSettings.emergencyAccess.enabled 
-                    ? (currentLanguage === "np" ? "सक्रिय" : "Active")
-                    : (currentLanguage === "np" ? "निष्क्रिय" : "Inactive")
-                  }
-                </span>
-              </div>
-
-              {!loginControlSettings.emergencyAccess.enabled ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {currentLanguage === "np" ? "कारण" : "Reason"}
-                    </label>
-                    <input
-                      type="text"
-                      value={emergencyReason}
-                      onChange={(e) => setEmergencyReason(e.target.value)}
-                      placeholder={currentLanguage === "np" ? "आपातकालीन पहुँच को कारण..." : "Reason for emergency access..."}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {currentLanguage === "np" ? "अवधि (घण्टा)" : "Duration (hours)"}
-                    </label>
-                    <select
-                      value={emergencyDuration}
-                      onChange={(e) => setEmergencyDuration(parseInt(e.target.value))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value={1}>1 {currentLanguage === "np" ? "घण्टा" : "hour"}</option>
-                      <option value={2}>2 {currentLanguage === "np" ? "घण्टा" : "hours"}</option>
-                      <option value={4}>4 {currentLanguage === "np" ? "घण्टा" : "hours"}</option>
-                      <option value={8}>8 {currentLanguage === "np" ? "घण्टा" : "hours"}</option>
-                    </select>
-                  </div>
-
-                  <button
-                    onClick={enableEmergencyAccess}
-                    className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    <Zap className="w-4 h-4 mr-2" />
-                    {currentLanguage === "np" ? "आपातकालीन पहुँच सक्षम गर्नुहोस्" : "Enable Emergency Access"}
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="bg-white border border-yellow-200 rounded p-3">
-                    <p className="font-medium text-gray-900">
-                      {currentLanguage === "np" ? "कारण:" : "Reason:"} {loginControlSettings.emergencyAccess.reason}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      {currentLanguage === "np" ? "सम्म मान्य:" : "Valid until:"} {new Date(loginControlSettings.emergencyAccess.validUntil).toLocaleString()}
-                    </p>
-                  </div>
-                  
-                  <button
-                    onClick={disableEmergencyAccess}
-                    className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                  >
-                    <Pause className="w-4 h-4 mr-2" />
-                    {currentLanguage === "np" ? "आपातकालीन पहुँच निष्क्रिय गर्नुहोस्" : "Disable Emergency Access"}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Money Management Tab */}
         {activeTab === "money" && (
@@ -1491,10 +984,107 @@ const EfficiencyAlertsView = () => (
             </div>
 
             <div className="p-4">
-              <div className="text-center text-gray-600 py-8">
-                {currentLanguage === "np"
-                  ? "स्टेसन विवरण लोड हुँदै..."
-                  : "Station details loading..."}
+              <div className="space-y-6">
+                {/* Operator Details */}
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-800 mb-3">
+                    👤 {currentLanguage === "np" ? "अपरेटर जानकारी" : "Operator Details"}
+                  </h4>
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center space-x-3 mb-4">
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <Users className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <h5 className="font-semibold text-gray-800">
+                          {currentLanguage === "np" ? selectedStation.operator : selectedStation.operatorEn}
+                        </h5>
+                        <p className="text-sm text-gray-600">
+                          {currentLanguage === "np" ? "अपरेटर" : "Operator"} • 
+                          {currentLanguage === "np" ? " सक्रिय" : " Active"}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-white rounded p-3">
+                        <p className="text-sm text-gray-600">
+                          {currentLanguage === "np" ? "आजको दक्षता" : "Today's Efficiency"}
+                        </p>
+                        <p className={`text-lg font-semibold ${getEfficiencyColor(selectedStation.efficiency)}`}>
+                          {formatNumber(selectedStation.efficiency)}%
+                        </p>
+                      </div>
+                      <div className="bg-white rounded p-3">
+                        <p className="text-sm text-gray-600">
+                          {currentLanguage === "np" ? "स्थिति" : "Status"}
+                        </p>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(selectedStation.status)}`}>
+                          {t(selectedStation.status)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Current Work Details */}
+                {selectedStation.currentWork && (
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-800 mb-3">
+                      🔄 {currentLanguage === "np" ? "हालको काम" : "Current Work"}
+                    </h4>
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <h5 className="font-semibold text-blue-800">
+                            {selectedStation.currentWork.article}# {selectedStation.currentWork.articleName}
+                          </h5>
+                          <span className="text-sm text-blue-600">
+                            {Math.round((selectedStation.currentWork.completed / selectedStation.currentWork.pieces) * 100)}% 
+                            {currentLanguage === "np" ? " पूरा" : " Complete"}
+                          </span>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-3 text-sm">
+                          <div>
+                            <p className="text-gray-600">{currentLanguage === "np" ? "रङ" : "Color"}</p>
+                            <p className="font-medium">{selectedStation.currentWork.color}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">{currentLanguage === "np" ? "साइज" : "Size"}</p>
+                            <p className="font-medium">{selectedStation.currentWork.size}</p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">{currentLanguage === "np" ? "टुक्राहरू" : "Pieces"}</p>
+                            <p className="font-medium">
+                              {formatNumber(selectedStation.currentWork.completed)}/
+                              {formatNumber(selectedStation.currentWork.pieces)}
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="w-full bg-blue-200 rounded-full h-3">
+                          <div
+                            className="bg-blue-600 h-3 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${(selectedStation.currentWork.completed / selectedStation.currentWork.pieces) * 100}%`,
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Station Actions */}
+                <div className="flex space-x-3">
+                  <button className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors">
+                    {currentLanguage === "np" ? "काम असाइन गर्नुहोस्" : "Assign Work"}
+                  </button>
+                  <button className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors">
+                    {currentLanguage === "np" ? "विस्तृत रिपोर्ट" : "Detailed Report"}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

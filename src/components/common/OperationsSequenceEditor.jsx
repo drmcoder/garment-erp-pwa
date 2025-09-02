@@ -244,30 +244,46 @@ const OperationsSequenceEditor = ({ onClose }) => {
                 </select>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isNepali ? 'समय (मिनेट)' : 'Time (minutes)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={editingOperation.time}
-                  onChange={(e) => setEditingOperation({...editingOperation, time: parseFloat(e.target.value)})}
-                  className="w-full border rounded-md px-3 py-2"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isNepali ? 'दर (रुपैयाँ)' : 'Rate (Rs)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={editingOperation.rate}
-                  onChange={(e) => setEditingOperation({...editingOperation, rate: parseFloat(e.target.value)})}
-                  className="w-full border rounded-md px-3 py-2"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {isNepali ? 'दर (रुपैयाँ)' : 'Rate (₹)'} *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editingOperation.rate}
+                    onChange={(e) => {
+                      const rate = parseFloat(e.target.value) || 0;
+                      const autoTime = rate * 1.6; // 1.6 minutes per ₹1
+                      setEditingOperation({
+                        ...editingOperation, 
+                        rate: rate,
+                        time: autoTime
+                      });
+                    }}
+                    className="w-full border rounded-md px-3 py-2"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isNepali ? 'समय अटो-फिल हुन्छ' : 'Auto-fills time (1.6 min/₹1)'}
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {isNepali ? 'समय (मिनेट)' : 'Time (minutes)'} *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={editingOperation.time}
+                    onChange={(e) => setEditingOperation({...editingOperation, time: parseFloat(e.target.value)})}
+                    className="w-full border rounded-md px-3 py-2"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isNepali ? 'सम्पादन योग्य' : 'Editable after auto-fill'}
+                  </p>
+                </div>
               </div>
               
               <div>
@@ -379,32 +395,48 @@ const OperationsSequenceEditor = ({ onClose }) => {
                 </select>
               </div>
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isNepali ? 'समय (मिनेट)' : 'Time (minutes)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={newOperation.time}
-                  onChange={(e) => setNewOperation({...newOperation, time: parseFloat(e.target.value)})}
-                  className="w-full border rounded-md px-3 py-2"
-                  min="0.1"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {isNepali ? 'दर (रुपैयाँ)' : 'Rate (Rs)'}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={newOperation.rate}
-                  onChange={(e) => setNewOperation({...newOperation, rate: parseFloat(e.target.value)})}
-                  className="w-full border rounded-md px-3 py-2"
-                  min="0"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {isNepali ? 'दर (रुपैयाँ)' : 'Rate (₹)'} *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={newOperation.rate}
+                    onChange={(e) => {
+                      const rate = parseFloat(e.target.value) || 0;
+                      const autoTime = rate * 1.6; // 1.6 minutes per ₹1
+                      setNewOperation({
+                        ...newOperation, 
+                        rate: rate,
+                        time: autoTime
+                      });
+                    }}
+                    className="w-full border rounded-md px-3 py-2"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isNepali ? 'समय अटो-फिल हुन्छ' : 'Auto-fills time (1.6 min/₹1)'}
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {isNepali ? 'समय (मिनेट)' : 'Time (minutes)'} *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={newOperation.time}
+                    onChange={(e) => setNewOperation({...newOperation, time: parseFloat(e.target.value)})}
+                    className="w-full border rounded-md px-3 py-2"
+                    min="0.1"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isNepali ? 'सम्पादन योग्य' : 'Editable after auto-fill'}
+                  </p>
+                </div>
               </div>
               
               <div>

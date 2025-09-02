@@ -56,7 +56,8 @@
       "Bash(PORT=3000 timeout 10 npm start)",
       "Bash(PORT=3000 timeout 20 npm start)",
       "Bash(tree:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(rm:*)"
     ],
     "deny": [],
     "ask": []

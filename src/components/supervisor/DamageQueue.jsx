@@ -33,59 +33,15 @@ const DamageQueue = () => {
 
   const loadDamageQueue = async () => {
     try {
-      // Mock API call - replace with actual API
-      const mockReports = [
-        {
-          id: 'DR001',
-          bundleId: 'B001-85-BL-XL',
-          bundleNumber: 'B001-85-BL-XL',
-          operatorId: 'ashika_operator',
-          operatorName: 'Ashika Devi',
-          reportedAt: new Date(Date.now() - 45 * 60000).toISOString(),
-          damageType: 'fabric_hole',
-          description: 'Small hole in sleeve fabric',
-          pieceNumbers: [15],
-          urgency: 'normal',
-          status: 'reported_to_supervisor', // reported_to_supervisor, in_rework, completed, returned
-          articleName: 'Polo T-Shirt',
-          operation: 'Sleeve Join',
-          color: 'Blue-1',
-          size: 'XL',
-          reworkDetails: {
-            startTime: null,
-            completedTime: null,
-            partsReplaced: [],
-            supervisorNotes: '',
-            timeSpent: 0
-          }
-        },
-        {
-          id: 'DR002',
-          bundleId: 'B002-33-GR-L',
-          bundleNumber: 'B002-33-GR-L',
-          operatorId: 'ram_operator',
-          operatorName: 'Ram Singh',
-          reportedAt: new Date(Date.now() - 120 * 60000).toISOString(),
-          damageType: 'color_issue',
-          description: 'Color shade mismatch',
-          pieceNumbers: [8, 12],
-          urgency: 'urgent',
-          status: 'in_rework',
-          articleName: 'Round Neck T-Shirt',
-          operation: 'Side Seam',
-          color: 'Green-1',
-          size: 'L',
-          reworkDetails: {
-            startTime: new Date(Date.now() - 60 * 60000).toISOString(),
-            completedTime: null,
-            partsReplaced: ['fabric_panel'],
-            supervisorNotes: 'Replacing with correct color shade',
-            timeSpent: 60
-          }
-        }
-      ];
-
-      setDamageReports(mockReports);
+      // Load real damage reports from service
+      const result = await damageReportService.getSupervisorDamageQueue(user.id || 'supervisor');
+      
+      if (result.success) {
+        setDamageReports(result.data);
+      } else {
+        console.error('Error loading damage queue:', result.error);
+        setDamageReports([]); // Empty array instead of mock data
+      }
     } catch (error) {
       console.error('Error loading damage queue:', error);
       showNotification(

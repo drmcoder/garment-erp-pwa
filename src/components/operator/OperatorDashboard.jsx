@@ -1586,7 +1586,7 @@ const OperatorDashboard = () => {
                 </span>
               </div>
               <div className="bg-blue-100 text-blue-800 px-4 py-2 rounded-xl font-bold text-lg">
-                {Math.round((dailyStats.piecesCompleted / dailyStats.targetPieces) * 100)}%
+                {dailyStats.targetPieces > 0 ? Math.round((dailyStats.piecesCompleted / dailyStats.targetPieces) * 100) : 0}%
               </div>
             </div>
             
@@ -1594,7 +1594,7 @@ const OperatorDashboard = () => {
               <div
                 className="bg-gradient-to-r from-blue-500 to-cyan-500 h-4 rounded-full transition-all duration-500 shadow-lg"
                 style={{
-                  width: `${Math.min((dailyStats.piecesCompleted / dailyStats.targetPieces) * 100, 100)}%`,
+                  width: `${dailyStats.targetPieces > 0 ? Math.min((dailyStats.piecesCompleted / dailyStats.targetPieces) * 100, 100) : 0}%`,
                 }}
               ></div>
             </div>
