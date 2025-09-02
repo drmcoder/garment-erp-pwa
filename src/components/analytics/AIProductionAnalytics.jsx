@@ -48,7 +48,7 @@ const AIProductionAnalytics = ({ onBack }) => {
   // Load analytics data
   useEffect(() => {
     loadAnalyticsData();
-  }, [selectedTimeframe, selectedMetric]);
+  }, [selectedTimeframe, selectedMetric, currentLanguage]);
 
   const loadAnalyticsData = async () => {
     setIsAnalyzing(true);
@@ -58,63 +58,69 @@ const AIProductionAnalytics = ({ onBack }) => {
       setAnalyticsData({
         predictions: [
           {
-            date: "आज",
+            date: t('today'),
             predictedEfficiency: 87,
             actualEfficiency: 85,
             confidence: 92,
-            factors: ["मौसम", "ऑपरेटर उपस्थिति", "मेसिन स्थिति"],
+            factors: currentLanguage === 'np' 
+              ? ["मौसम", "ऑपरेटर उपस्थिति", "मेसिन स्थिति"]
+              : ["Weather", "Operator Attendance", "Machine Status"],
           },
           {
-            date: "भोलि",
+            date: t('tomorrow'),
             predictedEfficiency: 89,
             confidence: 88,
-            factors: ["राम्रो मौसम", "पूर्ण टिम", "नयाँ मेसिन"],
+            factors: currentLanguage === 'np'
+              ? ["राम्रो मौसम", "पूर्ण टिम", "नयाँ मेसिन"]
+              : ["Good Weather", "Full Team", "New Machine"],
           },
           {
-            date: "पर्सि",
+            date: currentLanguage === 'np' ? "पर्सि" : "Day After",
             predictedEfficiency: 83,
             confidence: 85,
-            factors: ["छुट्टीको दिन", "कम ऑपरेटर"],
+            factors: currentLanguage === 'np'
+              ? ["छुट्टीको दिन", "कम ऑपरेटर"]
+              : ["Holiday", "Fewer Operators"],
           },
         ],
         trends: [
           {
-            week: "हप्ता 1",
+            week: currentLanguage === 'np' ? "हप्ता 1" : "Week 1",
             efficiency: 82,
             quality: 94,
             production: 4500,
             prediction: 85,
           },
           {
-            week: "हप्ता 2",
+            week: currentLanguage === 'np' ? "हप्ता 2" : "Week 2",
             efficiency: 85,
             quality: 96,
             production: 4750,
             prediction: 87,
           },
           {
-            week: "हप्ता 3",
+            week: currentLanguage === 'np' ? "हप्ता 3" : "Week 3",
             efficiency: 88,
             quality: 95,
             production: 4920,
             prediction: 89,
           },
           {
-            week: "हप्ता 4",
+            week: currentLanguage === 'np' ? "हप्ता 4" : "Week 4",
             efficiency: 85,
             quality: 97,
             production: 4680,
             prediction: 87,
           },
           {
-            week: "हप्ता 5",
+            week: currentLanguage === 'np' ? "हप्ता 5" : "Week 5",
             efficiency: 90,
             quality: 98,
             production: 5100,
             prediction: 91,
           },
           {
-            week: "हप्ता 6",
+            week: currentLanguage === 'np' ? "हप्ता 6" : "Week 6",
             efficiency: 87,
             quality: 96,
             production: 4850,
@@ -123,28 +129,40 @@ const AIProductionAnalytics = ({ onBack }) => {
         ],
         bottlenecks: [
           {
-            station: "ओभरलक स्टेसन २",
-            impact: "उच्च",
+            station: currentLanguage === 'np' ? "ओभरलक स्टेसन २" : "Overlock Station 2",
+            impact: t('highImpact'),
             waitTime: 15,
             frequency: 85,
-            recommendation: "अतिरिक्त ऑपरेटर थप्नुहोस्",
-            potentialGain: "12% दक्षता वृद्धि",
+            recommendation: currentLanguage === 'np' 
+              ? "अतिरिक्त ऑपरेटर थप्नुहोस्" 
+              : "Add additional operator",
+            potentialGain: currentLanguage === 'np' 
+              ? "12% दक्षता वृद्धि" 
+              : "12% efficiency gain",
           },
           {
-            station: "बटनहोल मेसिन",
-            impact: "मध्यम",
+            station: currentLanguage === 'np' ? "बटनहोल मेसिन" : "Buttonhole Machine",
+            impact: t('mediumImpact'),
             waitTime: 8,
             frequency: 60,
-            recommendation: "मेसिन मर्मत गर्नुहोस्",
-            potentialGain: "7% दक्षता वृद्धि",
+            recommendation: currentLanguage === 'np' 
+              ? "मेसिन मर्मत गर्नुहोस्" 
+              : "Repair machine",
+            potentialGain: currentLanguage === 'np' 
+              ? "7% दक्षता वृद्धि" 
+              : "7% efficiency gain",
           },
           {
-            station: "आइरनिङ स्टेसन",
-            impact: "कम",
+            station: currentLanguage === 'np' ? "आइरनिङ स्टेसन" : "Ironing Station",
+            impact: t('lowImpact'),
             waitTime: 5,
             frequency: 40,
-            recommendation: "कार्यप्रवाह सुधार गर्नुहोस्",
-            potentialGain: "3% दक्षता वृद्धि",
+            recommendation: currentLanguage === 'np' 
+              ? "कार्यप्रवाह सुधार गर्नुहोस्" 
+              : "Improve workflow",
+            potentialGain: currentLanguage === 'np' 
+              ? "3% दक्षता वृद्धि" 
+              : "3% efficiency gain",
           },
         ],
         opportunities: [

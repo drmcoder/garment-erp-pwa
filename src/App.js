@@ -65,6 +65,27 @@ const NotificationBell = () => {
   // Safety check to ensure getUnreadCount is available
   const unreadCount = typeof getUnreadCount === 'function' ? getUnreadCount() : 0;
 
+  // Helper function to get priority-based styling
+  const getNotificationPriority = (notification) => {
+    // Rework notifications get highest priority
+    if (notification.type === 'rework_started' || notification.type === 'rework_completed') {
+      return 'high';
+    }
+    // Damage reports get high priority
+    if (notification.type === 'damage_reported') {
+      return 'high';
+    }
+    return notification.priority || 'medium';
+  };
+
+  // Sort notifications by priority (high priority first)
+  const sortedNotifications = [...notifications].sort((a, b) => {
+    const priorityOrder = { high: 0, medium: 1, low: 2 };
+    const aPriority = getNotificationPriority(a);
+    const bPriority = getNotificationPriority(b);
+    return priorityOrder[aPriority] - priorityOrder[bPriority];
+  });
+
   return (
     <div className="relative">
       <button
@@ -104,13 +125,17 @@ const NotificationBell = () => {
                   No notifications
                 </div>
               ) : (
-                notifications.slice(0, 5).map((notification) => (
-                  <div
-                    key={notification.id}
-                    className={`px-4 py-3 border-b last:border-b-0 ${
-                      !notification.read ? "bg-blue-50" : ""
-                    }`}
-                  >
+                sortedNotifications.slice(0, 5).map((notification) => {
+                  const priority = getNotificationPriority(notification);
+                  const priorityStyle = priority === 'high' 
+                    ? "bg-red-50 border-l-4 border-l-red-500" 
+                    : !notification.read ? "bg-blue-50" : "";
+                  
+                  return (
+                    <div
+                      key={notification.id}
+                      className={`px-4 py-3 border-b last:border-b-0 ${priorityStyle}`}
+                    >
                     <div className="flex items-start space-x-2">
                       <span className="text-sm">
                         {getNotificationIcon(notification.type)}
@@ -139,18 +164,23 @@ const NotificationBell = () => {
                         <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                       )}
                     </div>
-                  </div>
-                ))
+                    </div>
+                  );
+                })
               )}
             </div>
 
             {notifications.length > 5 && (
               <div className="px-4 py-2 border-t text-center">
                 <button
-                  onClick={() => setShowNotifications(false)}
+                  onClick={() => {
+                    setShowNotifications(false);
+                    // TODO: Navigate to notifications page when implemented
+                    console.log('Navigate to full notifications page');
+                  }}
                   className="text-sm text-blue-600 hover:text-blue-800"
                 >
-                  View all
+                  View all ({notifications.length})
                 </button>
               </div>
             )}
@@ -188,7 +218,7 @@ const Navigation = () => {
   const handleLogout = async () => {
     try {
       await logout();
-      showNotification("Logged out successfully", "success");
+      // Logout successful - no notification needed as user is redirected to login
     } catch (error) {
       showNotification("Logout failed", "error");
     }

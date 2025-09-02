@@ -1183,7 +1183,7 @@ const WorkAssignment = () => {
                   </div>
                   <div className="text-right">
                     <div className="text-xs text-gray-500">
-                      {formatRelativeTime(assignment.assignedAt)}
+                      {assignment.assignedAt ? formatRelativeTime(assignment.assignedAt) : (isNepali ? 'भर्खरै' : 'Just now')}
                     </div>
                     <div className={`text-xs px-2 py-1 rounded ${
                       assignment.status === 'completed' ? 'bg-green-100 text-green-800' :

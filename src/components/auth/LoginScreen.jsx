@@ -101,7 +101,7 @@ const LoginScreen = () => {
         credentials.password,
         credentials.rememberMe
       );
-      showNotification("Login successful!", "success");
+      // Login successful - no notification needed as user is redirected to dashboard
     } catch (error) {
       showNotification(error.message, "error");
     } finally {
