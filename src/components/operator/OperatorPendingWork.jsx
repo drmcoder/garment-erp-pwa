@@ -14,7 +14,8 @@ import BundlePaymentHoldService from '../../services/BundlePaymentHoldService';
 import EarningsService from '../../services/EarningsService';
 import EnhancedDamageReport from './EnhancedDamageReport';
 import SelfAssignmentSystem from './SelfAssignmentSystem';
-import { getOperationRate, updateWorkAssignmentRate } from '../../utils/operationRateMapping';
+import { getOperationRate, updateWorkAssignmentRate, updateWorkAssignmentRateAsync } from '../../utils/operationRateMapping';
+import { getFirestoreRate } from '../../utils/firestoreRateLoader';
 
 const OperatorPendingWork = () => {
   const { user } = useAuth();
@@ -45,14 +46,22 @@ const OperatorPendingWork = () => {
       const result = await BundlePaymentHoldService.getOperatorPendingWork(user.uid);
       
       if (result.success) {
-        // Fix rates for all work items
+        // Fix rates for all work items using Firestore data
+        const regularWorkPromises = result.data.regularWork.map(work => updateWorkAssignmentRateAsync(work));
+        const heldBundlePromises = result.data.heldBundles.map(async bundle => ({
+          ...bundle,
+          rate: bundle.rate || await getFirestoreRate(bundle.operation) || getOperationRate(bundle.operation)
+        }));
+        
+        const [fixedRegularWork, fixedHeldBundles] = await Promise.all([
+          Promise.all(regularWorkPromises),
+          Promise.all(heldBundlePromises)
+        ]);
+        
         const fixedData = {
           ...result.data,
-          regularWork: result.data.regularWork.map(work => updateWorkAssignmentRate(work)),
-          heldBundles: result.data.heldBundles.map(bundle => ({
-            ...bundle,
-            rate: bundle.rate || getOperationRate(bundle.operation)
-          }))
+          regularWork: fixedRegularWork,
+          heldBundles: fixedHeldBundles
         };
         setPendingWork(fixedData);
       }
@@ -80,7 +89,7 @@ const OperatorPendingWork = () => {
         operation: workItem.operation,
         machineType: workItem.machineType,
         pieces: workItem.pieces,
-        ratePerPiece: workItem.ratePerPiece || getOperationRate(workItem.operation), // Get correct rate
+        ratePerPiece: workItem.ratePerPiece || workItem.rate || await getFirestoreRate(workItem.operation) || getOperationRate(workItem.operation), // Get correct rate from Firestore
         startTime: workItem.assignedAt,
         completedAt: new Date(),
         qualityNotes: '',
@@ -408,7 +417,7 @@ const OperatorPendingWork = () => {
                         <div>
                           <span className="text-gray-600">{isNepali ? 'अनुमानित कमाई:' : 'Est. Earnings:'}</span>
                           <p className="font-medium text-green-600">
-                            {formatCurrency((work.pieces || 0) * (work.ratePerPiece || getOperationRate(work.operation)))}
+                            {formatCurrency((work.pieces || 0) * (work.ratePerPiece || work.rate || getOperationRate(work.operation)))}
                           </p>
                         </div>
                         <div>
@@ -484,7 +493,7 @@ const OperatorPendingWork = () => {
                 pieces: selectedWork.pieces,
                 articleNumber: selectedWork.articleNumber,
                 operation: selectedWork.operation,
-                estimatedEarnings: (selectedWork.pieces || 0) * (selectedWork.ratePerPiece || getOperationRate(selectedWork.operation))
+                estimatedEarnings: (selectedWork.pieces || 0) * (selectedWork.ratePerPiece || selectedWork.rate || getOperationRate(selectedWork.operation))
               }}
               onReportSubmitted={(holdData) => {
                 setShowDamageReport(false);
