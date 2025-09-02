@@ -10,6 +10,8 @@ import {
 } from "./context/NotificationContext";
 import { SystemProvider, useSystem } from "./context/SystemContext";
 import { GlobalErrorProvider } from "./components/common/GlobalErrorHandler";
+import ErrorBoundary from "./components/ErrorBoundary";
+import performanceMonitor from "./utils/performanceMonitor";
 import { roleUtils } from "./lib";
 // Removed unused Firebase imports - using modular LoginScreen
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
@@ -655,20 +657,32 @@ const App = () => {
 
 // Root App with all providers
 const AppWithProviders = () => {
+  React.useEffect(() => {
+    // Start performance monitoring
+    performanceMonitor.start();
+    
+    // Cleanup on unmount
+    return () => {
+      performanceMonitor.stop();
+    };
+  }, []);
+
   return (
-    <LanguageProvider>
-      <GlobalErrorProvider>
-        <AuthProvider>
-          <PermissionsProvider>
-            <SystemProvider>
-              <NotificationProvider>
-                <App />
-              </NotificationProvider>
-            </SystemProvider>
-          </PermissionsProvider>
-        </AuthProvider>
-      </GlobalErrorProvider>
-    </LanguageProvider>
+    <ErrorBoundary>
+      <LanguageProvider>
+        <GlobalErrorProvider>
+          <AuthProvider>
+            <PermissionsProvider>
+              <SystemProvider>
+                <NotificationProvider>
+                  <App />
+                </NotificationProvider>
+              </SystemProvider>
+            </PermissionsProvider>
+          </AuthProvider>
+        </GlobalErrorProvider>
+      </LanguageProvider>
+    </ErrorBoundary>
   );
 };
 
