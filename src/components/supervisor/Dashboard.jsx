@@ -38,6 +38,11 @@ import { locationService } from "../../services/LocationService";
 import MoneyManagement from "./MoneyManagement";
 import WorkAssignmentSystem from "../common/WorkAssignmentSystem";
 import LiveOperatorWorkBucket from "./LiveOperatorWorkBucket";
+import AllOperatorsEarnings from "./AllOperatorsEarnings";
+import LineInspection from "./LineInspection";
+import DailyReports from "./DailyReports";
+import IssueResolution from "./IssueResolution";
+import BundlePaymentHolds from "./BundlePaymentHolds";
 
 const Dashboard = () => {
   const { getUserDisplayInfo, isOnline } = useAuth();
@@ -1041,6 +1046,56 @@ const EfficiencyAlertsView = () => (
           >
             👥 {currentLanguage === "np" ? "लाइभ अपरेटर बकेट" : "Live Operator Bucket"}
           </button>
+          <button
+            onClick={() => setActiveTab("earnings")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+              activeTab === "earnings"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            💼 {currentLanguage === "np" ? "सबै आम्दानी" : "All Earnings"}
+          </button>
+          <button
+            onClick={() => setActiveTab("line-inspection")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+              activeTab === "line-inspection"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            🔍 {currentLanguage === "np" ? "लाइन निरीक्षण" : "Line Inspection"}
+          </button>
+          <button
+            onClick={() => setActiveTab("reports")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+              activeTab === "reports"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            📊 {currentLanguage === "np" ? "दैनिक रिपोर्ट" : "Daily Reports"}
+          </button>
+          <button
+            onClick={() => setActiveTab("issues")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+              activeTab === "issues"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            🔧 {currentLanguage === "np" ? "समस्या समाधान" : "Issue Resolution"}
+          </button>
+          <button
+            onClick={() => setActiveTab("payment-holds")}
+            className={`pb-2 px-1 border-b-2 font-medium text-sm transition-colors whitespace-nowrap ${
+              activeTab === "payment-holds"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            🔒 {currentLanguage === "np" ? "भुक्तानी होल्ड" : "Payment Holds"}
+          </button>
         </div>
       </div>
 
@@ -1103,6 +1158,31 @@ const EfficiencyAlertsView = () => (
         {/* Live Operator Work Bucket Tab */}
         {activeTab === "live-bucket" && (
           <LiveOperatorWorkBucket />
+        )}
+
+        {/* All Operators Earnings Tab */}
+        {activeTab === "earnings" && (
+          <AllOperatorsEarnings />
+        )}
+
+        {/* Line Inspection Tab */}
+        {activeTab === "line-inspection" && (
+          <LineInspection />
+        )}
+
+        {/* Daily Reports Tab */}
+        {activeTab === "reports" && (
+          <DailyReports />
+        )}
+
+        {/* Issue Resolution Tab */}
+        {activeTab === "issues" && (
+          <IssueResolution />
+        )}
+
+        {/* Bundle Payment Holds Tab */}
+        {activeTab === "payment-holds" && (
+          <BundlePaymentHolds />
         )}
       </div>
 

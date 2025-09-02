@@ -16,6 +16,9 @@ import { roleUtils } from "./lib";
 // Removed unused Firebase imports - using modular LoginScreen
 import SelfAssignmentSystem from "./components/operator/SelfAssignmentSystem";
 import OperatorWorkDashboard from "./components/operator/OperatorWorkDashboardNew";
+import OperatorDashboard from "./components/operator/OperatorDashboard";
+import EarningsWallet from "./components/operator/EarningsWallet";
+import OperatorPendingWork from "./components/operator/OperatorPendingWork";
 import SupervisorDashboard from "./components/supervisor/Dashboard";
 import WorkAssignment from "./components/supervisor/WorkAssignment";
 import SystemSettings from "./components/admin/SystemSettings";
@@ -23,7 +26,7 @@ import UserManagement from "./components/admin/UserManagement";
 import MachineManagement from "./components/admin/MachineManagement";
 import TemplateBuilder from "./components/supervisor/TemplateBuilder";
 import AIProductionAnalytics from "./components/analytics/AIProductionAnalytics";
-import PayrollSystem from "./components/management/PayrollSystem";
+import PayrollSystem from "./components/admin/PayrollSystem";
 import LocationManagement from "./components/admin/LocationManagement";
 import AdvancedManagementDashboard from "./components/management/ManagementDashboard";
 import { PermissionGate, PermissionsProvider } from "./context/PermissionsContext";
@@ -301,120 +304,6 @@ const Navigation = () => {
   );
 };
 
-// Basic Operator Dashboard
-const OperatorDashboard = ({ onNavigate }) => {
-  const { user } = useAuth();
-  // Removed unused notification methods
-
-  // Demo notification buttons
-
-  return (
-    <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-      <div className="px-4 py-6 sm:px-0">
-        <div className="text-center mb-8">
-          {/* Operator Avatar */}
-          <div className="flex justify-center mb-4">
-            <OperatorAvatar 
-              operator={{
-                name: user?.name || 'Operator',
-                avatar: {
-                  type: 'emoji',
-                  value: user?.machine === 'single-needle' ? '📍' : 
-                         user?.machine === 'overlock' ? '🔗' : 
-                         user?.machine === 'flatlock' ? '📎' : 
-                         user?.machine === 'buttonhole' ? '🕳️' : '⚙️',
-                  bgColor: '#3B82F6',
-                  textColor: '#FFFFFF'
-                },
-                status: user?.currentWork ? 'busy' : 'available',
-                currentWorkload: user?.currentWork ? 1 : 0,
-                visualBadges: user?.efficiency > 90 ? ['🏆', '⚡'] : ['💪']
-              }}
-              size="xl"
-              showStatus={true}
-              showWorkload={true}
-              showBadges={true}
-            />
-          </div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Welcome, {user.name}! 👋
-          </h1>
-          <p className="mt-2 text-gray-600">
-            {user.speciality} Operator | Station: {user.station} | Machine: {user.machine || 'Not Assigned'}
-          </p>
-        </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-blue-600">
-              {user.stats.todayPieces}
-            </div>
-            <div className="text-sm text-gray-500">Today's Pieces</div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-green-600">
-              Rs. {user.stats.todayEarnings}
-            </div>
-            <div className="text-sm text-gray-500">Today's Earnings</div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-purple-600">
-              {user.efficiency}%
-            </div>
-            <div className="text-sm text-gray-500">Efficiency</div>
-          </div>
-          <div className="bg-white p-6 rounded-lg shadow-sm border">
-            <div className="text-2xl font-bold text-orange-600">
-              {user.qualityScore}%
-            </div>
-            <div className="text-sm text-gray-500">Quality</div>
-          </div>
-        </div>
-
-        {/* Current Work */}
-        {user.currentWork && (
-          <div className="bg-white p-6 rounded-lg shadow-sm border mb-8">
-            <h3 className="text-lg font-semibold mb-4">🔄 Current Work</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <div className="text-sm text-gray-500">Article</div>
-                <div className="font-medium">
-                  #{user.currentWork.articleNumber}
-                </div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Operation</div>
-                <div className="font-medium">{user.currentWork.operation}</div>
-              </div>
-              <div>
-                <div className="text-sm text-gray-500">Progress</div>
-                <div className="font-medium">
-                  {user.currentWork.completed}/{user.currentWork.pieces} pieces
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Action Buttons */}
-        <div className={`grid grid-cols-1 ${process.env.NODE_ENV === 'development' ? 'md:grid-cols-2' : ''} gap-6`}>
-          <button
-            onClick={() => onNavigate("self-assignment")}
-            className="bg-primary-600 text-white p-6 rounded-lg hover:bg-primary-700 transition-colors text-left"
-          >
-            <div className="text-3xl mb-2">🎯</div>
-            <div className="text-xl font-semibold">Choose Work</div>
-            <div className="text-primary-200 mt-1">
-              Select work based on your skills
-            </div>
-          </button>
-
-        </div>
-      </div>
-    </div>
-  );
-};
 
 // Main App Content based on user role
 const AppContent = () => {
@@ -430,12 +319,17 @@ const AppContent = () => {
       switch (currentView) {
         case "self-assignment":
           return <SelfAssignmentSystem />;
+        case "work-dashboard":
+          return <OperatorWorkDashboard />;
+        case "earnings":
+          return <EarningsWallet />;
+        case "pending-work":
+          return <OperatorPendingWork />;
         case "old-dashboard":
           return <OperatorDashboard onNavigate={setCurrentView} />;
-        case "work-dashboard":
         case "dashboard":
         default:
-          return <OperatorWorkDashboard />;
+          return <OperatorDashboard onNavigate={setCurrentView} />;
       }
     }
 
@@ -553,6 +447,26 @@ const AppContent = () => {
                 }`}
               >
                 📋 My Work
+              </button>
+              <button
+                onClick={() => setCurrentView("earnings")}
+                className={`py-3 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
+                  currentView === "earnings"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                💰 Earnings
+              </button>
+              <button
+                onClick={() => setCurrentView("pending-work")}
+                className={`py-3 px-2 sm:px-4 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap ${
+                  currentView === "pending-work"
+                    ? "border-indigo-500 text-indigo-600"
+                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                }`}
+              >
+                ⏳ Pending Work
               </button>
             </nav>
           </div>
