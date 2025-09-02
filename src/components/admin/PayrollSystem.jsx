@@ -15,11 +15,12 @@ import {
   Edit,
   Trash2,
   AlertTriangle,
-  FileText
+  FileText,
+  Plus
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { db, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc } from '../../config/firebase';
+import { db, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, getDocs } from '../../config/firebase';
 
 const PayrollSystem = () => {
   const { user } = useAuth();

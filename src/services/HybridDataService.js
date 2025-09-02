@@ -9,6 +9,7 @@ import {
   doc, 
   getDoc, 
   updateDoc, 
+  setDoc,
   COLLECTIONS 
 } from '../config/firebase';
 
