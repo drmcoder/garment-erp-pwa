@@ -2,6 +2,7 @@
 // Custom hooks for consistent data access across components
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useRobustEffect, useRobustCallback } from './useRobustHook';
 import { useAppStore, useAppActions, useAppUtils } from '../store/AppStore';
 import { dataService } from '../services/DataService';
 import { useAuth } from '../context/AuthContext';
@@ -13,6 +14,7 @@ export const useAppData = () => {
   const actions = useAppActions();
   const utils = useAppUtils();
   
+  // Memoize the initialize function to prevent infinite re-renders
   const initializeApp = useCallback(async () => {
     try {
       await actions.refreshAll();
@@ -20,7 +22,7 @@ export const useAppData = () => {
       console.error('Failed to initialize app data:', error);
       actions.setError('Failed to load application data');
     }
-  }, [actions]);
+  }, []); // Remove actions from dependencies to break circular dependency
   
   return {
     ...store,
@@ -30,17 +32,23 @@ export const useAppData = () => {
   };
 };
 
-// User management hooks
+// User management hooks - RESTORED WITH PROPER IMPLEMENTATION
 export const useUsers = () => {
   const { users } = useAppStore();
   const { loadUsers, updateUser } = useAppActions();
   const [localLoading, setLocalLoading] = useState(false);
+  const loadedRef = useRef(false);
   
+  // Load users only once to prevent infinite loops
   useEffect(() => {
-    if (!users.lastUpdated) {
-      loadUsers();
+    if (!loadedRef.current && !users.lastUpdated && !users.loading) {
+      loadedRef.current = true;
+      loadUsers().catch(err => {
+        console.error('Failed to load users:', err);
+        loadedRef.current = false;
+      });
     }
-  }, [users.lastUpdated, loadUsers]);
+  }, []); // Empty deps - only run once
   
   const refreshUsers = useCallback(async () => {
     setLocalLoading(true);
@@ -52,25 +60,26 @@ export const useUsers = () => {
   }, [loadUsers]);
   
   const getUserById = useCallback((id) => {
-    const operators = (users && users.operators) ? users.operators : [];
-    const supervisors = (users && users.supervisors) ? users.supervisors : [];
-    const management = (users && users.management) ? users.management : [];
+    if (!users) return null;
+    const operators = users.operators || [];
+    const supervisors = users.supervisors || [];
+    const management = users.management || [];
     const allUsers = [...operators, ...supervisors, ...management];
     return allUsers.find(user => user.id === id);
   }, [users]);
   
   const getUsersByRole = useCallback((role) => {
-    if (!users) return [];
+    if (!users || typeof users !== 'object') return [];
     
     switch (role) {
       case 'operator':
-        return users.operators || [];
+        return Array.isArray(users.operators) ? users.operators : [];
       case 'supervisor':
-        return users.supervisors || [];
+        return Array.isArray(users.supervisors) ? users.supervisors : [];
       case 'management':
       case 'manager':
       case 'admin':
-        return users.management || [];
+        return Array.isArray(users.management) ? users.management : [];
       default:
         return [];
     }
@@ -88,14 +97,13 @@ export const useUsers = () => {
       ...(users.supervisors || []), 
       ...(users.management || [])
     ],
-    // Ensure operators, supervisors, management are always arrays
     operators: users.operators || [],
     supervisors: users.supervisors || [],
     management: users.management || []
   };
 };
 
-// Work management hooks
+// Work management hooks - RESTORED WITH PROPER IMPLEMENTATION
 export const useWorkManagement = () => {
   const { workItems } = useAppStore();
   const { loadWorkItems, assignWork, completeWork } = useAppActions();
@@ -104,12 +112,18 @@ export const useWorkManagement = () => {
   const { showNotification } = useNotifications();
   
   const [localLoading, setLocalLoading] = useState(false);
+  const loadedRef = useRef(false);
   
+  // Load work items only once to prevent infinite loops
   useEffect(() => {
-    if (!workItems.lastUpdated) {
-      loadWorkItems();
+    if (!loadedRef.current && !workItems.lastUpdated && !workItems.loading) {
+      loadedRef.current = true;
+      loadWorkItems().catch(err => {
+        console.error('Failed to load work items:', err);
+        loadedRef.current = false;
+      });
     }
-  }, [workItems.lastUpdated, loadWorkItems]);
+  }, []); // Empty deps - only run once
   
   const assignWorkToOperator = useCallback(async (operatorId, workData) => {
     setLocalLoading(true);
@@ -148,9 +162,9 @@ export const useWorkManagement = () => {
   }, [completeWork, showNotification, user]);
   
   const getMyAssignments = useCallback(() => {
-    if (!user) return [];
+    if (!user || !workItems || !Array.isArray(workItems.assignments)) return [];
     return workItems.assignments.filter(assignment => 
-      assignment.operatorId === user.id && 
+      assignment && assignment.operatorId === user.id && 
       ['assigned', 'in_progress'].includes(assignment.status)
     );
   }, [workItems.assignments, user]);
@@ -176,7 +190,7 @@ export const useWorkManagement = () => {
   };
 };
 
-// Production analytics hooks
+// Production analytics hooks - RESTORED WITH PROPER IMPLEMENTATION
 export const useProductionAnalytics = () => {
   const { production } = useAppStore();
   const { loadProductionStats, updateProductionTargets } = useAppActions();
@@ -186,12 +200,18 @@ export const useProductionAnalytics = () => {
     start: new Date().toISOString().split('T')[0],
     end: new Date().toISOString().split('T')[0],
   });
+  const loadedRef = useRef(false);
   
+  // Load production stats only once to prevent infinite loops
   useEffect(() => {
-    if (!production.lastUpdated) {
-      loadProductionStats();
+    if (!loadedRef.current && !production.lastUpdated && !production.loading) {
+      loadedRef.current = true;
+      loadProductionStats().catch(err => {
+        console.error('Failed to load production stats:', err);
+        loadedRef.current = false;
+      });
     }
-  }, [production.lastUpdated, loadProductionStats]);
+  }, []); // Empty deps - only run once
   
   const refreshStats = useCallback(async () => {
     setLocalLoading(true);
@@ -203,9 +223,8 @@ export const useProductionAnalytics = () => {
   }, [loadProductionStats]);
   
   const getEfficiencyTrend = useCallback(() => {
-    // Calculate efficiency trend from analytics data
     const { analytics } = production;
-    if (!analytics.operatorEfficiency) return [];
+    if (!analytics?.operatorEfficiency) return [];
     
     return analytics.operatorEfficiency.map(op => ({
       operator: op.operatorName,
@@ -216,7 +235,7 @@ export const useProductionAnalytics = () => {
   
   const getTopPerformers = useCallback((limit = 5) => {
     const { analytics } = production;
-    if (!analytics.operatorEfficiency) return [];
+    if (!analytics?.operatorEfficiency) return [];
     
     return analytics.operatorEfficiency
       .sort((a, b) => b.completionRate - a.completionRate)
@@ -242,13 +261,16 @@ export const useRealTimeData = (collectionName, options = {}) => {
   const [error, setError] = useState(null);
   const unsubscribeRef = useRef(null);
   
+  // Memoize options to prevent infinite re-renders
+  const memoizedOptions = useMemo(() => options, [JSON.stringify(options)]);
+  
   useEffect(() => {
     setLoading(true);
     setError(null);
     
     const loadData = async () => {
       try {
-        const result = await dataService.fetchCollection(collectionName, options);
+        const result = await dataService.fetchCollection(collectionName, memoizedOptions);
         if (result.success) {
           setData(result.data);
         } else {
@@ -267,7 +289,7 @@ export const useRealTimeData = (collectionName, options = {}) => {
     unsubscribeRef.current = dataService.subscribeToCollection(
       collectionName,
       (newData) => setData(newData),
-      options
+      memoizedOptions
     );
     
     return () => {
@@ -275,13 +297,13 @@ export const useRealTimeData = (collectionName, options = {}) => {
         unsubscribeRef.current();
       }
     };
-  }, [collectionName, options]);
+  }, [collectionName, memoizedOptions]);
   
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
       const result = await dataService.fetchCollection(collectionName, {
-        ...options,
+        ...memoizedOptions,
         maxAge: 0, // Force fresh data
       });
       
@@ -296,7 +318,7 @@ export const useRealTimeData = (collectionName, options = {}) => {
     } finally {
       setLoading(false);
     }
-  }, [collectionName, options]);
+  }, [collectionName, memoizedOptions]);
   
   return { data, loading, error, refresh };
 };
@@ -308,7 +330,7 @@ export const useOperatorData = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(false);
   
-  const loadMyStats = useCallback(async () => {
+  const loadMyStats = useRobustCallback(async () => {
     if (!user || user.role !== 'operator') return;
     
     setLoading(true);
@@ -322,11 +344,15 @@ export const useOperatorData = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user], { hookId: 'useOperatorData_loadStatsCallback' });
   
-  useEffect(() => {
+  useRobustEffect(() => {
     loadMyStats();
-  }, [loadMyStats]);
+  }, [user?.id], { 
+    hookId: 'useOperatorData_statsEffect',
+    maxExecutionsPerSecond: 1,
+    debounceMs: 200 
+  });
   
   const myAssignments = getMyAssignments();
   const hasActiveWork = myAssignments.length > 0;
@@ -340,42 +366,30 @@ export const useOperatorData = () => {
   };
 };
 
-// Supervisor-specific hooks
+// Supervisor-specific hooks - RESTORED WITH PROPER IMPLEMENTATION
 export const useSupervisorData = () => {
-  const usersData = useUsers();
-  const workData = useWorkManagement();
-  const productionData = useProductionAnalytics();
+  // Get data directly from store with proper selectors
+  const users = useAppStore(state => state.users);
+  const workItems = useAppStore(state => state.workItems);
+  const production = useAppStore(state => state.production);
   
-  // Add safety checks for all data with proper null/undefined handling wrapped in useMemo
-  const users = useMemo(() => {
-    return usersData && typeof usersData === 'object' ? {
-      ...usersData,
-      operators: Array.isArray(usersData.operators) ? usersData.operators : []
-    } : { operators: [] };
-  }, [usersData]);
+  // Simple state checks without complex memoization that can cause loops
+  const safeUsers = users && typeof users === 'object' ? {
+    ...users,
+    operators: Array.isArray(users.operators) ? users.operators : []
+  } : { operators: [], supervisors: [], management: [] };
   
-  const workItems = useMemo(() => {
-    return workData && typeof workData === 'object' ? {
-      ...workData,
-      assignments: Array.isArray(workData.assignments) ? workData.assignments : []
-    } : { assignments: [] };
-  }, [workData]);
+  const safeWorkItems = workItems && typeof workItems === 'object' ? {
+    ...workItems,
+    assignments: Array.isArray(workItems.assignments) ? workItems.assignments : []
+  } : { assignments: [], bundles: [], completions: [] };
   
-  const production = useMemo(() => {
-    return productionData && typeof productionData === 'object' ? productionData : {};
-  }, [productionData]);
+  const safeProduction = production && typeof production === 'object' ? production : { stats: {}, analytics: {}, targets: {} };
   
-  const getLineStatus = useCallback(() => {
-    // Multiple layers of safety checks
-    if (!users || typeof users !== 'object') {
-      return { totalOperators: 0, busyOperators: 0, availableOperators: 0, utilizationRate: 0 };
-    }
-    if (!workItems || typeof workItems !== 'object') {
-      return { totalOperators: 0, busyOperators: 0, availableOperators: 0, utilizationRate: 0 };
-    }
-    
-    const operators = Array.isArray(users.operators) ? users.operators : [];
-    const assignments = Array.isArray(workItems.assignments) ? workItems.assignments : [];
+  // Direct calculations without complex memoization to prevent infinite loops
+  const getLineStatus = () => {
+    const operators = Array.isArray(safeUsers.operators) ? safeUsers.operators : [];
+    const assignments = Array.isArray(safeWorkItems.assignments) ? safeWorkItems.assignments : [];
     
     const activeAssignments = assignments.filter(a => a && typeof a === 'object' && a.status === 'assigned');
     const busyOperators = activeAssignments.length;
@@ -387,27 +401,22 @@ export const useSupervisorData = () => {
       availableOperators,
       utilizationRate: operators.length > 0 ? (busyOperators / operators.length) * 100 : 0,
     };
-  }, [users, workItems]);
+  };
   
-  const getPendingApprovals = useCallback(() => {
-    if (!workItems || typeof workItems !== 'object') return [];
-    const assignments = Array.isArray(workItems.assignments) ? workItems.assignments : [];
+  const getPendingApprovals = () => {
+    const assignments = Array.isArray(safeWorkItems.assignments) ? safeWorkItems.assignments : [];
     return assignments.filter(a => a && typeof a === 'object' && a.status === 'pending_approval');
-  }, [workItems]);
+  };
   
-  const getQualityIssues = useCallback(() => {
-    if (!workItems || typeof workItems !== 'object') return [];
-    const completions = Array.isArray(workItems.completions) ? workItems.completions : [];
+  const getQualityIssues = () => {
+    const completions = Array.isArray(safeWorkItems.completions) ? safeWorkItems.completions : [];
     return completions.filter(c => c && typeof c === 'object' && (c.quality || 100) < 95);
-  }, [workItems]);
+  };
   
-  const lineStatus = useMemo(() => getLineStatus(), [getLineStatus]);
-  const pendingApprovals = useMemo(() => getPendingApprovals(), [getPendingApprovals]);
-  const qualityIssues = useMemo(() => getQualityIssues(), [getQualityIssues]);
-  const productionStats = useMemo(() => {
-    if (!production || typeof production !== 'object') return {};
-    return (production.stats && typeof production.stats === 'object') ? production.stats : {};
-  }, [production]);
+  const lineStatus = getLineStatus();
+  const pendingApprovals = getPendingApprovals();
+  const qualityIssues = getQualityIssues();
+  const productionStats = (safeProduction.stats && typeof safeProduction.stats === 'object') ? safeProduction.stats : {};
 
   return {
     lineStatus,
@@ -471,13 +480,13 @@ export const useDataPersistence = () => {
   return { saveToCache, loadFromCache, clearCache };
 };
 
-// Centralized status hook
+// Centralized status hook - RESTORED WITH PROPER IMPLEMENTATION
 export const useCentralizedStatus = () => {
   const { users, workItems, production, isLoading, error } = useAppStore();
   
   const isInitialized = !!(
-    users.lastUpdated && 
-    workItems.lastUpdated && 
+    users.lastUpdated || 
+    workItems.lastUpdated || 
     production.lastUpdated
   );
   

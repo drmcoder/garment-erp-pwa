@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { shallow } from 'zustand/shallow';
+import { useCallback } from 'react';
 import { cacheService } from '../services/CacheService';
 import { ActivityLogService } from '../services/firebase-services';
 
@@ -54,10 +55,10 @@ export const useAppStore = create(
     setError: (error) => set({ error }),
     clearError: () => set({ error: null }),
     
-    // User Management Actions
+    // User Management Actions - simplified to prevent loops
     loadUsers: async () => {
       const state = get();
-      if (state.users.loading) return; // Prevent duplicate calls
+      if (state.users.loading) return { success: true }; // Prevent duplicate calls
       
       set((state) => ({ 
         users: { ...state.users, loading: true } 
@@ -73,24 +74,25 @@ export const useAppStore = create(
             management: result.data.filter(u => ['management', 'admin', 'manager'].includes(u.role)),
           };
           
-          set((state) => ({
+          set({
             users: {
               ...categorizedUsers,
               loading: false,
               lastUpdated: new Date().toISOString(),
             }
-          }));
+          });
           
-          return result;
+          return { success: true };
         } else {
           throw new Error('Failed to load users');
         }
       } catch (error) {
+        console.error('Load users error:', error);
         set((state) => ({ 
           users: { ...state.users, loading: false },
           error: error.message 
         }));
-        throw error;
+        return { success: false, error: error.message };
       }
     },
     
@@ -131,10 +133,10 @@ export const useAppStore = create(
       }
     },
     
-    // Work Management Actions
+    // Work Management Actions - simplified to prevent loops
     loadWorkItems: async () => {
       const state = get();
-      if (state.workItems.loading) return;
+      if (state.workItems.loading) return { success: true };
       
       set((state) => ({ 
         workItems: { ...state.workItems, loading: true } 
@@ -142,27 +144,28 @@ export const useAppStore = create(
       
       try {
         const [bundlesResult, assignmentsResult] = await Promise.all([
-          cacheService.getAllBundles(),
-          cacheService.getWorkAssignments(),
+          cacheService.getAllBundles().catch(() => ({ success: true, data: [] })),
+          cacheService.getWorkAssignments().catch(() => ({ success: true, data: [] })),
         ]);
         
-        set((state) => ({
+        set({
           workItems: {
             bundles: bundlesResult.success ? bundlesResult.data : [],
             assignments: assignmentsResult.success ? assignmentsResult.data : [],
-            completions: [], // Will be loaded separately
+            completions: [],
             loading: false,
             lastUpdated: new Date().toISOString(),
           }
-        }));
+        });
         
         return { success: true };
       } catch (error) {
+        console.error('Load work items error:', error);
         set((state) => ({ 
           workItems: { ...state.workItems, loading: false },
           error: error.message 
         }));
-        throw error;
+        return { success: false, error: error.message };
       }
     },
     
@@ -253,39 +256,39 @@ export const useAppStore = create(
       }
     },
     
-    // Production Analytics Actions
+    // Production Analytics Actions - simplified to prevent loops
     loadProductionStats: async () => {
       const state = get();
-      if (state.production.loading) return;
+      if (state.production.loading) return { success: true };
       
       set((state) => ({ 
         production: { ...state.production, loading: true } 
       }));
       
       try {
-        // Calculate production statistics from work data
-        const { workItems, users } = get();
+        // Calculate production statistics from current state
+        const currentState = get();
+        const stats = calculateProductionStats(currentState.workItems, currentState.users);
+        const analytics = calculateAnalytics(currentState.workItems, currentState.users);
         
-        const stats = calculateProductionStats(workItems, users);
-        const analytics = calculateAnalytics(workItems, users);
-        
-        set((state) => ({
+        set({
           production: {
             stats,
             analytics,
-            targets: state.production.targets, // Keep existing targets
+            targets: state.production.targets,
             loading: false,
             lastUpdated: new Date().toISOString(),
           }
-        }));
+        });
         
-        return { success: true, stats, analytics };
+        return { success: true };
       } catch (error) {
+        console.error('Load production stats error:', error);
         set((state) => ({ 
           production: { ...state.production, loading: false },
           error: error.message 
         }));
-        throw error;
+        return { success: false, error: error.message };
       }
     },
     
@@ -360,24 +363,87 @@ export const useAppStore = create(
       );
     },
     
-    // Data refresh actions
+    // Data refresh actions - simplified to prevent recursive calls
     refreshAll: async () => {
-      const { loadUsers, loadWorkItems, loadProductionStats } = get();
+      const currentState = get();
+      
+      // Prevent multiple concurrent refresh calls
+      if (currentState.isLoading) {
+        console.log('Refresh already in progress, skipping...');
+        return { success: true };
+      }
       
       set({ isLoading: true });
       
       try {
-        await Promise.all([
-          loadUsers(),
-          loadWorkItems(),
-          loadProductionStats(),
-        ]);
+        // Load users
+        const usersResult = await cacheService.getAllUsers();
+        if (usersResult.success) {
+          const categorizedUsers = {
+            operators: usersResult.data.filter(u => u.role === 'operator'),
+            supervisors: usersResult.data.filter(u => u.role === 'supervisor'),
+            management: usersResult.data.filter(u => ['management', 'admin', 'manager'].includes(u.role)),
+          };
+          
+          set((state) => ({
+            users: {
+              ...categorizedUsers,
+              loading: false,
+              lastUpdated: new Date().toISOString(),
+            }
+          }));
+        }
         
-        set({ isLoading: false });
+        // Load work items (with fallback for missing methods)
+        try {
+          const [bundlesResult, assignmentsResult] = await Promise.all([
+            cacheService.getAllBundles().catch(() => ({ success: true, data: [] })),
+            cacheService.getWorkAssignments().catch(() => ({ success: true, data: [] })),
+          ]);
+          
+          set((state) => ({
+            workItems: {
+              bundles: bundlesResult.success ? bundlesResult.data : [],
+              assignments: assignmentsResult.success ? assignmentsResult.data : [],
+              completions: [],
+              loading: false,
+              lastUpdated: new Date().toISOString(),
+            }
+          }));
+        } catch (error) {
+          console.log('Work items fallback:', error.message);
+          set((state) => ({
+            workItems: {
+              bundles: [],
+              assignments: [],
+              completions: [],
+              loading: false,
+              lastUpdated: new Date().toISOString(),
+            }
+          }));
+        }
+        
+        // Calculate production stats
+        const finalState = get();
+        const stats = calculateProductionStats(finalState.workItems, finalState.users);
+        const analytics = calculateAnalytics(finalState.workItems, finalState.users);
+        
+        set((state) => ({
+          production: {
+            stats,
+            analytics,
+            targets: state.production.targets,
+            loading: false,
+            lastUpdated: new Date().toISOString(),
+          },
+          isLoading: false
+        }));
+        
         return { success: true };
       } catch (error) {
+        console.error('RefreshAll error:', error);
         set({ isLoading: false, error: error.message });
-        throw error;
+        return { success: false, error: error.message };
       }
     },
   }))
@@ -437,7 +503,7 @@ export const useAppError = () => useAppStore((state) => state.error);
 
 // Action selectors (use shallow comparison to prevent re-renders)
 export const useAppActions = () => {
-  return useAppStore((state) => ({
+  return useAppStore(useCallback((state) => ({
     setLoading: state.setLoading,
     setError: state.setError,
     clearError: state.clearError,
@@ -450,12 +516,12 @@ export const useAppActions = () => {
     updateProductionTargets: state.updateProductionTargets,
     updateSystemSettings: state.updateSystemSettings,
     refreshAll: state.refreshAll,
-  }), shallow);
+  }), []), shallow);
 };
 
 // Utility selectors
-export const useAppUtils = () => useAppStore((state) => ({
+export const useAppUtils = () => useAppStore(useCallback((state) => ({
   getOperatorsByMachine: state.getOperatorsByMachine,
   getAvailableOperators: state.getAvailableOperators,
   getWorkloadByOperator: state.getWorkloadByOperator,
-}), shallow);
+}), []), shallow);

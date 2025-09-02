@@ -33,10 +33,26 @@ const OperatorWorkDashboardNewCentralized = () => {
   const isNepali = currentLanguage === 'np';
   const loading = operatorLoading || workLoading;
 
-  // Initialize app data on mount
+  // Initialize app data on mount - properly handled to prevent infinite loop
   useEffect(() => {
-    initializeApp();
-  }, [initializeApp]);
+    let mounted = true;
+    
+    const init = async () => {
+      if (mounted) {
+        try {
+          await initializeApp();
+        } catch (error) {
+          console.error('Failed to initialize app:', error);
+        }
+      }
+    };
+    
+    init();
+    
+    return () => {
+      mounted = false;
+    };
+  }, []); // Empty dependency array - run only once on mount
 
   // Update local stats when centralized stats change
   useEffect(() => {

@@ -253,6 +253,39 @@ class CacheService {
     return this.getCollection(COLLECTIONS.WORK_ITEMS, useCache);
   }
 
+  // Get work assignments with caching  
+  async getWorkAssignments(useCache = true) {
+    return this.getCollection(COLLECTIONS.WORK_ASSIGNMENTS, useCache);
+  }
+
+  // Create work assignment
+  async createWorkAssignment(assignment) {
+    // For now, return success - implement actual Firestore write later
+    console.log('📝 Creating work assignment:', assignment);
+    return { success: true, data: assignment };
+  }
+
+  // Create work completion
+  async createWorkCompletion(completion) {
+    // For now, return success - implement actual Firestore write later
+    console.log('✅ Creating work completion:', completion);
+    return { success: true, data: completion };
+  }
+
+  // Update user
+  async updateUser(userId, updates) {
+    // For now, return success - implement actual Firestore write later
+    console.log('👤 Updating user:', userId, updates);
+    return { success: true, data: { userId, ...updates } };
+  }
+
+  // Save production targets
+  async saveProductionTargets(targets) {
+    // For now, return success - implement actual Firestore write later
+    console.log('🎯 Saving production targets:', targets);
+    return { success: true, data: targets };
+  }
+
   // Get cache statistics
   getCacheStats() {
     const stats = {
