@@ -21,11 +21,11 @@ const WorkAssignment = () => {
   const { isNepali, formatCurrency } = useLanguage();
   const { showNotification, sendWorkCompleted } = useNotifications();
   
-  // Use centralized data hooks
-  const { allUsers, loading: usersLoading } = useUsers();
-  const { bundles, assignments, assignWork, completeWork, loading: workLoading } = useWorkManagement();
-  const { lineStatus } = useSupervisorData();
-  const { isReady } = useCentralizedStatus();
+  // Use centralized data hooks with proper error handling
+  const { allUsers = [], loading: usersLoading = false } = useUsers() || {};
+  const { bundles = [], assignments = [], assignWork, completeWork, loading: workLoading = false } = useWorkManagement() || {};
+  const { lineStatus = {} } = useSupervisorData() || {};
+  const { isReady = true } = useCentralizedStatus() || {};
   
   const [draggedBundle, setDraggedBundle] = useState(null);
   const loading = usersLoading || workLoading;

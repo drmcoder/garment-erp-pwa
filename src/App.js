@@ -31,7 +31,7 @@ import LocationManagement from "./components/admin/LocationManagement";
 import AdvancedManagementDashboard from "./components/management/ManagementDashboard";
 import { PermissionGate, PermissionsProvider } from "./context/PermissionsContext";
 import { PERMISSIONS } from "./services/permissions-service";
-import { FullScreenLoader } from "./components/common/BrandedLoader";
+import { FullScreenLoader } from "./core/components/ui";
 import LoginScreen from "./components/auth/LoginScreen";
 import OperatorAvatar from "./components/common/OperatorAvatar";
 

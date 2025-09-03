@@ -6,7 +6,7 @@
 // Step 1: Enhanced OperatorDashboard with Real Firebase Data
 // File: src/components/operator/OperatorDashboard.jsx - UPDATED VERSION
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   PlayCircle,
   PauseCircle,
@@ -62,9 +62,16 @@ const OperatorDashboard = () => {
 
   // State management
   const [currentWork, setCurrentWork] = useState(null);
+  const [bundles, setBundles] = useState([]);
   const [workQueue, setWorkQueue] = useState([]);
   const [availableWork, setAvailableWork] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
+  const [productionStats, setProductionStats] = useState({
+    totalCompleted: 0,
+    totalMinutes: 0,
+    efficiency: 0,
+    qualityScore: 100
+  });
   const [dailyStats, setDailyStats] = useState({
     piecesCompleted: 0,
     totalEarnings: 0,
@@ -102,80 +109,8 @@ const OperatorDashboard = () => {
     specialityDisplay: user ? getUserSpecialityDisplay() : ''
   };
 
-  // Real-time clock update
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Load operator data on mount
-  useEffect(() => {
-    if (user?.id) {
-      loadOperatorData();
-      setupRealtimeSubscriptions();
-    }
-  }, [user]);
-
-  // Listen for work started events from self-assignment system
-  useEffect(() => {
-    const handleWorkStarted = (event) => {
-      const { workItem, operatorId, status } = event.detail;
-      
-      // Only update if this event is for the current operator
-      if (operatorId === user?.id) {
-        console.log('🔄 Dashboard: Received work started event', workItem);
-        
-        // Set this as the current work
-        setCurrentWork({
-          ...workItem,
-          status: status === 'working' ? (workItem.status === 'in_progress' ? 'in_progress' : 'in-progress') : workItem.status
-        });
-
-        // Update daily stats to reflect that work has started
-        setDailyStats(prev => ({
-          ...prev,
-          activeWorks: prev.activeWorks + 1
-        }));
-
-        // Show success notification in dashboard
-        addNotification({
-          type: 'success',
-          message: currentLanguage === 'np' 
-            ? `🚀 काम सुरु भयो: ${workItem.articleName || workItem.article}`
-            : `🚀 Work started: ${workItem.articleName || workItem.article}`,
-          duration: 3000
-        });
-
-        // Reload data to get the most current state
-        loadOperatorData();
-      }
-    };
-
-    // Add event listener
-    window.addEventListener('workStarted', handleWorkStarted);
-    
-    // Cleanup event listener on unmount
-    return () => {
-      window.removeEventListener('workStarted', handleWorkStarted);
-    };
-  }, [user, currentLanguage, addNotification]);
-
-  // Early return if user is not loaded yet
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Load operator's current work and queue
-  const loadOperatorData = async () => {
+  const loadOperatorData = useCallback(async () => {
     if (!user?.id) return;
 
     setLoading(true);
@@ -206,210 +141,94 @@ const OperatorDashboard = () => {
           if (!hasValidId || !hasValidStatus || !hasValidData) {
             console.warn(`🚫 [Dashboard] Filtering out invalid bundle:`, {
               id: bundle.id,
-              hasValidId,
-              hasValidStatus,
-              hasValidData,
-              status: bundle.status
+              status: bundle.status,
+              hasData: hasValidData,
+              bundle: JSON.stringify(bundle, null, 2)
             });
             return false;
           }
           
           return true;
         });
+
+        console.log(`✅ [Dashboard] Valid bundles after filtering: ${bundles.length}`);
         
-        console.log("📦 Loaded bundles:", bundles.length);
-        console.log("📦 Bundle details:", bundles.map(b => ({ id: b.id, status: b.status, assignedOperator: b.assignedOperator, article: b.article })));
-
-        // Find current work (in-progress or assigned)
-        const currentBundle = bundles.find(
-          (b) =>
-            b.status === "in-progress" ||
-            (b.status === "assigned" && b.assignedOperator === user.id)
-        );
-
-        if (currentBundle) {
-          // Ensure current work has all required fields with fallbacks
-          const workWithDefaults = {
-            ...currentBundle,
-            article: currentBundle.article || currentBundle.articleNumber || 'N/A',
-            articleName: currentBundle.articleName || currentBundle.article || 'Unknown Article',
-            operation: currentBundle.operation || currentBundle.currentOperation || 'General',
-            pieces: currentBundle.pieces || 0,
-            completedPieces: currentBundle.completedPieces || 0,
-            bundleNumber: currentBundle.bundleNumber || currentBundle.id || 'N/A',
-            color: currentBundle.color || 'Default',
-            size: currentBundle.size || 'M',
-            priority: currentBundle.priority || 'medium'
-          };
+        // Only update bundles if we have valid data
+        if (bundles.length > 0) {
+          setBundles(bundles);
           
-          setCurrentWork(workWithDefaults);
-          setIsWorkStarted(currentBundle.status === "in-progress");
-          console.log("🔄 Current work found:", workWithDefaults.id, workWithDefaults);
-        } else {
-          setCurrentWork(null);
-          console.log("ℹ️ No current work assigned");
-        }
-
-        // Set work queue (pending bundles)
-        const queueBundles = bundles.filter(
-          (b) => b.status === "pending" || b.status === "assigned"
-        );
-        setWorkQueue(queueBundles);
-
-        // Load available work for self-assignment
-        await loadAvailableWork();
-        
-        // Load pending assignment requests
-        await loadPendingRequests();
-      } else {
-        throw new Error(bundlesResult.error);
-      }
-
-      // Load today's production stats
-      const statsResult = await ProductionService.getTodayStats();
-      if (statsResult.success) {
-        // Update with operator-specific stats if available
-        setDailyStats((prev) => ({
-          ...prev,
-          ...statsResult.stats,
-        }));
-      }
-
-      // Calculate real daily performance from loaded bundles
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      let todayPiecesCompleted = 0;
-      let todayEarnings = 0;
-      let completedBundles = 0;
-      let totalAssignedPieces = 0;
-      
-      bundles.forEach(bundle => {
-        // Count completed pieces and earnings for today
-        if (bundle.status === 'completed' || bundle.status === 'operator_completed') {
-          const completedDate = new Date(bundle.completedAt || bundle.operatorCompletedAt);
-          if (completedDate >= today) {
-            const pieces = bundle.completedPieces || bundle.pieces || 0;
-            const rate = bundle.rate || 0;
-            todayPiecesCompleted += pieces;
-            todayEarnings += pieces * rate;
-            completedBundles++;
+          // Find current work (in-progress bundle)
+          const currentBundle = bundles.find(b => ['in-progress', 'started', 'working'].includes(b.status?.toLowerCase()));
+          if (currentBundle) {
+            setCurrentWork(currentBundle);
+            console.log("🎯 [Dashboard] Current work found:", currentBundle.id);
+          } else {
+            setCurrentWork(null);
+            console.log("📋 [Dashboard] No current work in progress");
           }
-        }
-        
-        // Count total assigned pieces for efficiency calculation
-        if (bundle.assignedOperator === user.id) {
-          totalAssignedPieces += bundle.pieces || 0;
-        }
-      });
 
-      // Calculate efficiency (completed vs assigned)
-      const efficiency = totalAssignedPieces > 0 ? Math.min(100, Math.round((todayPiecesCompleted / totalAssignedPieces) * 100)) : 0;
-      
-      // Calculate quality score (placeholder - you may have actual quality data)
-      const qualityScore = completedBundles > 0 ? Math.max(85, Math.min(100, 100 - (completedBundles * 2))) : 100;
+          // Load operator work queue with validation - using filtered bundles
+          const queueBundles = bundles.filter(bundle => 
+            bundle.status === 'assigned' && bundle.assignedOperator === user.id
+          );
+          setWorkQueue(queueBundles);
+          console.log(`✅ [Dashboard] Work queue loaded: ${queueBundles.length} items`);
+        } else {
+          console.log("📋 [Dashboard] No valid bundles found");
+          setBundles([]);
+          setCurrentWork(null);
+          setWorkQueue([]);
+        }
+      } else {
+        console.error("❌ Failed to load operator bundles:", bundlesResult.error);
+        setError(`Failed to load work assignments: ${bundlesResult.error}`);
+        setBundles([]);
+        setCurrentWork(null);
+        setWorkQueue([]);
+      }
 
-      // Load actual payroll earnings from today
+      // Load production statistics for today - using ProductionService
       try {
-        const payrollQuery = query(
-          collection(db, 'payrollEntries'),
-          where('operatorId', '==', user.id),
-          where('completedAt', '>=', today),
-          where('status', '==', 'completed')
-        );
-        const payrollSnapshot = await getDocs(payrollQuery);
-        let actualEarnings = 0;
-        let actualPieces = 0;
-        
-        payrollSnapshot.forEach(doc => {
-          const entry = doc.data();
-          actualEarnings += entry.earnings || 0;
-          actualPieces += entry.pieces || 0;
+        const today = new Date().toISOString().split('T')[0];
+        // Use ProductionService instead of ProductionStatsService
+        const statsResult = await ProductionService.getOperatorDailyStats(user.id, today);
+        if (statsResult && statsResult.success) {
+          setProductionStats(statsResult.stats || {
+            totalCompleted: 0,
+            totalMinutes: 0,
+            efficiency: 0,
+            qualityScore: 100
+          });
+          console.log("📊 [Dashboard] Production stats loaded");
+        } else {
+          console.warn("⚠️ [Dashboard] Failed to load production stats");
+          setProductionStats({
+            totalCompleted: 0,
+            totalMinutes: 0,
+            efficiency: 0,
+            qualityScore: 100
+          });
+        }
+      } catch (error) {
+        console.warn("⚠️ [Dashboard] Production stats error:", error);
+        setProductionStats({
+          totalCompleted: 0,
+          totalMinutes: 0,
+          efficiency: 0,
+          qualityScore: 100
         });
-        
-        // Use payroll data if available, otherwise use calculated data
-        todayEarnings = actualEarnings > 0 ? actualEarnings : todayEarnings;
-        todayPiecesCompleted = actualPieces > 0 ? actualPieces : todayPiecesCompleted;
-      } catch (payrollError) {
-        console.warn('Could not load payroll data, using calculated values:', payrollError);
       }
 
-      setDailyStats((prev) => ({
-        ...prev,
-        piecesCompleted: todayPiecesCompleted,
-        totalEarnings: todayEarnings,
-        efficiency: efficiency,
-        qualityScore: qualityScore,
-        targetPieces: prev.targetPieces || 120 // Keep existing target or default
-      }));
-
-      // Load rework data
-      const pendingReworkResult = await damageReportService.getPendingReworkPieces(user.id);
-      if (pendingReworkResult.success && pendingReworkResult.details) {
-        const readyToComplete = pendingReworkResult.details.filter(report => 
-          report.status === 'rework_assigned' && report.assignedOperator === user.id
-        );
-        setReworkPieces(readyToComplete);
-        setPendingReworkPieces(pendingReworkResult.count || 0);
-      }
     } catch (error) {
-      console.error("❌ Error loading operator data:", error);
-      setError(error.message);
-      
-      // No fallback data - show empty state
+      console.error("❌ [Dashboard] Error loading operator data:", error);
+      setError(`Failed to load dashboard data: ${error.message}`);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Load available work for self-assignment
-  const loadAvailableWork = async () => {
-    try {
-      console.log("🔍 Loading available work for self-assignment");
-      
-      const result = await BundleService.getAvailableWorkForOperator(
-        user?.machine, 
-        user?.skillLevel || 'medium'
-      );
-
-      if (result.success) {
-        // Filter work compatible with operator's machine and skill
-        const compatibleWork = result.bundles.filter(bundle => {
-          return bundle.status === 'ready_for_assignment' && 
-                 !bundle.assignedOperator &&
-                 bundle.machineType === user?.machine;
-        });
-        
-        setAvailableWork(compatibleWork);
-        console.log("✅ Available work loaded:", compatibleWork.length);
-      }
-    } catch (error) {
-      console.error("❌ Error loading available work:", error);
-    }
-  };
-
-  // Load pending assignment requests
-  const loadPendingRequests = async () => {
-    try {
-      console.log("⏳ Loading pending assignment requests");
-      
-      const result = await BundleService.getOperatorAssignmentRequests(user.id);
-
-      if (result.success) {
-        const pending = result.requests.filter(req => 
-          req.status === 'pending_supervisor_approval'
-        );
-        
-        setPendingRequests(pending);
-        console.log("✅ Pending requests loaded:", pending.length);
-      }
-    } catch (error) {
-      console.error("❌ Error loading pending requests:", error);
-    }
-  };
+  }, [user]);
 
   // Setup real-time subscriptions
-  const setupRealtimeSubscriptions = () => {
+  const setupRealtimeSubscriptions = useCallback(() => {
     if (!user?.id) return;
 
     console.log("🔄 Setting up real-time subscriptions for:", user.id);
@@ -467,7 +286,127 @@ const OperatorDashboard = () => {
       if (unsubscribeBundles) unsubscribeBundles();
       if (unsubscribeNotifications) unsubscribeNotifications();
     };
+  }, [user, addNotification]);
+
+  // Real-time clock update
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Load operator data on mount
+  useEffect(() => {
+    if (user?.id) {
+      loadOperatorData();
+      setupRealtimeSubscriptions();
+    }
+  }, [user, loadOperatorData, setupRealtimeSubscriptions]);
+
+  // Listen for work started events from self-assignment system
+  useEffect(() => {
+    const handleWorkStarted = (event) => {
+      const { workItem, operatorId, status } = event.detail;
+      
+      // Only update if this event is for the current operator
+      if (operatorId === user?.id) {
+        console.log('🔄 Dashboard: Received work started event', workItem);
+        
+        // Set this as the current work
+        setCurrentWork({
+          ...workItem,
+          status: status === 'working' ? (workItem.status === 'in_progress' ? 'in_progress' : 'in-progress') : workItem.status
+        });
+
+        // Update daily stats to reflect that work has started
+        setDailyStats(prev => ({
+          ...prev,
+          activeWorks: prev.activeWorks + 1
+        }));
+
+        // Show success notification in dashboard
+        addNotification({
+          type: 'success',
+          message: currentLanguage === 'np' 
+            ? `🚀 काम सुरु भयो: ${workItem.articleName || workItem.article}`
+            : `🚀 Work started: ${workItem.articleName || workItem.article}`,
+          duration: 3000
+        });
+
+        // Reload data to get the most current state
+        loadOperatorData();
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('workStarted', handleWorkStarted);
+    
+    // Cleanup event listener on unmount
+    return () => {
+      window.removeEventListener('workStarted', handleWorkStarted);
+    };
+  }, [user, currentLanguage, addNotification]);
+
+  // Early return if user is not loaded yet
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+
+  // Load available work for self-assignment
+  const loadAvailableWork = async () => {
+    try {
+      console.log("🔍 Loading available work for self-assignment");
+      
+      const result = await BundleService.getAvailableWorkForOperator(
+        user?.machine, 
+        user?.skillLevel || 'medium'
+      );
+
+      if (result.success) {
+        // Filter work compatible with operator's machine and skill
+        const compatibleWork = result.bundles.filter(bundle => {
+          return bundle.status === 'ready_for_assignment' && 
+                 !bundle.assignedOperator &&
+                 bundle.machineType === user?.machine;
+        });
+        
+        setAvailableWork(compatibleWork);
+        console.log("✅ Available work loaded:", compatibleWork.length);
+      }
+    } catch (error) {
+      console.error("❌ Error loading available work:", error);
+    }
   };
+
+  // Load pending assignment requests
+  const loadPendingRequests = async () => {
+    try {
+      console.log("⏳ Loading pending assignment requests");
+      
+      const result = await BundleService.getOperatorAssignmentRequests(user.id);
+
+      if (result.success) {
+        const pending = result.requests.filter(req => 
+          req.status === 'pending_supervisor_approval'
+        );
+        
+        setPendingRequests(pending);
+        console.log("✅ Pending requests loaded:", pending.length);
+      }
+    } catch (error) {
+      console.error("❌ Error loading pending requests:", error);
+    }
+  };
+
 
   // Start work on current bundle
   const handleStartWork = async () => {
@@ -823,7 +762,7 @@ const OperatorDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-cyan-50 to-blue-50 pb-20">
       {/* Modern Header */}
-      <div className="bg-white/90 backdrop-blur-lg border-b border-white/20 shadow-lg sticky top-0 z-40 m-4 rounded-2xl">
+      <div className="card-glass sticky top-0 z-40 m-4">
         <div className="p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -949,7 +888,7 @@ const OperatorDashboard = () => {
 
       {/* Current Work Section */}
       {currentWork ? (
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 m-4">
+        <div className="card-work m-4">
           <div className="p-4 border-b border-gray-100">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center">
@@ -1101,7 +1040,7 @@ const OperatorDashboard = () => {
           </div>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 m-4 p-8 text-center">
+        <div className="card-modern m-4 p-8 text-center">
           <Package className="w-16 h-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-800 mb-2">
             {currentLanguage === "np" ? "काम उपलब्ध छैन" : "No Work Available"}
@@ -1123,7 +1062,7 @@ const OperatorDashboard = () => {
 
       {/* Assigned Work Queue Section */}
       {workQueue && workQueue.length > 0 && (
-        <div className="bg-white rounded-lg shadow-md border border-gray-200 m-4">
+        <div className="card-elevated m-4">
           <div className="p-4 border-b border-gray-100">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-800 flex items-center">
@@ -1140,7 +1079,7 @@ const OperatorDashboard = () => {
             {workQueue.map((work) => (
               <div 
                 key={work.id}
-                className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer"
+                className="card-modern p-4 cursor-pointer"
                 onClick={() => handleWorkItemClick(work)}
               >
                 <div className="flex items-center justify-between">
@@ -1203,7 +1142,7 @@ const OperatorDashboard = () => {
 
       {/* Simple Pending Requests */}
       {pendingRequests && pendingRequests.length > 0 && (
-        <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-xl shadow-lg border-2 border-yellow-200 m-4">
+        <div className="card-glass m-4" style={{background: 'linear-gradient(135deg, rgba(255, 248, 220, 0.95), rgba(255, 237, 204, 0.95))'}}>
           {/* Big, Clear Header */}
           <div className="bg-gradient-to-r from-yellow-500 to-orange-500 text-white p-6 rounded-t-xl">
             <div className="text-center">
@@ -1290,7 +1229,7 @@ const OperatorDashboard = () => {
 
       {/* Simple Self-Assignment Section */}
       {availableWork && availableWork.length > 0 && (
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 rounded-xl shadow-lg border-2 border-green-200 m-4">
+        <div className="card-glass m-4" style={{background: 'linear-gradient(135deg, rgba(240, 253, 244, 0.95), rgba(219, 234, 254, 0.95))'}}>
           {/* Big, Clear Header */}
           <div className="bg-gradient-to-r from-green-500 to-blue-500 text-white p-6 rounded-t-xl">
             <div className="text-center">
@@ -1402,7 +1341,7 @@ const OperatorDashboard = () => {
 
       {/* Rework Pending Section */}
       {reworkPieces.length > 0 && (
-        <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-xl shadow-lg border-2 border-orange-200 m-4">
+        <div className="card-glass m-4" style={{background: 'linear-gradient(135deg, rgba(255, 247, 237, 0.95), rgba(254, 242, 242, 0.95))'}}>
           <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-t-xl">
             <div className="text-center">
               <div className="text-4xl mb-2">🔧</div>
@@ -1502,7 +1441,7 @@ const OperatorDashboard = () => {
       )}
 
       {/* Enhanced Daily Statistics */}
-      <div className="bg-white/90 backdrop-blur-sm rounded-2xl border border-white/20 shadow-lg m-4">
+      <div className="card-glass m-4">
         <div className="p-6 border-b border-gray-100">
           <div className="flex items-center justify-between">
             <h3 className="text-2xl font-semibold text-gray-900 flex items-center space-x-3">

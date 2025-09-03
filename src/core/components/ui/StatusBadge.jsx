@@ -1,5 +1,5 @@
 import React from 'react';
-import { WORK_STATUS_CONFIG, PRIORITY_CONFIG } from '../../constants';
+import { WORK_STATUSES, PRIORITIES } from '../../constants';
 
 const StatusBadge = ({ 
   status, 
@@ -11,11 +11,11 @@ const StatusBadge = ({
   const getStatusConfig = () => {
     switch (type) {
       case 'work':
-        return WORK_STATUS_CONFIG[status] || {};
+        return WORK_STATUSES[status] || { label: status, color: 'gray' };
       case 'priority':
-        return PRIORITY_CONFIG[status] || {};
+        return PRIORITIES[status] || { label: status, color: 'gray' };
       default:
-        return {};
+        return { label: status, color: 'gray' };
     }
   };
 

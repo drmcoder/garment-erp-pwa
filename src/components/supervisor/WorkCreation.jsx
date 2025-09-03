@@ -74,6 +74,29 @@ const WorkCreation = () => {
   const standardSizes = ['XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
   const numericSizes = ['20', '22', '24', '26', '28', '30', '32', '34', '36', '38', '40'];
 
+  // Separate handlers for rate and time to prevent loops
+  const handleRateChange = (value) => {
+    const rate = parseFloat(value) || 0;
+    const calculatedTime = rate > 0 ? Math.round(rate * 1.9 * 10) / 10 : '';
+    
+    setBundleForm(prev => ({
+      ...prev,
+      rate: value,
+      estimatedTime: calculatedTime.toString()
+    }));
+  };
+
+  const handleTimeChange = (value) => {
+    const time = parseFloat(value) || 0;
+    const calculatedRate = time > 0 ? Math.round(time / 1.9 * 100) / 100 : '';
+    
+    setBundleForm(prev => ({
+      ...prev,
+      estimatedTime: value,
+      rate: calculatedRate.toString()
+    }));
+  };
+
   const handleInputChange = (field, value) => {
     setBundleForm(prev => ({
       ...prev,
@@ -398,12 +421,15 @@ const WorkCreation = () => {
                   type="number"
                   step="0.01"
                   value={bundleForm.rate}
-                  onChange={(e) => handleInputChange('rate', e.target.value)}
+                  onChange={(e) => handleRateChange(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder={isNepali ? 'उदा: 2.50' : 'e.g: 2.50'}
                   min="0"
                   required
                 />
+                <p className="text-xs text-blue-600 mt-1">
+                  💡 {isNepali ? 'समय स्वचालित रूपमा गणना हुनेछ' : 'Time will be auto-calculated'}
+                </p>
               </div>
 
               <div>
@@ -481,12 +507,16 @@ const WorkCreation = () => {
                 </label>
                 <input
                   type="number"
+                  step="0.1"
                   value={bundleForm.estimatedTime}
-                  onChange={(e) => handleInputChange('estimatedTime', e.target.value)}
+                  onChange={(e) => handleTimeChange(e.target.value)}
                   className="w-full p-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder={isNepali ? 'उदा: 30' : 'e.g: 30'}
-                  min="1"
+                  placeholder={isNepali ? 'उदा: 4.8' : 'e.g: 4.8'}
+                  min="0.1"
                 />
+                <p className="text-xs text-green-600 mt-1">
+                  📐 {isNepali ? 'सूत्र: समय = दर × 1.9' : 'Formula: Time = Rate × 1.9'}
+                </p>
               </div>
 
               <div>

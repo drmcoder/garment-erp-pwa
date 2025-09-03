@@ -1,11 +1,9 @@
+// Deprecated: Use Loader from core/components/ui instead
 import React from "react";
-import { useLanguage } from "../../context/LanguageContext";
-import BrandedLoader, { CompactLoader, MiniLoader } from "./BrandedLoader";
+import { Loader, CompactLoader, MiniLoader, FullScreenLoader } from "../../core/components/ui";
 
 const LoadingSpinner = ({ size = "lg", message = null, fullScreen = false }) => {
-  const { t } = useLanguage();
-
-  // Convert size to branded loader size
+  // Convert old size props to new format
   const sizeMapping = {
     sm: "small",
     md: "medium", 
@@ -13,20 +11,16 @@ const LoadingSpinner = ({ size = "lg", message = null, fullScreen = false }) => 
     xl: "xlarge"
   };
 
-  const displayMessage = message || t("loading");
+  const mappedSize = sizeMapping[size];
 
   // Use full screen branded loader for larger sizes
   if (fullScreen || size === "xl") {
-    return <BrandedLoader message={displayMessage} size={sizeMapping[size]} />;
+    return <FullScreenLoader message={message} />;
   }
 
   // Use compact loader for medium sizes
   if (size === "lg" || size === "md") {
-    return (
-      <div className="flex items-center justify-center p-4">
-        <CompactLoader message={displayMessage} />
-      </div>
-    );
+    return <CompactLoader message={message} />;
   }
 
   // Use mini loader for small sizes

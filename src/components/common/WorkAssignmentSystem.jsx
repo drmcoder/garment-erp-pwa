@@ -3,6 +3,8 @@ import { Zap, RefreshCw, Plus, Users, Package } from 'lucide-react';
 
 const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
   const [selectedBundles, setSelectedBundles] = useState([]);
+  const [draggedBundle, setDraggedBundle] = useState(null);
+  const [dropTarget, setDropTarget] = useState(null);
   
   // Simple mock data
   const bundles = [
@@ -92,14 +94,23 @@ const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
             {bundles.map(bundle => (
               <div
                 key={bundle.id}
-                className={`border-2 rounded-xl p-4 cursor-pointer transition-all hover:shadow-lg ${
+                className={`border-2 rounded-xl p-4 cursor-grab transition-all hover:shadow-lg select-none ${
+                  draggedBundle?.id === bundle.id ? 'opacity-50 scale-95 border-blue-500 bg-blue-100 cursor-grabbing' :
                   bundle.priority === 'high' ? 'border-red-300 bg-red-50' :
                   bundle.priority === 'medium' ? 'border-yellow-300 bg-yellow-50' :
                   'border-gray-300 bg-gray-50'
                 }`}
-                draggable
+                draggable={true}
                 onDragStart={(e) => {
-                  e.dataTransfer.setData('application/json', JSON.stringify(bundle));
+                  console.log('Drag started:', bundle.id);
+                  e.dataTransfer.setData('text/plain', JSON.stringify(bundle));
+                  e.dataTransfer.effectAllowed = 'move';
+                  setDraggedBundle(bundle);
+                }}
+                onDragEnd={() => {
+                  console.log('Drag ended');
+                  setDraggedBundle(null);
+                  setDropTarget(null);
                 }}
               >
                 {/* Priority indicator */}
@@ -164,19 +175,66 @@ const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
               <div
                 key={operator.id}
                 className={`border-2 rounded-xl p-4 transition-all ${
+                  dropTarget === operator.id ? 'border-blue-500 bg-blue-100 shadow-lg scale-105' :
                   operator.status === 'available' || operator.status === 'free' ? 
                     'border-green-300 bg-green-50 hover:shadow-lg cursor-pointer' :
                   operator.status === 'working' ? 
                     'border-blue-300 bg-blue-50' :
                     'border-gray-300 bg-gray-100 opacity-75'
                 }`}
-                onDragOver={(e) => e.preventDefault()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = 'move';
+                  if (operator.status !== 'busy') {
+                    setDropTarget(operator.id);
+                  }
+                }}
+                onDragLeave={() => {
+                  setDropTarget(null);
+                }}
                 onDrop={(e) => {
                   e.preventDefault();
-                  if (operator.status === 'busy') return;
+                  console.log('Drop attempted on operator:', operator.id);
                   
-                  const bundleData = JSON.parse(e.dataTransfer.getData('application/json'));
-                  alert(`${currentLanguage === "np" ? 'असाइन गरियो' : 'Assigned'}: ${bundleData.item} → ${currentLanguage === "np" ? operator.nameNp : operator.name}`);
+                  if (operator.status === 'busy') {
+                    alert(currentLanguage === "np" ? 'अपरेटर व्यस्त छ!' : 'Operator is busy!');
+                    return;
+                  }
+                  
+                  try {
+                    const bundleDataString = e.dataTransfer.getData('text/plain');
+                    console.log('Bundle data string:', bundleDataString);
+                    
+                    if (!bundleDataString) {
+                      console.error('No bundle data found');
+                      return;
+                    }
+                    
+                    const bundleData = JSON.parse(bundleDataString);
+                    console.log('Parsed bundle data:', bundleData);
+                    
+                    // Check machine compatibility
+                    if (bundleData.machineType !== operator.machine) {
+                      const confirm = window.confirm(
+                        currentLanguage === "np" 
+                          ? `मेसिन मेच छैन (${bundleData.machineType} vs ${operator.machine}). के तपाईं पक्का हुनुहुन्छ?`
+                          : `Machine mismatch (${bundleData.machineType} vs ${operator.machine}). Are you sure?`
+                      );
+                      if (!confirm) return;
+                    }
+                    
+                    alert(`${currentLanguage === "np" ? 'सफलतापूर्वक असाइन गरियो' : 'Successfully Assigned'}!\n${bundleData.item} → ${currentLanguage === "np" ? operator.nameNp : operator.name}`);
+                    
+                    // Here you would typically call an API to save the assignment
+                    console.log('Assignment created:', { bundle: bundleData, operator: operator });
+                    
+                  } catch (error) {
+                    console.error('Error in drop handler:', error);
+                    alert(currentLanguage === "np" ? 'असाइनमेन्ट असफल!' : 'Assignment failed!');
+                  } finally {
+                    setDraggedBundle(null);
+                    setDropTarget(null);
+                  }
                 }}
               >
                 <div className="flex items-center space-x-4">
@@ -228,8 +286,15 @@ const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
 
                 {/* Drop zone hint */}
                 {(operator.status === 'available' || operator.status === 'free') && (
-                  <div className="mt-3 border-2 border-dashed border-green-300 rounded-lg p-3 text-center text-green-600 font-medium">
-                    👆 {currentLanguage === "np" ? "बंडल यहाँ छोड्नुहोस्" : "Drop bundle here"}
+                  <div className={`mt-3 border-2 border-dashed rounded-lg p-3 text-center font-medium transition-all ${
+                    dropTarget === operator.id 
+                      ? 'border-blue-400 bg-blue-50 text-blue-700 animate-pulse'
+                      : 'border-green-300 text-green-600'
+                  }`}>
+                    {dropTarget === operator.id 
+                      ? `🎯 ${currentLanguage === "np" ? "यहाँ छाड्नुहोस्!" : "Drop here!"}`
+                      : `👆 ${currentLanguage === "np" ? "बंडल यहाँ छोड्नुहोस्" : "Drop bundle here"}`
+                    }
                   </div>
                 )}
               </div>

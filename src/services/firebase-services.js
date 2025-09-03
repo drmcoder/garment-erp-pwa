@@ -307,36 +307,54 @@ export class BundleService {
   // Get bundles for specific operator
   static async getOperatorBundles(operatorId, machineType = null) {
     try {
-      // Base query for operator's assigned bundles
+      console.log('📦 Getting operator bundles for:', operatorId, machineType);
+      
+      // Simplified query to avoid composite index requirements
       let bundleQuery = query(
         collection(db, COLLECTIONS.BUNDLES),
         where("assignedOperator", "==", operatorId),
-        orderBy("priority", "desc"),
-        orderBy("createdAt", "asc")
+        orderBy("createdAt", "desc"), // Single orderBy to avoid index issues
+        limit(50)
       );
-
-      // If machine type is specified, add machine filter for extra security
-      if (machineType) {
-        bundleQuery = query(
-          collection(db, COLLECTIONS.BUNDLES),
-          where("assignedOperator", "==", operatorId),
-          where("machineType", "==", machineType),
-          orderBy("priority", "desc"),
-          orderBy("createdAt", "asc")
-        );
-      }
 
       const bundlesSnapshot = await getDocs(bundleQuery);
 
-      const bundles = bundlesSnapshot.docs.map((doc) => ({
+      let bundles = bundlesSnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate?.() || new Date(doc.data().createdAt)
       }));
 
+      // Filter by machine type client-side if specified
+      if (machineType) {
+        bundles = bundles.filter(bundle => bundle.machineType === machineType);
+      }
+
+      // Sort client-side by priority (High > Medium > Low) then by creation date
+      bundles.sort((a, b) => {
+        const priorityOrder = { 'high': 3, 'medium': 2, 'low': 1 };
+        const aPriority = priorityOrder[a.priority?.toLowerCase()] || 2;
+        const bPriority = priorityOrder[b.priority?.toLowerCase()] || 2;
+        
+        if (aPriority !== bPriority) {
+          return bPriority - aPriority; // Higher priority first
+        }
+        
+        // If same priority, newer bundles first
+        return new Date(b.createdAt) - new Date(a.createdAt);
+      });
+
+      console.log('✅ Retrieved', bundles.length, 'bundles for operator');
       return { success: true, bundles };
     } catch (error) {
-      console.error("Get operator bundles error:", error);
-      return { success: false, error: error.message };
+      console.error("❌ Get operator bundles error:", error);
+      
+      // Return empty result instead of failing completely
+      return { 
+        success: false, 
+        error: error.message,
+        bundles: [] // Fallback empty array
+      };
     }
   }
 
@@ -593,8 +611,8 @@ export class BundleService {
       for (const doc of snapshot.docs) {
         const data = doc.data();
         
-        // Get operator name
-        const operatorDoc = await getDoc(doc(db, COLLECTIONS.OPERATORS, data.requestedBy));
+        // Get operator name from users collection
+        const operatorDoc = await getDoc(doc(db, 'users', data.requestedBy));
         const operatorName = operatorDoc.exists() ? operatorDoc.data().name : 'Unknown Operator';
         
         workItems.push({
@@ -753,8 +771,8 @@ export class BundleService {
       
       // Get operator names for notifications
       const [originalOpDoc, newOpDoc] = await Promise.all([
-        getDoc(doc(db, COLLECTIONS.OPERATORS, result.originalOperator)),
-        getDoc(doc(db, COLLECTIONS.OPERATORS, result.newOperatorId))
+        getDoc(doc(db, 'users', result.originalOperator)),
+        getDoc(doc(db, 'users', result.newOperatorId))
       ]);
       
       const originalOpName = originalOpDoc.exists() ? originalOpDoc.data().name : 'Unknown';
@@ -1136,6 +1154,79 @@ export class ProductionService {
       }
     });
   }
+
+  // Get operator daily stats
+  static async getOperatorDailyStats(operatorId, date = null) {
+    try {
+      const targetDate = date || new Date().toISOString().split('T')[0];
+      console.log('📊 Getting operator daily stats for:', operatorId, targetDate);
+
+      // Query operator completions for the day with simpler query to avoid index requirements
+      const completionsQuery = query(
+        collection(db, COLLECTIONS.WORK_COMPLETIONS),
+        where('operatorId', '==', operatorId),
+        orderBy('completedAt', 'desc'),
+        limit(50) // Get recent completions and filter client-side
+      );
+
+      const completionsSnapshot = await getDocs(completionsQuery);
+      const allCompletions = completionsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        completedAt: doc.data().completedAt?.toDate?.() || new Date(doc.data().completedAt)
+      }));
+
+      // Filter for today's completions client-side
+      const todayCompletions = allCompletions.filter(completion => {
+        const completionDate = completion.completedAt.toISOString().split('T')[0];
+        return completionDate === targetDate;
+      });
+
+      // Calculate stats
+      const totalPieces = todayCompletions.reduce((sum, completion) => sum + (completion.pieces || 0), 0);
+      const totalEarnings = todayCompletions.reduce((sum, completion) => sum + (completion.earnings || 0), 0);
+      const completedWorks = todayCompletions.length;
+      const avgQuality = completedWorks > 0 
+        ? todayCompletions.reduce((sum, completion) => sum + (completion.qualityScore || 95), 0) / completedWorks
+        : 95;
+
+      // Calculate efficiency (pieces per hour - assuming 8-hour workday)
+      const efficiency = Math.round((totalPieces / 8) * 10) / 10; // pieces per hour
+
+      const stats = {
+        operatorId,
+        date: targetDate,
+        totalPieces,
+        totalEarnings,
+        completedWorks,
+        avgQuality: Math.round(avgQuality),
+        efficiency,
+        hoursWorked: 8, // Default assumption
+        completions: todayCompletions.slice(0, 10) // Last 10 completions
+      };
+
+      console.log('✅ Operator daily stats calculated:', stats);
+      return { success: true, stats };
+
+    } catch (error) {
+      console.error('❌ Get operator daily stats error:', error);
+      return { 
+        success: false, 
+        error: error.message,
+        stats: {
+          operatorId,
+          date: date || new Date().toISOString().split('T')[0],
+          totalPieces: 0,
+          totalEarnings: 0,
+          completedWorks: 0,
+          avgQuality: 95,
+          efficiency: 0,
+          hoursWorked: 8,
+          completions: []
+        }
+      };
+    }
+  }
 }
 
 // Quality Service
@@ -1244,6 +1335,43 @@ export class OperatorService {
       return { success: true, operators };
     } catch (error) {
       console.error("Get active operators error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  // Get all operators (active and inactive) from users collection
+  static async getAllOperators() {
+    try {
+      const usersSnapshot = await getDocs(
+        query(
+          collection(db, 'users'),
+          where("role", "==", "operator"),
+          orderBy("name", "asc")
+        )
+      );
+      const operators = usersSnapshot.docs.map((doc) => {
+        const userData = doc.data();
+        return {
+          id: doc.id,
+          username: userData.username,
+          name: userData.name || userData.nameEn,
+          nameNp: userData.nameNepali || userData.name,
+          nameEn: userData.nameEn || userData.name,
+          photo: userData.photo || '👨‍🏭',
+          role: 'operator',
+          machineType: userData.machineType || 'manual',
+          skills: userData.skills || [],
+          speciality: userData.speciality || userData.machineType,
+          efficiency: userData.efficiency || 75,
+          status: userData.active !== false ? 'available' : 'inactive',
+          active: userData.active !== false,
+          createdAt: userData.createdAt?.toDate() || new Date()
+        };
+      });
+      console.log('🔍 OperatorService.getAllOperators loaded operators:', operators.length);
+      return { success: true, operators };
+    } catch (error) {
+      console.error("Get all operators error:", error);
       return { success: false, error: error.message };
     }
   }
@@ -1861,8 +1989,8 @@ export class WIPService {
       for (const doc of snapshot.docs) {
         const data = doc.data();
         
-        // Get operator name
-        const operatorDoc = await getDoc(doc(db, COLLECTIONS.OPERATORS, data.requestedBy));
+        // Get operator name from users collection
+        const operatorDoc = await getDoc(doc(db, 'users', data.requestedBy));
         const operatorName = operatorDoc.exists() ? operatorDoc.data().name : 'Unknown Operator';
         
         workItems.push({
@@ -2019,8 +2147,8 @@ export class WIPService {
       
       // Get operator names for notifications
       const [originalOpDoc, newOpDoc] = await Promise.all([
-        getDoc(doc(db, COLLECTIONS.OPERATORS, result.originalOperator)),
-        getDoc(doc(db, COLLECTIONS.OPERATORS, result.newOperatorId))
+        getDoc(doc(db, 'users', result.originalOperator)),
+        getDoc(doc(db, 'users', result.newOperatorId))
       ]);
       
       const originalOpName = originalOpDoc.exists() ? originalOpDoc.data().name : 'Unknown';

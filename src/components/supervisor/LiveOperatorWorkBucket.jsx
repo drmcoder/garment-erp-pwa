@@ -586,41 +586,160 @@ const LiveOperatorWorkBucket = () => {
                   </div>
                 </div>
 
-                {/* Current Work */}
+                {/* All Work Assignments */}
                 <div className="bg-white border border-gray-200 rounded-lg p-4">
                   <h3 className="text-lg font-semibold mb-4 text-gray-900">
-                    {isNepali ? '📋 हालको काम' : '📋 Current Work'}
+                    {isNepali ? '📋 सबै काम असाइनमेन्ट' : '📋 All Work Assignments'}
                   </h3>
-                  {selectedOperator.currentWork ? (
-                    <div className="bg-blue-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="font-semibold text-blue-900">
-                          {selectedOperator.currentWork.articleNumber || '8085'}
-                        </span>
-                        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
-                          {selectedOperator.currentWork.operation || 'shoulder_join'}
-                        </span>
-                      </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-600">{isNepali ? 'बाँकी:' : 'Remaining:'}</span>
-                          <span className="ml-2 font-medium">{selectedOperator.currentWork.remaining || '15'} pieces</span>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">{isNepali ? 'प्राथमिकता:' : 'Priority:'}</span>
-                          <span className="ml-2 font-medium text-orange-600">
-                            {selectedOperator.currentWork.priority || (isNepali ? 'उच्च' : 'High')}
+                  
+                  {/* Current Work */}
+                  <div className="mb-4">
+                    <h4 className="text-md font-medium mb-2 text-green-800">
+                      {isNepali ? '🔄 हाल गरिरहेको काम' : '🔄 Currently Working'}
+                    </h4>
+                    {selectedOperator.currentWork ? (
+                      <div className="bg-green-50 border-l-4 border-green-400 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-green-900">
+                            {selectedOperator.currentWork.articleNumber || '8085'}
+                          </span>
+                          <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
+                            {selectedOperator.currentWork.operation || 'shoulder_join'}
                           </span>
                         </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-600">{isNepali ? 'बाँकी:' : 'Remaining:'}</span>
+                            <span className="ml-2 font-medium">{selectedOperator.currentWork.remaining || '15'} pieces</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">{isNepali ? 'प्राथमिकता:' : 'Priority:'}</span>
+                            <span className="ml-2 font-medium text-red-600">
+                              {selectedOperator.currentWork.priority || (isNepali ? 'उच्च' : 'High')}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="mt-2 flex items-center text-sm text-green-700">
+                          <Clock className="w-4 h-4 mr-1" />
+                          <span>{isNepali ? 'सुरु: १०:१५ AM' : 'Started: 10:15 AM'}</span>
+                        </div>
                       </div>
+                    ) : (
+                      <div className="bg-gray-50 rounded-lg p-3 text-center">
+                        <p className="text-gray-600 text-sm">
+                          {isNepali ? 'कुनै काम प्रगतिमा छैन' : 'No work in progress'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Pending Work */}
+                  <div className="mb-4">
+                    <h4 className="text-md font-medium mb-2 text-yellow-800">
+                      {isNepali ? '⏳ पर्खाइमा रहेका काम' : '⏳ Pending Work'}
+                    </h4>
+                    <div className="space-y-2">
+                      {[
+                        { id: '8088', operation: 'collar_attach', pieces: 30, priority: 'Medium', assignedTime: '09:45 AM' },
+                        { id: '8092', operation: 'hem_fold', pieces: 45, priority: 'Low', assignedTime: '09:30 AM' },
+                        { id: '8076', operation: 'button_attach', pieces: 60, priority: 'High', assignedTime: '09:15 AM' }
+                      ].map((work, index) => (
+                        <div key={index} className="bg-yellow-50 border-l-4 border-yellow-400 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-yellow-900">{work.id}</span>
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              work.priority === 'High' ? 'bg-red-100 text-red-800' :
+                              work.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {work.priority}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-600">{work.operation}</span>
+                            </div>
+                            <div>
+                              <span className="font-medium">{work.pieces} pieces</span>
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-center text-xs text-gray-600">
+                            <Clock className="w-3 h-3 mr-1" />
+                            <span>{isNepali ? 'असाइन:' : 'Assigned:'} {work.assignedTime}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ) : (
-                    <div className="bg-gray-50 rounded-lg p-4 text-center">
-                      <p className="text-gray-600">
-                        {isNepali ? 'कुनै काम असाइन गरिएको छैन' : 'No work currently assigned'}
-                      </p>
+                  </div>
+
+                  {/* Self-Assigned Work */}
+                  <div className="mb-4">
+                    <h4 className="text-md font-medium mb-2 text-blue-800">
+                      {isNepali ? '🎯 स्व-असाइन काम' : '🎯 Self-Assigned Work'}
+                    </h4>
+                    <div className="space-y-2">
+                      {[
+                        { id: '8094', operation: 'quality_check', pieces: 25, selfAssigned: true, time: '11:00 AM' },
+                        { id: '8091', operation: 'final_press', pieces: 15, selfAssigned: true, time: '10:45 AM' }
+                      ].map((work, index) => (
+                        <div key={index} className="bg-blue-50 border-l-4 border-blue-400 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-blue-900">{work.id}</span>
+                            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
+                              {isNepali ? 'स्व-असाइन' : 'Self-Assigned'}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-600">{work.operation}</span>
+                            </div>
+                            <div>
+                              <span className="font-medium">{work.pieces} pieces</span>
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-center text-xs text-gray-600">
+                            <Clock className="w-3 h-3 mr-1" />
+                            <span>{isNepali ? 'स्व-असाइन:' : 'Self-assigned:'} {work.time}</span>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  )}
+                  </div>
+
+                  {/* Completed Today */}
+                  <div>
+                    <h4 className="text-md font-medium mb-2 text-green-800">
+                      {isNepali ? '✅ आज पूरा गरिएको' : '✅ Completed Today'}
+                    </h4>
+                    <div className="space-y-2">
+                      {[
+                        { id: '8085', operation: 'shoulder_join', pieces: 25, completedTime: '10:30 AM', earnings: 125 },
+                        { id: '8083', operation: 'side_seam', pieces: 35, completedTime: '09:45 AM', earnings: 175 },
+                        { id: '8081', operation: 'sleeve_attach', pieces: 20, completedTime: '09:15 AM', earnings: 100 }
+                      ].map((work, index) => (
+                        <div key={index} className="bg-green-50 border-l-4 border-green-400 rounded-lg p-3">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-semibold text-green-900">{work.id}</span>
+                            <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-xs">
+                              ₹{work.earnings}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div>
+                              <span className="text-gray-600">{work.operation}</span>
+                            </div>
+                            <div>
+                              <span className="font-medium">{work.pieces} pieces</span>
+                            </div>
+                          </div>
+                          <div className="mt-1 flex items-center text-xs text-gray-600">
+                            <CheckCircle className="w-3 h-3 mr-1 text-green-600" />
+                            <span>{isNepali ? 'पूरा:' : 'Completed:'} {work.completedTime}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Performance Metrics */}
