@@ -1,8 +1,7 @@
 // Centralized Data Hooks
 // Custom hooks for consistent data access across components
 
-import { useState, useEffect, useRef } from 'react';
-import { useRobustEffect, useRobustCallback } from './useRobustHook';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useAppStore, useAppActions, useAppUtils } from '../store/AppStore';
 import { dataService } from '../services/DataService';
 import { useAuth } from '../context/AuthContext';
@@ -48,6 +47,7 @@ export const useUsers = () => {
         loadedRef.current = false;
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once
   
   const refreshUsers = async () => {
@@ -123,6 +123,7 @@ export const useWorkManagement = () => {
         loadedRef.current = false;
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once
   
   const assignWorkToOperator = async (operatorId, workData) => {
@@ -211,6 +212,7 @@ export const useProductionAnalytics = () => {
         loadedRef.current = false;
       });
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Empty deps - only run once
   
   const refreshStats = async () => {
@@ -262,7 +264,9 @@ export const useRealTimeData = (collectionName, options = {}) => {
   const unsubscribeRef = useRef(null);
   
   // Memoize options to prevent infinite re-renders
-  const memoizedOptions = options;
+  const optionsString = JSON.stringify(options);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const memoizedOptions = useMemo(() => options, [optionsString]);
   
   useEffect(() => {
     setLoading(true);
@@ -350,6 +354,7 @@ export const useOperatorData = () => {
     if (user?.id) {
       loadMyStats();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
   
   const myAssignments = getMyAssignments();

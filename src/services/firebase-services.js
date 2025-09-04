@@ -1986,15 +1986,15 @@ export class WIPService {
       const snapshot = await getDocs(q);
       const workItems = [];
       
-      for (const doc of snapshot.docs) {
-        const data = doc.data();
+      for (const workItemDoc of snapshot.docs) {
+        const data = workItemDoc.data();
         
         // Get operator name from users collection
         const operatorDoc = await getDoc(doc(db, 'users', data.requestedBy));
         const operatorName = operatorDoc.exists() ? operatorDoc.data().name : 'Unknown Operator';
         
         workItems.push({
-          id: doc.id,
+          id: workItemDoc.id,
           ...data,
           requestedByName: operatorName
         });
