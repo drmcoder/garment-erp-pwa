@@ -62,7 +62,8 @@
       "Read(/Users/santoshrijal/.npm/_logs/**)",
       "Bash(npx create-react-app:*)",
       "Bash(PORT=3000 timeout 30 npm start)",
-      "Bash(gcloud:*)"
+      "Bash(gcloud:*)",
+      "Bash(timeout 60 npm run build)"
     ],
     "deny": [],
     "ask": []
