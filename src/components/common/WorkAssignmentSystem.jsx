@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Zap, RefreshCw, Plus, Users, Package } from 'lucide-react';
+import { Zap, RefreshCw } from 'lucide-react';
 
 const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
   const [selectedBundles, setSelectedBundles] = useState([]);

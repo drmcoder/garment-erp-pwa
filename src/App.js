@@ -33,7 +33,6 @@ import { PermissionGate, PermissionsProvider } from "./context/PermissionsContex
 import { PERMISSIONS } from "./services/permissions-service";
 import { FullScreenLoader } from "./core/components/ui";
 import LoginScreen from "./components/auth/LoginScreen";
-import OperatorAvatar from "./components/common/OperatorAvatar";
 
 // Inline Login Component removed - using modular LoginScreen from ./components/auth/LoginScreen.jsx
 

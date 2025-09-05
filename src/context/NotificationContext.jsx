@@ -11,36 +11,8 @@ export const NotificationProvider = ({ children }) => {
 
   // Audio context for notification sounds (using window.audioContextAllowed)
 
-  // Initialize audio context after first user interaction
-  useEffect(() => {
-    const enableAudio = () => {
-      if (!window.audioContextAllowed) {
-        window.audioContextAllowed = true;
-        console.log('✅ Audio context enabled after user interaction');
-        
-        // Play any queued notification sound
-        if (window.pendingNotificationSound !== undefined) {
-          playNotificationSound(window.pendingNotificationSound);
-          window.pendingNotificationSound = undefined;
-        }
-      }
-    };
-
-    // Listen for user interactions to enable audio
-    const events = ['click', 'keydown', 'touchstart'];
-    events.forEach(event => {
-      document.addEventListener(event, enableAudio, { once: true });
-    });
-
-    return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, enableAudio);
-      });
-    };
-  }, []);
-
   // Function to play notification sound
-  const playNotificationSound = (isSupervisorAlert = false) => {
+  const playNotificationSound = useCallback((isSupervisorAlert = false) => {
     try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       
@@ -73,11 +45,40 @@ export const NotificationProvider = ({ children }) => {
     } catch (error) {
       console.log('Audio playback failed:', error.message);
     }
-  };
+  }, []);
+
+  // Initialize audio context after first user interaction
+  useEffect(() => {
+    const enableAudio = () => {
+      if (!window.audioContextAllowed) {
+        window.audioContextAllowed = true;
+        console.log('✅ Audio context enabled after user interaction');
+        
+        // Play any queued notification sound
+        if (window.pendingNotificationSound !== undefined) {
+          playNotificationSound(window.pendingNotificationSound);
+          window.pendingNotificationSound = undefined;
+        }
+      }
+    };
+
+    // Listen for user interactions to enable audio
+    const events = ['click', 'keydown', 'touchstart'];
+    events.forEach(event => {
+      document.addEventListener(event, enableAudio, { once: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, enableAudio);
+      });
+    };
+  }, [playNotificationSound]);
+
 
   // Initialize empty notifications - no test data
 
-  const addNotification = (notification) => {
+  const addNotification = useCallback((notification) => {
     // Check if demo notifications are disabled
     if (!config.features.demoNotifications && notification.isDemo) {
       console.log('🚫 Demo notification blocked:', notification.title);
@@ -136,9 +137,9 @@ export const NotificationProvider = ({ children }) => {
     }
 
     return newNotification;
-  };
+  }, [playNotificationSound, markAsRead]);
 
-  const markAsRead = (notificationId) => {
+  const markAsRead = useCallback((notificationId) => {
     setNotifications(prev =>
       prev.map(notification =>
         notification.id === notificationId
@@ -147,7 +148,7 @@ export const NotificationProvider = ({ children }) => {
       )
     );
     setUnreadCount(prev => Math.max(0, prev - 1));
-  };
+  }, []);
 
   const markAsUnread = (notificationId) => {
     setNotifications(prev =>

@@ -6,7 +6,7 @@
 // Step 1: Enhanced OperatorDashboard with Real Firebase Data
 // File: src/components/operator/OperatorDashboard.jsx - UPDATED VERSION
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   PlayCircle,
   PauseCircle,
@@ -45,7 +45,7 @@ import {
 import { damageReportService } from "../../services/DamageReportService";
 import { db, collection, query, where, getDocs } from "../../config/firebase";
 
-const OperatorDashboard = () => {
+const OperatorDashboard = React.memo(() => {
   const { user, getUserDisplayName, getUserRoleDisplay, getUserSpecialityDisplay, isOnline, logout } = useAuth();
   const {
     t,
@@ -103,17 +103,19 @@ const OperatorDashboard = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const userInfo = {
+  const userInfo = useMemo(() => ({
     displayName: user ? getUserDisplayName() : '',
     roleDisplay: user ? getUserRoleDisplay() : '',
     specialityDisplay: user ? getUserSpecialityDisplay() : ''
-  };
+  }), [user, getUserDisplayName, getUserRoleDisplay, getUserSpecialityDisplay]);
 
   // Load operator's current work and queue
-  const loadOperatorData = useCallback(async () => {
+  const loadOperatorData = useCallback(async (skipLoading = false) => {
     if (!user?.id) return;
 
-    setLoading(true);
+    if (!skipLoading) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
@@ -223,9 +225,11 @@ const OperatorDashboard = () => {
       console.error("❌ [Dashboard] Error loading operator data:", error);
       setError(`Failed to load dashboard data: ${error.message}`);
     } finally {
-      setLoading(false);
+      if (!skipLoading) {
+        setLoading(false);
+      }
     }
-  }, [user]);
+  }, [user?.id]);
 
   // Setup real-time subscriptions
   const setupRealtimeSubscriptions = useCallback(() => {
@@ -239,8 +243,18 @@ const OperatorDashboard = () => {
       (bundles) => {
         console.log("🔄 Real-time bundle update:", bundles.length);
 
+        // Filter valid bundles
+        const validBundles = bundles.filter(bundle => {
+          const hasValidId = bundle.id && typeof bundle.id === 'string' && bundle.id.trim().length > 0;
+          const hasValidStatus = bundle.status && bundle.status.trim().length > 0;
+          const hasValidData = bundle.article || bundle.articleNumber || bundle.articleName;
+          return hasValidId && hasValidStatus && hasValidData;
+        });
+
+        setBundles(validBundles);
+
         // Update current work
-        const currentBundle = bundles.find(
+        const currentBundle = validBundles.find(
           (b) =>
             b.status === "in-progress" ||
             (b.status === "assigned" && b.assignedOperator === user.id)
@@ -252,7 +266,7 @@ const OperatorDashboard = () => {
         }
 
         // Update work queue
-        const queueBundles = bundles.filter(
+        const queueBundles = validBundles.filter(
           (b) => b.status === "pending" || b.status === "assigned"
         );
         setWorkQueue(queueBundles);
@@ -272,8 +286,8 @@ const OperatorDashboard = () => {
           // Add new notifications to context
           notifications.forEach((notification) => {
             addNotification({
-              title: notification.title,
-              message: notification.message,
+              title: currentLanguage === 'np' ? notification.title : notification.titleEn,
+              message: currentLanguage === 'np' ? notification.message : notification.messageEn,
               type: notification.type,
               priority: notification.priority,
             });
@@ -286,7 +300,7 @@ const OperatorDashboard = () => {
       if (unsubscribeBundles) unsubscribeBundles();
       if (unsubscribeNotifications) unsubscribeNotifications();
     };
-  }, [user, addNotification]);
+  }, [user?.id, addNotification, currentLanguage]);
 
   // Real-time clock update
   useEffect(() => {
@@ -300,9 +314,16 @@ const OperatorDashboard = () => {
   useEffect(() => {
     if (user?.id) {
       loadOperatorData();
-      setupRealtimeSubscriptions();
     }
-  }, [user, loadOperatorData, setupRealtimeSubscriptions]);
+  }, [user?.id]);
+
+  // Setup real-time subscriptions separately to avoid dependency issues
+  useEffect(() => {
+    if (user?.id) {
+      const cleanup = setupRealtimeSubscriptions();
+      return cleanup;
+    }
+  }, [user?.id]);
 
   // Listen for work started events from self-assignment system
   useEffect(() => {
@@ -313,16 +334,17 @@ const OperatorDashboard = () => {
       if (operatorId === user?.id) {
         console.log('🔄 Dashboard: Received work started event', workItem);
         
-        // Set this as the current work
+        // Set this as the current work without triggering full reload
         setCurrentWork({
           ...workItem,
-          status: status === 'working' ? (workItem.status === 'in_progress' ? 'in_progress' : 'in-progress') : workItem.status
+          status: status === 'working' ? 'in-progress' : workItem.status
         });
+        setIsWorkStarted(true);
 
         // Update daily stats to reflect that work has started
         setDailyStats(prev => ({
           ...prev,
-          activeWorks: prev.activeWorks + 1
+          activeWorks: (prev.activeWorks || 0) + 1
         }));
 
         // Show success notification in dashboard
@@ -334,8 +356,12 @@ const OperatorDashboard = () => {
           duration: 3000
         });
 
-        // Reload data to get the most current state
-        loadOperatorData();
+        // Only reload data in background without showing loader
+        setTimeout(() => {
+          if (loadOperatorData) {
+            loadOperatorData(true); // skipLoading = true
+          }
+        }, 1000);
       }
     };
 
@@ -346,15 +372,30 @@ const OperatorDashboard = () => {
     return () => {
       window.removeEventListener('workStarted', handleWorkStarted);
     };
-  }, [user, currentLanguage, addNotification]);
+  }, [user?.id, currentLanguage]);
 
   // Early return if user is not loaded yet
-  if (loading || !user) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+          <p className="text-gray-600">Authenticating...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">
+            {currentLanguage === "np"
+              ? "डेटा लोड हुँदै छ..."
+              : "Loading dashboard..."}
+          </p>
         </div>
       </div>
     );
@@ -362,7 +403,7 @@ const OperatorDashboard = () => {
 
 
   // Load available work for self-assignment
-  const loadAvailableWork = async () => {
+  const loadAvailableWork = useCallback(async () => {
     try {
       console.log("🔍 Loading available work for self-assignment");
       
@@ -385,10 +426,10 @@ const OperatorDashboard = () => {
     } catch (error) {
       console.error("❌ Error loading available work:", error);
     }
-  };
+  }, [user?.machine, user?.skillLevel]);
 
   // Load pending assignment requests
-  const loadPendingRequests = async () => {
+  const loadPendingRequests = useCallback(async () => {
     try {
       console.log("⏳ Loading pending assignment requests");
       
@@ -405,7 +446,7 @@ const OperatorDashboard = () => {
     } catch (error) {
       console.error("❌ Error loading pending requests:", error);
     }
-  };
+  }, [user?.id]);
 
 
   // Start work on current bundle
@@ -1571,6 +1612,6 @@ const OperatorDashboard = () => {
       )}
     </div>
   );
-};
+});
 
 export default OperatorDashboard;

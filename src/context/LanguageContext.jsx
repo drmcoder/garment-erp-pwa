@@ -149,7 +149,6 @@ export const languages = {
     // Performance Metrics
     efficiency: "दक्षता",
     productivity: "उत्पादकता",
-    performance: "प्रदर्शन",
     target: "लक्ष्य",
     achievement: "उपलब्धि",
     average: "औसत",
@@ -162,7 +161,6 @@ export const languages = {
     inactive: "निष्क्रिय",
     inProgress: "चलिरहेको",
     pending: "पेन्डिङ",
-    completed: "सकिएको",
     cancelled: "रद्द गरिएको",
     onHold: "होल्डमा",
     ready: "तयार",
@@ -210,7 +208,6 @@ export const languages = {
     // Messages
     workAssigned: "काम तोकिएको छ",
     workInProgress: "काम चलिरहेको छ",
-    workCompleted: "काम सकिएको छ",
     noWorkAvailable: "काम उपलब्ध छैन",
     waitingForWork: "काम पर्खिरहेको",
     excellentWork: "उत्कृष्ट काम",
@@ -224,7 +221,6 @@ export const languages = {
     nightShift: "रातको शिफ्ट",
     breakTime: "विश्राम समय",
     workingHours: "काम गर्ने समय",
-    overtime: "ओभरटाइम",
 
     // Reports & Analytics
     report: "रिपोर्ट",
@@ -251,7 +247,6 @@ export const languages = {
 
     // Supervisor Terms
     lineMonitoring: "लाइन मनिटरिङ",
-    workAssignment: "काम असाइनमेन्ट",
     efficiencyOptimization: "दक्षता अप्टिमाइजेसन",
     capacityPlanning: "क्षमता योजना",
     resourceAllocation: "संसाधन बाँडफाँड",
@@ -292,7 +287,6 @@ export const languages = {
     aiAnalytics: "AI विश्लेषण",
     aiProductionAnalytics: "AI उत्पादन विश्लेषण",
     aiAnalysisInProgress: "AI विश्लेषण चलिरहेको छ...",
-    pleaseWait: "कृपया पर्खनुहोस्",
     predictedEfficiency: "पूर्वानुमान दक्षता",
     actualEfficiency: "वास्तविक दक्षता",
     influencingFactors: "प्रभावकारी तत्वहरू",
@@ -310,7 +304,6 @@ export const languages = {
     correlationAnalysis: "कारक सह-सम्बन्ध विश्लेषण",
     factor: "कारक",
     implement: "कार्यान्वयन गर्नुहोस्",
-    anomalies: "असामान्य घटनाहरू",
     actualValue: "वास्तविक मान",
     expectedValue: "अपेक्षित मान",
     variance: "भिन्नता",
@@ -321,7 +314,6 @@ export const languages = {
     mediumPriority: "मध्यम",
     lowPriority: "कम",
     impact: "प्रभाव",
-    cost: "लागत",
     timeframe: "समयसीमा",
     acceptRecommendation: "स्वीकार गर्नुहोस्",
     moreDetails: "थप विवरण",
@@ -383,7 +375,6 @@ export const languages = {
     nextWork: "Next Work",
     pendingWork: "Pending Work",
     completedWork: "Completed Work",
-    workQueue: "Work Queue",
     workAssignment: "Work Assignment",
     workProgress: "Work Progress",
     workStatus: "Work Status",
@@ -474,7 +465,6 @@ export const languages = {
     // Performance Metrics
     efficiency: "Efficiency",
     productivity: "Productivity",
-    performance: "Performance",
     target: "Target",
     achievement: "Achievement",
     average: "Average",
@@ -487,7 +477,6 @@ export const languages = {
     inactive: "Inactive",
     inProgress: "In Progress",
     pending: "Pending",
-    completed: "Completed",
     cancelled: "Cancelled",
     onHold: "On Hold",
     ready: "Ready",
@@ -535,7 +524,6 @@ export const languages = {
     // Messages
     workAssigned: "Work Assigned",
     workInProgress: "Work In Progress",
-    workCompleted: "Work Completed",
     noWorkAvailable: "No Work Available",
     waitingForWork: "Waiting for Work",
     excellentWork: "Excellent Work",
@@ -549,7 +537,6 @@ export const languages = {
     nightShift: "Night Shift",
     breakTime: "Break Time",
     workingHours: "Working Hours",
-    overtime: "Overtime",
 
     // Reports & Analytics
     report: "Report",
@@ -576,7 +563,6 @@ export const languages = {
 
     // Supervisor Terms
     lineMonitoring: "Line Monitoring",
-    workAssignment: "Work Assignment",
     efficiencyOptimization: "Efficiency Optimization",
     capacityPlanning: "Capacity Planning",
     resourceAllocation: "Resource Allocation",
@@ -617,7 +603,6 @@ export const languages = {
     aiAnalytics: "AI Analytics",
     aiProductionAnalytics: "AI Production Analytics",
     aiAnalysisInProgress: "AI analysis in progress...",
-    pleaseWait: "Please wait",
     predictedEfficiency: "Predicted Efficiency",
     actualEfficiency: "Actual Efficiency",
     influencingFactors: "Influencing Factors",
@@ -635,7 +620,6 @@ export const languages = {
     correlationAnalysis: "Factor Correlation Analysis",
     factor: "Factor",
     implement: "Implement",
-    anomalies: "Anomalies",
     actualValue: "Actual Value",
     expectedValue: "Expected Value",
     variance: "Variance",
@@ -646,7 +630,6 @@ export const languages = {
     mediumPriority: "Medium",
     lowPriority: "Low",
     impact: "Impact",
-    cost: "Cost",
     timeframe: "Timeframe",
     acceptRecommendation: "Accept",
     moreDetails: "More Details",

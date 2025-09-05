@@ -7,13 +7,8 @@ const OperationsSequenceEditor = ({ onClose }) => {
 
   // Load operations from localStorage or start with empty array
   const [operations, setOperations] = useState(() => {
-    try {
-      // No localStorage loading - use empty array
-      return [];
-    } catch (error) {
-      console.error('Error loading operations sequence:', error);
-      return [];
-    }
+    // No localStorage loading - use empty array
+    return [];
   });
 
   const [editingOperation, setEditingOperation] = useState(null);

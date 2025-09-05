@@ -1,12 +1,11 @@
 // src/components/supervisor/SelfAssignmentApprovalQueue.jsx
 // Supervisor interface for approving/rejecting self-assignments
 
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { BundleService, WIPService, OperatorService } from '../../services/firebase-services';
-import { getWorkStatus } from '../../constants/workStatuses';
 
 const SelfAssignmentApprovalQueue = () => {
   const { user } = useContext(AuthContext);
@@ -19,16 +18,7 @@ const SelfAssignmentApprovalQueue = () => {
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [processingItems, setProcessingItems] = useState(new Set());
 
-  useEffect(() => {
-    loadPendingApprovals();
-    loadOperators();
-    
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(loadPendingApprovals, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const loadPendingApprovals = async () => {
+  const loadPendingApprovals = useCallback(async () => {
     setLoading(true);
     try {
       // Load both bundle and WIP self-assignments
@@ -59,9 +49,9 @@ const SelfAssignmentApprovalQueue = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isNepali, showNotification]);
 
-  const loadOperators = async () => {
+  const loadOperators = useCallback(async () => {
     try {
       const result = await OperatorService.getAllOperators();
       if (result.success) {
@@ -70,26 +60,31 @@ const SelfAssignmentApprovalQueue = () => {
     } catch (error) {
       console.error('Failed to load operators:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadPendingApprovals();
+    loadOperators();
+    
+    // Auto-refresh every 30 seconds
+    const interval = setInterval(loadPendingApprovals, 30000);
+    return () => clearInterval(interval);
+  }, [loadPendingApprovals, loadOperators]);
+
 
   const handleApprove = async (workItem) => {
     setProcessingItems(prev => new Set(prev).add(workItem.id));
     
     try {
       let result;
+      const language = isNepali ? 'np' : 'en';
       if (workItem.type === 'bundle') {
-        result = await BundleService.approveSelfAssignment(workItem.id, user.id);
+        result = await BundleService.approveSelfAssignment(workItem.id, user.id, language);
       } else {
-        result = await WIPService.approveSelfAssignment(workItem.id, user.id);
+        result = await WIPService.approveSelfAssignment(workItem.id, user.id, language);
       }
 
       if (result.success) {
-        showNotification(
-          isNepali 
-            ? `${workItem.requestedByName} को काम अनुमोदन गरियो`
-            : `Approved work for ${workItem.requestedByName}`,
-          'success'
-        );
         await loadPendingApprovals();
       } else {
         throw new Error(result.error);
@@ -121,12 +116,6 @@ const SelfAssignmentApprovalQueue = () => {
       }
 
       if (result.success) {
-        showNotification(
-          isNepali 
-            ? `${workItem.requestedByName} को काम अस्वीकार गरियो`
-            : `Rejected work for ${workItem.requestedByName}`,
-          'info'
-        );
         await loadPendingApprovals();
       } else {
         throw new Error(result.error);
@@ -158,13 +147,6 @@ const SelfAssignmentApprovalQueue = () => {
       }
 
       if (result.success) {
-        const newOperator = operators.find(op => op.id === newOperatorId);
-        showNotification(
-          isNepali 
-            ? `काम ${newOperator?.name} लाई पुनः असाइन गरियो`
-            : `Work reassigned to ${newOperator?.name}`,
-          'success'
-        );
         await loadPendingApprovals();
       } else {
         throw new Error(result.error);

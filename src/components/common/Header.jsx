@@ -199,13 +199,13 @@ const Header = ({
                             <div className="flex-1 min-w-0">
                               <p className="font-medium text-sm text-gray-800 truncate">
                                 {currentLanguage === "np"
-                                  ? notification.titleNepali
-                                  : notification.title}
+                                  ? notification.title
+                                  : notification.titleEn}
                               </p>
                               <p className="text-sm text-gray-600 line-clamp-2">
                                 {currentLanguage === "np"
-                                  ? notification.messageNepali
-                                  : notification.message}
+                                  ? notification.message
+                                  : notification.messageEn}
                               </p>
                               <p className="text-xs text-gray-500 mt-1">
                                 {formatRelativeTime(notification.time)}

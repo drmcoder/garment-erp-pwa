@@ -146,6 +146,7 @@ export const COLLECTIONS = {
   WIP_ENTRIES: "wipEntries",
   WIP_ROLLS: "wipRolls",
   WORK_ITEMS: "workItems",
+  WORK_COMPLETIONS: "workCompletions",
 };
 
 // Demo Users for Development

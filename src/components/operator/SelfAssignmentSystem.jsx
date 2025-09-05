@@ -366,7 +366,17 @@ const SelfAssignmentSystem = () => {
         console.log(`🔄 Self-assigning WIP work item: ${selectedWork.currentOperation} on ${selectedWork.machineType}`);
         assignResult = await WIPService.selfAssignWorkItem(
           selectedWork.id,
-          user.id
+          user.id,
+          {
+            requestedByName: user.name,
+            operatorName: user.name,
+            selfAssignedAt: new Date(),
+            rate: selectedWork.rate || 0,
+            operation: selectedWork.operation,
+            machineType: selectedWork.machineType,
+            pieces: selectedWork.pieces,
+            articleNumber: selectedWork.articleNumber
+          }
         );
         console.log(`🔍 WIP self-assignment result:`, assignResult);
       } else {
@@ -374,7 +384,17 @@ const SelfAssignmentSystem = () => {
         // Use atomic self-assignment method to prevent race conditions
         assignResult = await BundleService.selfAssignBundle(
           selectedWork.id,
-          user.id
+          user.id,
+          {
+            requestedByName: user.name,
+            operatorName: user.name,
+            selfAssignedAt: new Date(),
+            rate: selectedWork.rate || 0,
+            operation: selectedWork.operation,
+            machineType: selectedWork.machineType,
+            pieces: selectedWork.pieces,
+            articleNumber: selectedWork.articleNumber
+          }
         );
         console.log(`🔍 Atomic self-assignment result:`, assignResult);
       }

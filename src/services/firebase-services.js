@@ -630,7 +630,7 @@ export class BundleService {
   }
 
   // Approve self-assignment
-  static async approveSelfAssignment(bundleId, supervisorId) {
+  static async approveSelfAssignment(bundleId, supervisorId, language = 'np') {
     try {
       const result = await runTransaction(db, async (transaction) => {
         const bundleRef = doc(db, COLLECTIONS.BUNDLES, bundleId);
@@ -661,10 +661,8 @@ export class BundleService {
       
       // Create notification for operator
       await NotificationService.createNotification({
-        title: "काम अनुमोदन भयो",
-        titleEn: "Work Approved",
-        message: `बन्डल #${bundleId} अनुमोदन भयो - काम सुरु गर्न सक्नुहुन्छ`,
-        messageEn: `Bundle #${bundleId} approved - you can start working`,
+        title: language === 'np' ? "काम अनुमोदन भयो" : "Work Approved",
+        message: language === 'np' ? `बन्डल #${bundleId} अनुमोदन भयो - काम सुरु गर्न सक्नुहुन्छ` : `Bundle #${bundleId} approved - you can start working`,
         type: "work_approved",
         priority: "high",
         targetUser: result.bundleData.requestedBy,
@@ -2008,7 +2006,7 @@ export class WIPService {
   }
 
   // Approve WIP self-assignment
-  static async approveSelfAssignment(workItemId, supervisorId) {
+  static async approveSelfAssignment(workItemId, supervisorId, language = 'np') {
     try {
       const result = await runTransaction(db, async (transaction) => {
         const workItemRef = doc(db, COLLECTIONS.WORK_ITEMS, workItemId);
@@ -2039,10 +2037,8 @@ export class WIPService {
       
       // Create notification for operator
       await NotificationService.createNotification({
-        title: "काम अनुमोदन भयो",
-        titleEn: "Work Approved",
-        message: `काम आइटम #${workItemId} अनुमोदन भयो`,
-        messageEn: `Work item #${workItemId} approved`,
+        title: language === 'np' ? "काम अनुमोदन भयो" : "Work Approved",
+        message: language === 'np' ? `काम आइटम #${workItemId} अनुमोदन भयो` : `Work item #${workItemId} approved`,
         type: "work_approved",
         priority: "high",
         targetUser: result.workItemData.requestedBy,
