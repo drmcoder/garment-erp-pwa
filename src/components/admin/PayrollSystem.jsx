@@ -2,19 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   DollarSign, 
   Calendar, 
-  Users, 
   CheckCircle, 
-  XCircle, 
   Clock, 
   Download,
   Upload,
   Filter,
   Search,
-  Send,
-  Eye,
-  Edit,
-  Trash2,
-  AlertTriangle,
   FileText,
   Plus
 } from 'lucide-react';
@@ -24,7 +17,7 @@ import { db, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, d
 
 const PayrollSystem = () => {
   const { user } = useAuth();
-  const { currentLanguage, formatCurrency, formatDate, formatDateTime } = useLanguage();
+  const { currentLanguage, formatCurrency, formatDate } = useLanguage();
   const isNepali = currentLanguage === 'np';
 
   const [payrollData, setPayrollData] = useState([]);
@@ -32,8 +25,8 @@ const PayrollSystem = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all'); // all, pending, approved, paid
-  const [selectedPeriod, setSelectedPeriod] = useState('current');
-  const [selectedOperators, setSelectedOperators] = useState([]);
+  const [selectedPeriod] = useState('current');
+  const [selectedOperators] = useState([]);
   const [showCreatePayroll, setShowCreatePayroll] = useState(false);
 
   // Payroll creation form state

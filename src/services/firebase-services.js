@@ -1,5 +1,6 @@
 // File: src/services/firebase-services.js
-// Firebase Services - Data Operations Layer
+// Firebase Services - Legacy Data Operations Layer (Being Refactored)
+// TODO: Gradually migrate to modular services in /core and /business
 
 import {
   db,
@@ -24,8 +25,15 @@ import {
   writeBatch,
 } from "../config/firebase";
 
-// User Activity Logging Service
-export class ActivityLogService {
+import FirebaseErrorHandler from '../utils/firebaseErrorHandler';
+
+// Re-export modular services
+export { default as ActivityLogService } from './core/activity-service';
+export { default as AuthService } from './core/auth-service';
+export { default as BundleService } from './business/bundle-service';
+
+// Legacy User Activity Logging Service (Deprecated - use ./core/activity-service instead)
+export class LegacyActivityLogService {
   static async logActivity(userId, action, details = {}) {
     try {
       console.log('🔍 Attempting to log activity:', { userId, action, details });
@@ -1159,20 +1167,44 @@ export class ProductionService {
       const targetDate = date || new Date().toISOString().split('T')[0];
       console.log('📊 Getting operator daily stats for:', operatorId, targetDate);
 
-      // Query operator completions for the day with simpler query to avoid index requirements
-      const completionsQuery = query(
-        collection(db, COLLECTIONS.WORK_COMPLETIONS),
-        where('operatorId', '==', operatorId),
-        orderBy('completedAt', 'desc'),
-        limit(50) // Get recent completions and filter client-side
-      );
-
-      const completionsSnapshot = await getDocs(completionsQuery);
-      const allCompletions = completionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        completedAt: doc.data().completedAt?.toDate?.() || new Date(doc.data().completedAt)
-      }));
+      let allCompletions = [];
+      
+      try {
+        // Try the optimized query first (requires composite index)
+        const completionsQuery = query(
+          collection(db, COLLECTIONS.WORK_COMPLETIONS),
+          where('operatorId', '==', operatorId),
+          orderBy('completedAt', 'desc'),
+          limit(50)
+        );
+        
+        const completionsSnapshot = await getDocs(completionsQuery);
+        allCompletions = completionsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+          completedAt: doc.data().completedAt?.toDate?.() || new Date(doc.data().completedAt)
+        }));
+        
+        console.log('✅ Used optimized query for work completions');
+      } catch (indexError) {
+        console.warn('⚠️ Composite index not available, using fallback query:', indexError.message);
+        
+        // Fallback: Use simple query without orderBy to avoid index requirement
+        const fallbackQuery = query(
+          collection(db, COLLECTIONS.WORK_COMPLETIONS),
+          where('operatorId', '==', operatorId),
+          limit(100) // Get more records since we can't sort by date
+        );
+        
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        allCompletions = fallbackSnapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            completedAt: doc.data().completedAt?.toDate?.() || new Date(doc.data().completedAt)
+          }))
+          .sort((a, b) => b.completedAt - a.completedAt); // Sort client-side
+      }
 
       // Filter for today's completions client-side
       const todayCompletions = allCompletions.filter(completion => {
@@ -1207,10 +1239,12 @@ export class ProductionService {
       return { success: true, stats };
 
     } catch (error) {
-      console.error('❌ Get operator daily stats error:', error);
+      const errorInfo = FirebaseErrorHandler.handleFirestoreError(error, 'Get operator daily stats');
+      
       return { 
         success: false, 
-        error: error.message,
+        error: errorInfo.message,
+        errorType: errorInfo.type,
         stats: {
           operatorId,
           date: date || new Date().toISOString().split('T')[0],

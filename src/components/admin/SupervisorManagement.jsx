@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { OperatorService } from '../../services/firebase-services';
 import { db, collection, getDocs, COLLECTIONS } from '../../config/firebase';
@@ -24,11 +24,7 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
     notes: ''
   });
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       // No localStorage loading - use empty arrays
       const [supervisorsSnapshot, operatorsResult] = await Promise.all([
@@ -51,7 +47,11 @@ const SupervisorManagement = ({ onStatsUpdate }) => {
     } catch (error) {
       console.error('Error loading supervisor data:', error);
     }
-  };
+  }, [onStatsUpdate]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const saveSupervisors = (updatedSupervisors) => {
     try {
