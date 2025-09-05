@@ -8,6 +8,7 @@ export { default as AuthService } from './core/auth-service';
 
 // Business Services
 export { default as BundleService } from './business/bundle-service';
+export { default as WIPService } from './business/wip-service';
 
 // Legacy Services (to be refactored)
 export * from './firebase-services'; // Temporary until full migration

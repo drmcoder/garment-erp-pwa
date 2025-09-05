@@ -2,7 +2,7 @@
 // Handles bundle/work item operations and management
 
 import { FirebaseBaseService, FirebaseUtils, COLLECTIONS } from '../core/firebase-base';
-import { WIPService } from './wip-service';
+import WIPService from './wip-service';
 
 export class BundleService extends FirebaseBaseService {
   constructor() {

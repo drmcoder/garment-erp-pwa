@@ -187,112 +187,28 @@ export class DataPersistenceService {
   }
 }
 
-// Authentication Service
-export class AuthService {
-  // Login with username/email
+// Legacy Authentication Service (Deprecated - use ./core/auth-service instead)
+export class LegacyAuthService {
+  // This class has been moved to ./core/auth-service
+  // Keeping minimal implementation for backward compatibility
   static async login(usernameOrEmail, password, role = "operator") {
-    try {
-      // First, find user by username in the appropriate collection
-      const userCollection =
-        role === "operator"
-          ? COLLECTIONS.OPERATORS
-          : role === "supervisor"
-          ? COLLECTIONS.SUPERVISORS
-          : COLLECTIONS.MANAGEMENT;
-
-      const userQuery = query(
-        collection(db, userCollection),
-        where("username", "==", usernameOrEmail)
-      );
-
-      const userSnapshot = await getDocs(userQuery);
-
-      if (userSnapshot.empty) {
-        throw new Error("User not found");
-      }
-
-      const userData = userSnapshot.docs[0].data();
-
-      // For demo purposes, check password directly
-      // In production, use Firebase Auth with email
-      if (userData.password !== password) {
-        throw new Error("Invalid password");
-      }
-
-      // Update last login
-      await updateDoc(doc(db, userCollection, userData.id), {
-        lastLogin: serverTimestamp(),
-      });
-
-      // Log activity
-      await ActivityLogService.logActivity(userData.id, 'login', {
-        role: userData.role,
-        station: userData.station
-      });
-
-      return {
-        success: true,
-        user: {
-          id: userData.id,
-          username: userData.username,
-          name: userData.name,
-          nameEn: userData.nameEn,
-          role: userData.role,
-          machine: userData.machine,
-          station: userData.station,
-          department: userData.department,
-          permissions: userData.permissions || [],
-        },
-      };
-    } catch (error) {
-      console.error("Login error:", error);
-      return {
-        success: false,
-        error: error.message,
-      };
-    }
+    const { AuthService } = await import('./core/auth-service');
+    return AuthService.login(usernameOrEmail, password);
   }
 
-  // Logout
   static async logout() {
-    try {
-      await signOut(auth);
-      return { success: true };
-    } catch (error) {
-      console.error("Logout error:", error);
-      return { success: false, error: error.message };
-    }
+    const { AuthService } = await import('./core/auth-service');
+    return AuthService.logout();
   }
 
-  // Get current user details
   static async getCurrentUser(userId, role) {
-    try {
-      const userCollection =
-        role === "operator"
-          ? COLLECTIONS.OPERATORS
-          : role === "supervisor"
-          ? COLLECTIONS.SUPERVISORS
-          : COLLECTIONS.MANAGEMENT;
-
-      const userDoc = await getDoc(doc(db, userCollection, userId));
-
-      if (!userDoc.exists()) {
-        throw new Error("User not found");
-      }
-
-      return {
-        success: true,
-        user: userDoc.data(),
-      };
-    } catch (error) {
-      console.error("Get user error:", error);
-      return { success: false, error: error.message };
-    }
+    const { AuthService } = await import('./core/auth-service');
+    return AuthService.getUserById(userId, role);
   }
 }
 
-// Bundle Service
-export class BundleService {
+// Legacy Bundle Service (Deprecated - use ./business/bundle-service instead)
+export class LegacyBundleService {
   // Get all bundles
   static async getAllBundles() {
     try {
