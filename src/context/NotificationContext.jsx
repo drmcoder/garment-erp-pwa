@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useLanguage } from './LanguageContext';
 import config from '../config/environments';
 
@@ -9,12 +9,20 @@ export const NotificationProvider = ({ children }) => {
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Audio context for notification sounds (using window.audioContextAllowed)
+  // Memoized audio context check
+  const audioContextSupported = useMemo(() => {
+    return typeof window !== 'undefined' && (window.AudioContext || window.webkitAudioContext);
+  }, []);
 
-  // Function to play notification sound
+  // Function to play notification sound - Optimized
   const playNotificationSound = useCallback((isSupervisorAlert = false) => {
+    // Early return if audio not supported or not allowed
+    if (!audioContextSupported || !window.audioContextAllowed) {
+      return;
+    }
+
     try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioCtx = new audioContextSupported();
       
       // Resume audio context if suspended
       if (audioCtx.state === 'suspended') {
@@ -45,7 +53,7 @@ export const NotificationProvider = ({ children }) => {
     } catch (error) {
       console.log('Audio playback failed:', error.message);
     }
-  }, []);
+  }, [audioContextSupported]);
 
   // Initialize audio context after first user interaction
   useEffect(() => {
@@ -78,15 +86,26 @@ export const NotificationProvider = ({ children }) => {
 
   // Initialize empty notifications - no test data
 
+  const markAsRead = useCallback((notificationId) => {
+    setNotifications(prev =>
+      prev.map(notification =>
+        notification.id === notificationId
+          ? { ...notification, read: true }
+          : notification
+      )
+    );
+    setUnreadCount(prev => Math.max(0, prev - 1));
+  }, []);
+
   const addNotification = useCallback((notification) => {
     // Check if demo notifications are disabled
-    if (!config.features.demoNotifications && notification.isDemo) {
+    if (!config.features?.demoNotifications && notification.isDemo) {
       console.log('🚫 Demo notification blocked:', notification.title);
       return;
     }
 
     const newNotification = {
-      id: Date.now(),
+      id: Date.now() + Math.random(), // Better ID generation
       time: notification.time || new Date(),
       read: false,
       priority: 'medium',
@@ -99,16 +118,18 @@ export const NotificationProvider = ({ children }) => {
     // Play sound for high priority notifications (only after user interaction)
     if (newNotification.priority === 'high' || newNotification.type === 'supervisor_alert') {
       // Only play sound if user has interacted with the page
-      if (window.audioContextAllowed) {
+      if (typeof window !== 'undefined' && window.audioContextAllowed) {
         playNotificationSound(newNotification.type === 'supervisor_alert');
       } else {
         // Queue the sound to play after first user interaction
-        window.pendingNotificationSound = newNotification.type === 'supervisor_alert';
+        if (typeof window !== 'undefined') {
+          window.pendingNotificationSound = newNotification.type === 'supervisor_alert';
+        }
       }
     }
 
     // Show browser notification if permission granted
-    if ('Notification' in window && Notification.permission === 'granted') {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       const browserNotification = new Notification(newNotification.title, {
         body: newNotification.message,
         icon: '/logo192.png',
@@ -121,14 +142,19 @@ export const NotificationProvider = ({ children }) => {
 
       // Auto-close normal notifications after 5 seconds, but keep high priority ones
       if (newNotification.priority !== 'high') {
-        setTimeout(() => {
+        const timeoutId = setTimeout(() => {
           browserNotification.close();
         }, 5000);
+        
+        // Store timeout ID for cleanup if needed
+        browserNotification.timeoutId = timeoutId;
       }
 
       // Handle notification click
       browserNotification.onclick = () => {
-        window.focus();
+        if (typeof window !== 'undefined') {
+          window.focus();
+        }
         browserNotification.close();
         
         // Mark notification as read when clicked
@@ -138,17 +164,6 @@ export const NotificationProvider = ({ children }) => {
 
     return newNotification;
   }, [playNotificationSound, markAsRead]);
-
-  const markAsRead = useCallback((notificationId) => {
-    setNotifications(prev =>
-      prev.map(notification =>
-        notification.id === notificationId
-          ? { ...notification, read: true }
-          : notification
-      )
-    );
-    setUnreadCount(prev => Math.max(0, prev - 1));
-  }, []);
 
   const markAsUnread = (notificationId) => {
     setNotifications(prev =>
@@ -293,12 +308,15 @@ export const NotificationProvider = ({ children }) => {
 
   // Request notification permission on mount
   useEffect(() => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      Notification.requestPermission();
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().catch(error => {
+        console.log('Notification permission request failed:', error);
+      });
     }
   }, []);
 
-  const value = {
+  // Memoize the context value to prevent unnecessary re-renders
+  const value = useMemo(() => ({
     notifications,
     unreadCount,
     addNotification,
@@ -314,16 +332,23 @@ export const NotificationProvider = ({ children }) => {
     removeNotification,
     clearAllNotifications,
     getUnreadCount
-  };
-
-  // Show loading state if language context is not ready
-  if (!currentLanguage) {
-    return (
-      <NotificationContext.Provider value={value}>
-        <div>Loading notifications...</div>
-      </NotificationContext.Provider>
-    );
-  }
+  }), [
+    notifications,
+    unreadCount,
+    addNotification,
+    showNotification,
+    sendWorkAssigned,
+    sendWorkCompleted,
+    sendWorkflowNotification,
+    sendMachineGroupNotification,
+    markAsRead,
+    markAsUnread,
+    toggleReadStatus,
+    markAllAsRead,
+    removeNotification,
+    clearAllNotifications,
+    getUnreadCount
+  ]);
 
   return (
     <NotificationContext.Provider value={value}>
