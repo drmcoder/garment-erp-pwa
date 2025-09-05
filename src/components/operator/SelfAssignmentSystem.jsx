@@ -6,12 +6,12 @@ import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
 import { BundleService, WIPService, ActivityLogService } from "../../services/firebase-services";
-import { db, collection, getDocs, setDoc, doc, updateDoc, COLLECTIONS } from "../../config/firebase";
+import { db, collection, getDocs, doc, updateDoc, COLLECTIONS } from "../../config/firebase";
 import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
 import MachineSpecialitySelector from './MachineSpecialitySelector';
-import { updateBundleWithReadableId, getBundleDisplayName } from '../../utils/bundleIdGenerator';
-import { MOCK_DATA, COMPONENT_STATES } from '../../constants';
-import { storageUtils, arrayUtils, debugUtils } from '../../lib';
+import { updateBundleWithReadableId } from '../../utils/bundleIdGenerator';
+import { MOCK_DATA } from '../../constants';
+import { debugUtils } from '../../lib';
 
 const SelfAssignmentSystem = () => {
   const { user } = useContext(AuthContext);
