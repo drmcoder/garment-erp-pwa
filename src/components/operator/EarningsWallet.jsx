@@ -2,11 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { 
   Wallet, 
   TrendingUp, 
-  Calendar, 
-  DollarSign, 
   Clock, 
   Package,
-  Eye,
   Download,
   Filter,
   ChevronDown,
@@ -18,7 +15,7 @@ import { db, collection, query, where, orderBy, onSnapshot } from '../../config/
 
 const EarningsWallet = () => {
   const { user } = useAuth();
-  const { currentLanguage, formatCurrency, formatDate, formatDateTime } = useLanguage();
+  const { currentLanguage, formatCurrency, formatDateTime } = useLanguage();
   const isNepali = currentLanguage === 'np';
 
   const [earnings, setEarnings] = useState([]);

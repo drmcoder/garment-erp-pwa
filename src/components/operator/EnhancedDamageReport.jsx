@@ -1,14 +1,11 @@
 import React, { useState } from 'react';
 import {
   AlertTriangle,
-  Camera,
   Send,
   Package,
   User,
-  FileText,
   Clock,
   CheckCircle,
-  XCircle,
   Info
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
