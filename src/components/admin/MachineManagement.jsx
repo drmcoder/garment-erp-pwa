@@ -6,8 +6,8 @@ import {
   universalDelete, 
   DELETE_PERMISSIONS
 } from '../../utils/deleteUtils';
+import { db, COLLECTIONS } from '../../config/firebase';
 import { 
-  db, 
   collection, 
   doc, 
   addDoc, 
@@ -15,8 +15,7 @@ import {
   getDocs, 
   onSnapshot, 
   serverTimestamp 
-} from '../../config/firebase';
-import { COLLECTIONS } from '../../config/firebase';
+} from 'firebase/firestore';
 
 const MachineManagement = ({ onStatsUpdate, onBack }) => {
   const { currentLanguage } = useLanguage();

@@ -2,7 +2,7 @@
 // Queue-based work assignment for handling high contention periods
 
 import { rtdb, RT_PATHS, realtimeHelpers } from '../config/realtime-firebase';
-import { ref, push, onValue, query, orderByChild, remove } from 'firebase/database';
+import { ref, push, onValue, query, orderByChild, remove, get } from 'firebase/database';
 
 class WorkQueueService {
   constructor() {

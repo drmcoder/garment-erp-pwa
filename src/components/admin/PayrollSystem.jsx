@@ -15,7 +15,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
-import { db, collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, getDocs } from '../../config/firebase';
+import { db } from '../../config/firebase';
+import { collection, query, where, orderBy, onSnapshot, addDoc, updateDoc, doc, getDocs } from 'firebase/firestore';
 
 const PayrollSystem = () => {
   const { user } = useAuth();

@@ -5,7 +5,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
-import { BundleService, WIPService, OperatorService } from '../../services/firebase-services';
+import { LegacyBundleService, WIPService, OperatorService } from '../../services/firebase-services';
 
 const SelfAssignmentApprovalQueue = () => {
   const { user } = useContext(AuthContext);
@@ -23,7 +23,7 @@ const SelfAssignmentApprovalQueue = () => {
     try {
       // Load both bundle and WIP self-assignments
       const [bundleResults, wipResults] = await Promise.all([
-        BundleService.getSelfAssignedWork(),
+        LegacyBundleService.getSelfAssignedWork(),
         WIPService.getSelfAssignedWorkItems()
       ]);
 
@@ -79,7 +79,7 @@ const SelfAssignmentApprovalQueue = () => {
       let result;
       const language = isNepali ? 'np' : 'en';
       if (workItem.type === 'bundle') {
-        result = await BundleService.approveSelfAssignment(workItem.id, user.id, language);
+        result = await LegacyBundleService.approveSelfAssignment(workItem.id, user.id, language);
       } else {
         result = await WIPService.approveSelfAssignment(workItem.id, user.id, language);
       }
@@ -110,7 +110,7 @@ const SelfAssignmentApprovalQueue = () => {
     try {
       let result;
       if (workItem.type === 'bundle') {
-        result = await BundleService.rejectSelfAssignment(workItem.id, user.id, reason);
+        result = await LegacyBundleService.rejectSelfAssignment(workItem.id, user.id, reason);
       } else {
         result = await WIPService.rejectSelfAssignment(workItem.id, user.id, reason);
       }
@@ -141,7 +141,7 @@ const SelfAssignmentApprovalQueue = () => {
     try {
       let result;
       if (workItem.type === 'bundle') {
-        result = await BundleService.reassignWork(workItem.id, newOperatorId, user.id);
+        result = await LegacyBundleService.reassignWork(workItem.id, newOperatorId, user.id);
       } else {
         result = await WIPService.reassignWork(workItem.id, newOperatorId, user.id);
       }

@@ -5,9 +5,9 @@ import {
   db, 
   collection, 
   getDocs, 
-  COLLECTIONS,
-  DEMO_USERS 
+  COLLECTIONS
 } from '../config/firebase';
+import { DEMO_USERS } from '../config/demo-data';
 
 class CacheService {
   constructor() {

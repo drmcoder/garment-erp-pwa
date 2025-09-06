@@ -2,7 +2,7 @@
 // Atomic work assignment service to prevent race conditions
 
 import { rtdb, RT_PATHS } from '../config/realtime-firebase';
-import { ref, runTransaction, get, serverTimestamp } from 'firebase/database';
+import { ref, runTransaction, get, serverTimestamp, onValue } from 'firebase/database';
 
 class WorkAssignmentService {
   

@@ -4,7 +4,8 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { LanguageContext } from './LanguageContext';
 import { ActivityLogService } from '../services/firebase-services';
-import { db, doc, updateDoc, COLLECTIONS, DEMO_USERS } from '../config/firebase';
+import { db, doc, updateDoc, COLLECTIONS } from '../config/firebase';
+import { DEMO_USERS } from '../config/demo-data';
 import { cacheService } from '../services/CacheService';
 
 export const AuthContext = createContext();

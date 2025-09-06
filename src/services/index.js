@@ -1,13 +1,14 @@
 // Services Index
 // Central export point for all application services
 
+import ActivityLogService from './core/activity-service';
+import AuthService from './core/auth-service';
+import BundleService from './business/bundle-service';
+
 // Core Services
 export { FirebaseBaseService, FirebaseUtils, COLLECTIONS } from './core/firebase-base';
-export { default as ActivityLogService } from './core/activity-service';
-export { default as AuthService } from './core/auth-service';
 
-// Business Services
-export { default as BundleService } from './business/bundle-service';
+export { ActivityLogService, AuthService, BundleService };
 export { default as WIPService } from './business/wip-service';
 
 // Legacy Services (to be refactored)

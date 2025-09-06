@@ -1,66 +1,9 @@
-// Clean Firebase Configuration
-// Core Firebase setup without legacy data
-
+// Firebase Configuration
 import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  setPersistence,
-  browserLocalPersistence,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-} from "firebase/auth";
-import {
-  getFirestore,
-  collection,
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  writeBatch,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  onSnapshot,
-  serverTimestamp,
-  increment,
-  runTransaction,
-} from "firebase/firestore";
+import { getAuth, setPersistence, browserLocalPersistence } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-import {
-  getMessaging,
-  isSupported as isMessagingSupported,
-} from "firebase/messaging";
-
-// Re-export Firestore functions for use in services
-export {
-  collection,
-  doc,
-  setDoc,
-  getDoc,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  writeBatch,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  onSnapshot,
-  serverTimestamp,
-  increment,
-  runTransaction,
-  signInWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
-};
+import { getMessaging, isSupported as isMessagingSupported } from "firebase/messaging";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -80,19 +23,12 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// Configure Firestore settings for better error handling
-try {
-  console.log("🔧 Configuring Firestore for improved connection handling");
-} catch (error) {
-  console.warn("⚠️ Firestore configuration warning:", error);
-}
+// Set auth persistence
+setPersistence(auth, browserLocalPersistence).catch((error) => {
+  console.error("Auth persistence setup failed:", error);
+});
 
-// Analytics disabled to avoid conflicts
-let analytics = null;
-console.log("🔧 Analytics disabled - preventing conflicts and blocking issues");
-export { analytics };
-
-// Initialize Firebase Cloud Messaging (with support check)
+// Initialize Firebase Cloud Messaging
 let messaging = null;
 if (typeof window !== "undefined" && "serviceWorker" in navigator) {
   try {
@@ -101,8 +37,6 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
         if (supported) {
           messaging = getMessaging(app);
           console.log("✅ Firebase Messaging initialized");
-        } else {
-          console.log("⚠️ Firebase Messaging not supported");
         }
       })
       .catch((error) => {
@@ -114,61 +48,62 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
 }
 export { messaging };
 
-// Set auth persistence to local storage
-setPersistence(auth, browserLocalPersistence).catch((error) => {
-  console.error("Auth persistence setup failed:", error);
-});
+// Analytics disabled
+export const analytics = null;
 
 // Firestore Collections Configuration
 export const COLLECTIONS = {
-  // User Collections
   OPERATORS: "operators",
   SUPERVISORS: "supervisors", 
   MANAGEMENT: "management",
-  
-  // Production Collections
   BUNDLES: "bundles",
   WORK_ASSIGNMENTS: "workAssignments",
   WORK_ITEMS: "workItems",
   WORK_COMPLETIONS: "workCompletions",
   WIP_ENTRIES: "wipEntries",
   WIP_ROLLS: "wipRolls",
-  
-  // Quality & Assignment Tracking
   ASSIGNMENT_HISTORY: "assignmentHistory",
   QUALITY_ISSUES: "qualityIssues",
-  
-  // Notifications & Reports
   NOTIFICATIONS: "notifications",
   DAILY_REPORTS: "dailyReports",
-  
-  // Analytics & Stats
   PRODUCTION_STATS: "productionStats",
   EFFICIENCY_LOGS: "efficiencyLogs",
-  
-  // Configuration
   SIZE_CONFIGS: "sizeConfigs",
   MACHINE_CONFIGS: "machineConfigs",
   ARTICLE_TEMPLATES: "articleTemplates",
   DELETED_TEMPLATES: "deletedTemplates",
   SYSTEM_SETTINGS: "systemSettings",
-  
-  // Financial
   WAGE_RECORDS: "wageRecords",
-  
-  // System Status
   LINE_STATUS: "lineStatus",
 };
 
-// Import demo data and configurations
-export { DEMO_USERS, SAMPLE_BUNDLES } from './demo-data';
-export { 
-  SIZE_CONFIGURATIONS, 
-  MACHINE_TYPES,
-  OPERATIONS,
-  GARMENT_WORKFLOWS,
-  QUALITY_STANDARDS,
-  PRODUCTION_TARGETS
-} from './production-config';
+// Export all Firestore functions
+export {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  query,
+  where,
+  orderBy,
+  limit,
+  startAfter,
+  onSnapshot,
+  serverTimestamp,
+  increment,
+  runTransaction
+} from "firebase/firestore";
+
+// Export auth functions
+export {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "firebase/auth";
 
 export default app;

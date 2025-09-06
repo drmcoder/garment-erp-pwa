@@ -33,7 +33,7 @@ import OperatorAvatar from "../common/OperatorAvatar";
 
 // Import Firebase services
 import {
-  BundleService,
+  LegacyBundleService as BundleService,
   ProductionService,
   NotificationService,
 } from "../../services/firebase-services";
