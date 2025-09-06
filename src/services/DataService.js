@@ -2,7 +2,7 @@
 // Handles all data operations with consistent error handling and caching
 
 import { db, collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, where, orderBy, limit } from '../config/firebase';
-import { ActivityLogService } from './firebase-services';
+import { LegacyActivityLogService as ActivityLogService } from './firebase-services-clean';
 
 class DataService {
   constructor() {

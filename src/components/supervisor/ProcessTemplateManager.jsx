@@ -4,7 +4,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
 import TemplateBuilder from './TemplateBuilder';
 import SewingProcedureConfig from './SewingProcedureConfig';
-import { ConfigService } from '../../services/firebase-services';
+import { ConfigService } from '../../services/firebase-services-clean';
 import { 
   universalDelete, 
   DELETE_PERMISSIONS, 

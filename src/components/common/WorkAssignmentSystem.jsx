@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Zap, RefreshCw } from 'lucide-react';
-import { LegacyBundleService } from '../../services/firebase-services';
+import { LegacyBundleService } from '../../services/firebase-services-clean';
 import { fixZeroRateWorkItems } from '../../utils/initializeOperationRates';
 
 const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
@@ -23,12 +23,12 @@ const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
       
       // Check if this bundle is already assigned
       const existingAssignment = await LegacyBundleService.getBundleById(bundleData.id);
-      if (existingAssignment.success && existingAssignment.bundle?.assignedTo) {
-        console.log(`❌ Bundle ${bundleData.id} already assigned to ${existingAssignment.bundle.assignedTo}`);
+      if (existingAssignment.success && existingAssignment.data?.assignedOperator) {
+        console.log(`❌ Bundle ${bundleData.id} already assigned to ${existingAssignment.data.assignedOperator}`);
         return { 
           success: false, 
           alreadyAssigned: true,
-          error: `Already assigned to ${existingAssignment.bundle.assignedOperatorName || existingAssignment.bundle.assignedTo}` 
+          error: `Already assigned to ${existingAssignment.data.assignedOperatorName || existingAssignment.data.assignedOperator}` 
         };
       }
       

@@ -12,7 +12,7 @@ export { ActivityLogService, AuthService, BundleService };
 export { default as WIPService } from './business/wip-service';
 
 // Legacy Services (to be refactored)
-export * from './firebase-services'; // Temporary until full migration
+export * from './firebase-services-clean'; // Clean Firebase services
 
 // Utility function to detect if we're using new modular services
 export const isModularServicesEnabled = () => {

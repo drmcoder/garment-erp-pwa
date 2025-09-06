@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   AlertTriangle,
   Package,
@@ -37,12 +37,27 @@ const OperatorPendingWork = () => {
 
   // Load pending work
   useEffect(() => {
-    loadPendingWork();
-  }, []);
+    if (user && user.uid) {
+      loadPendingWork();
+    }
+  }, [user, loadPendingWork]);
 
-  const loadPendingWork = async () => {
+  const loadPendingWork = useCallback(async () => {
     try {
       setLoading(true);
+      
+      // Validate user before making API calls
+      if (!user || !user.uid) {
+        console.warn('⚠️ User not authenticated, skipping pending work load');
+        setPendingWork({
+          heldBundles: [],
+          regularWork: [],
+          reworkAssignments: [],
+          totalPending: 0
+        });
+        return;
+      }
+      
       const result = await BundlePaymentHoldService.getOperatorPendingWork(user.uid);
       
       if (result.success) {
@@ -74,7 +89,7 @@ const OperatorPendingWork = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user, isNepali, showNotification]);
 
   // Complete regular work
   const completeWork = async (workItem) => {

@@ -2,7 +2,7 @@
 // Provides consistent error handling, logging, and user notification
 
 import React from 'react';
-import { ActivityLogService } from './firebase-services';
+import { LegacyActivityLogService as ActivityLogService } from './firebase-services-clean';
 
 // Error severity levels
 export const ERROR_SEVERITY = {

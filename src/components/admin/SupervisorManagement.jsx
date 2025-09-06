@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
-import { OperatorService } from '../../services/firebase-services';
+import { OperatorService } from '../../services/firebase-services-clean';
 import { db, collection, getDocs, COLLECTIONS } from '../../config/firebase';
 
 const SupervisorManagement = ({ onStatsUpdate }) => {

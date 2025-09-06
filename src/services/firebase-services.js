@@ -228,6 +228,28 @@ export class LegacyBundleService {
     }
   }
 
+  // Get bundle by ID
+  static async getBundleById(bundleId) {
+    try {
+      const bundleDoc = await getDoc(doc(db, COLLECTIONS.BUNDLES, bundleId));
+      
+      if (bundleDoc.exists()) {
+        return { 
+          success: true, 
+          bundle: {
+            id: bundleDoc.id,
+            ...bundleDoc.data()
+          }
+        };
+      } else {
+        return { success: false, error: 'Bundle not found' };
+      }
+    } catch (error) {
+      console.error("Get bundle by ID error:", error);
+      return { success: false, error: error.message };
+    }
+  }
+
   // Get bundles for specific operator
   static async getOperatorBundles(operatorId, machineType = null) {
     try {

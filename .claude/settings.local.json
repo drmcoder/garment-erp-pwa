@@ -64,7 +64,11 @@
       "Bash(PORT=3000 timeout 30 npm start)",
       "Bash(gcloud:*)",
       "Bash(timeout 60 npm run build)",
-      "Bash(awk:*)"
+      "Bash(awk:*)",
+      "Bash(PORT=3001 timeout 30 npm start)",
+      "Bash(PORT=3002 timeout 30 npm start)",
+      "Bash(PORT=3005 timeout 30 npm start)",
+      "Bash(PORT=3003 timeout 30 npm start)"
     ],
     "deny": [],
     "ask": []

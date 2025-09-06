@@ -5,7 +5,7 @@ import React, { useState, useEffect, useContext, useCallback } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
-import { LegacyBundleService, WIPService, ActivityLogService } from "../../services/firebase-services";
+import { LegacyBundleService, WIPService, ActivityLogService } from "../../services/firebase-services-clean";
 import { db, collection, getDocs, doc, updateDoc, COLLECTIONS } from "../../config/firebase";
 import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
 import MachineSpecialitySelector from './MachineSpecialitySelector';

@@ -7,9 +7,9 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useNotifications } from '../../context/NotificationContext';
 import { 
   useUsers,
-  useWorkManagement,
-  useSupervisorData,
-  useCentralizedStatus
+  useWorkManagement
+  // useSupervisorData, // Unused - commented out
+  // useCentralizedStatus // Unused - commented out
 } from '../../hooks/useAppData';
 import SelfAssignmentApprovalQueue from './SelfAssignmentApprovalQueue';
 import EmergencyWorkInsertion from './EmergencyWorkInsertion';
@@ -19,13 +19,15 @@ import OperatorAvatar from '../common/OperatorAvatar';
 const WorkAssignment = () => {
   const { user } = useAuth();
   const { isNepali, formatCurrency } = useLanguage();
-  const { showNotification, sendWorkCompleted } = useNotifications();
+  const { showNotification } = useNotifications();
+  // const { sendWorkCompleted } = useNotifications(); // Unused - commented out
   
-  // Use centralized data hooks with proper error handling
+  // Use centralized data hooks with simplified store
   const { allUsers = [], loading: usersLoading = false } = useUsers() || {};
-  const { bundles = [], assignments = [], assignWork, completeWork, loading: workLoading = false } = useWorkManagement() || {};
-  const { lineStatus = {} } = useSupervisorData() || {};
-  const { isReady = true } = useCentralizedStatus() || {};
+  const { bundles = [], assignments = [], assignWork, loading: workLoading = false } = useWorkManagement() || {};
+  // const { completeWork } = useWorkManagement() || {}; // Unused - commented out
+  // const { lineStatus = {} } = useSupervisorData() || {}; // Unused - commented out
+  // const { isReady = true } = useCentralizedStatus() || {}; // Unused - commented out
   
   const [draggedBundle, setDraggedBundle] = useState(null);
   const loading = usersLoading || workLoading;
@@ -44,8 +46,8 @@ const WorkAssignment = () => {
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [showBulkAssign, setShowBulkAssign] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  // const [currentPage, setCurrentPage] = useState(1); // Unused - commented out
+  // const [itemsPerPage] = useState(10); // Unused - commented out
   const [activeTab, setActiveTab] = useState('assignment'); // 'assignment' | 'approvals'
   const [showEmergencyInsertion, setShowEmergencyInsertion] = useState(false);
   const [selectedLotForInsertion, setSelectedLotForInsertion] = useState(null);
@@ -59,8 +61,8 @@ const WorkAssignment = () => {
     { id: 'flatlock', name: 'Flatlock', nameNp: 'फ्ल्यालक', color: '#10B981' },
     { id: 'single-needle', name: 'Single Needle', nameNp: 'एकल सुई', color: '#F59E0B' }
   ];
-  const operations = ['Cut', 'Sew', 'Finish', 'Pack'];
-  const priorities = ['low', 'medium', 'high', 'urgent'];
+  // const operations = ['Cut', 'Sew', 'Finish', 'Pack']; // Unused - commented out
+  // const priorities = ['low', 'medium', 'high', 'urgent']; // Unused - commented out
   const statuses = ['ready', 'assigned', 'in_progress', 'completed'];
   const skills = ['beginner', 'intermediate', 'advanced', 'expert'];
 
@@ -208,71 +210,72 @@ const WorkAssignment = () => {
     };
   };
 
-  // Helper function to get operator display info
-  const getOperatorDisplayInfo = (operator) => {
-    const skill = getOperatorSkill(operator);
-    const machineDisplay = getOperatorMachineDisplay(operator);
-    
-    return {
-      ...operator,
-      name: isNepali ? operator.name : operator.nameEn || operator.name,
-      speciality: isNepali ? skill.nameNp : skill.name,
-      specialityNepali: skill.nameNp,
-      machineDisplay: machineDisplay.name || operator.machineType || 'Not Assigned',
-      machineDisplayNp: machineDisplay.nameNp || operator.machineType || 'तोकिएको छैन',
-      machineIcon: machineDisplay.icon || '🏭',
-      status: operator.isActive ? 'available' : 'idle',
-      efficiency: operator.efficiency || 75,
-      qualityScore: operator.qualityScore || 95,
-      currentWorkload: activeWork.filter(w => w.operatorId === operator.id).length,
-      maxWorkload: operator.maxWorkload || 3,
-      station: operator.station || `${operator.machineType || 'Station'}-${operator.name?.split(' ')[0] || 'Op'}`
-    };
-  };
+  // Helper function to get operator display info - UNUSED, COMMENTED OUT
+  // const getOperatorDisplayInfo = (operator) => {
+  //   const skill = getOperatorSkill(operator);
+  //   const machineDisplay = getOperatorMachineDisplay(operator);
+  //   
+  //   return {
+  //     ...operator,
+  //     name: isNepali ? operator.name : operator.nameEn || operator.name,
+  //     speciality: isNepali ? skill.nameNp : skill.name,
+  //     specialityNepali: skill.nameNp,
+  //     machineDisplay: machineDisplay.name || operator.machineType || 'Not Assigned',
+  //     machineDisplayNp: machineDisplay.nameNp || operator.machineType || 'तोकिएको छैन',
+  //     machineIcon: machineDisplay.icon || '🏭',
+  //     status: operator.isActive ? 'available' : 'idle',
+  //     efficiency: operator.efficiency || 75,
+  //     qualityScore: operator.qualityScore || 95,
+  //     currentWorkload: activeWork.filter(w => w.operatorId === operator.id).length,
+  //     maxWorkload: operator.maxWorkload || 3,
+  //     station: operator.station || `${operator.machineType || 'Station'}-${operator.name?.split(' ')[0] || 'Op'}`
+  //   };
+  // };
 
-  const markWorkComplete = async (workItem) => {
-    try {
-      const earnings = workItem.completedPieces * workItem.rate;
+  // UNUSED FUNCTION - COMMENTED OUT
+  // const markWorkComplete = async (workItem) => {
+  //   try {
+  //     const earnings = workItem.completedPieces * workItem.rate;
 
-      // Mark work as completed using Firebase service
-      const completionData = {
-        completedPieces: workItem.completedPieces,
-        actualTime: Math.floor((new Date() - new Date(workItem.startedAt)) / (1000 * 60)),
-        earnings: earnings
-      };
+  //     // Mark work as completed using Firebase service
+  //     const completionData = {
+  //       completedPieces: workItem.completedPieces,
+  //       actualTime: Math.floor((new Date() - new Date(workItem.startedAt)) / (1000 * 60)),
+  //       earnings: earnings
+  //     };
 
-      const result = await completeWork(workItem.id, completionData);
+  //     const result = await completeWork(workItem.id, completionData);
       
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to mark as complete');
-      }
+  //     if (!result.success) {
+  //       throw new Error(result.error || 'Failed to mark as complete');
+  //     }
 
-      // Send completion notification
-      sendWorkCompleted(
-        workItem.articleNumber,
-        workItem.operationName || (workItem.operation?.nameEn || workItem.operation?.name) || 'Unknown Operation',
-        workItem.completedPieces,
-        formatCurrency(earnings)
-      );
+  //     // Send completion notification
+  //     sendWorkCompleted(
+  //       workItem.articleNumber,
+  //       workItem.operationName || (workItem.operation?.nameEn || workItem.operation?.name) || 'Unknown Operation',
+  //       workItem.completedPieces,
+  //       formatCurrency(earnings)
+  //     );
 
-      // Note: Active work and operator status will be updated through centralized data
-      // Assignment history will be updated through centralized assignment tracking
+  //     // Note: Active work and operator status will be updated through centralized data
+  //     // Assignment history will be updated through centralized assignment tracking
 
-      showNotification(
-        isNepali 
-          ? `${workItem.articleNumber} सम्पन्न भयो। ${workItem.operatorName} - ${formatCurrency(earnings)} कमाई`
-          : `${workItem.articleNumber} completed by ${workItem.operatorName} - ${formatCurrency(earnings)} earned`,
-        'success'
-      );
+  //     showNotification(
+  //       isNepali 
+  //         ? `${workItem.articleNumber} सम्पन्न भयो। ${workItem.operatorName} - ${formatCurrency(earnings)} कमाई`
+  //         : `${workItem.articleNumber} completed by ${workItem.operatorName} - ${formatCurrency(earnings)} earned`,
+  //       'success'
+  //     );
 
-    } catch (error) {
-      console.error('Work completion error:', error);
-      showNotification(
-        isNepali ? 'काम सम्पन्न गर्न समस्या भयो' : 'Failed to mark work as complete',
-        'error'
-      );
-    }
-  };
+  //   } catch (error) {
+  //     console.error('Work completion error:', error);
+  //     showNotification(
+  //       isNepali ? 'काम सम्पन्न गर्न समस्या भयो' : 'Failed to mark work as complete',
+  //       'error'
+  //     );
+  //   }
+  // };
 
   const handleDragStart = (e, bundle) => {
     setDraggedBundle(bundle);
@@ -625,31 +628,32 @@ const WorkAssignment = () => {
   };
 
   // Filter bundles based on search term
-  const getSearchFilteredBundles = () => {
-    if (!searchTerm.trim()) return availableBundles;
-    
-    const search = searchTerm.toLowerCase();
-    return availableBundles.filter(bundle => {
-      const articleNumber = (bundle.articleNumber || bundle.article || '').toString().toLowerCase();
-      const articleName = (bundle.articleName || '').toLowerCase();
-      const lotNumber = (bundle.lotNumber || '').toLowerCase();
-      const color = (bundle.color || '').toLowerCase();
-      const operation = (bundle.operation || bundle.currentOperation || '').toLowerCase();
-      const category = (bundle.category || '').toLowerCase();
-      const style = (bundle.style || '').toLowerCase();
-      
-      return articleNumber.includes(search) || 
-             articleName.includes(search) || 
-             lotNumber.includes(search) || 
-             color.includes(search) || 
-             operation.includes(search) ||
-             category.includes(search) ||
-             style.includes(search);
-    });
-  };
+  // UNUSED FUNCTION - COMMENTED OUT
+  // const getSearchFilteredBundles = () => {
+  //   if (!searchTerm.trim()) return availableBundles;
+  //   
+  //   const search = searchTerm.toLowerCase();
+  //   return availableBundles.filter(bundle => {
+  //     const articleNumber = (bundle.articleNumber || bundle.article || '').toString().toLowerCase();
+  //     const articleName = (bundle.articleName || '').toLowerCase();
+  //     const lotNumber = (bundle.lotNumber || '').toLowerCase();
+  //     const color = (bundle.color || '').toLowerCase();
+  //     const operation = (bundle.operation || bundle.currentOperation || '').toLowerCase();
+  //     const category = (bundle.category || '').toLowerCase();
+  //     const style = (bundle.style || '').toLowerCase();
+  //     
+  //     return articleNumber.includes(search) || 
+  //            articleName.includes(search) || 
+  //            lotNumber.includes(search) || 
+  //            color.includes(search) || 
+  //            operation.includes(search) ||
+  //            category.includes(search) ||
+  //            style.includes(search);
+  //   });
+  // };
 
   const filteredBundles = getFilteredBundles();
-  const searchFilteredBundles = getSearchFilteredBundles();
+  // const searchFilteredBundles = getSearchFilteredBundles(); // Unused - commented out
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -857,7 +861,7 @@ const WorkAssignment = () => {
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
-                  setCurrentPage(1); // Reset to first page on search
+                  // setCurrentPage(1); // Reset to first page on search - commented out since pagination not implemented
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />

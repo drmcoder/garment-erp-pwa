@@ -6,7 +6,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { shallow } from 'zustand/shallow';
 import { useCallback } from 'react';
 import { cacheService } from '../services/CacheService';
-import { ActivityLogService } from '../services/firebase-services';
+import { LegacyActivityLogService as ActivityLogService } from '../services/firebase-services-clean';
 
 // Central data store
 export const useAppStore = create(

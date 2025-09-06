@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
-import { WIPService } from '../../services/firebase-services';
+import { WIPService } from '../../services/firebase-services-clean';
 import BundleWorkflowCards from '../common/BundleWorkflowCards';
 import ProcessFlowChart from '../common/ProcessFlowChart';
 

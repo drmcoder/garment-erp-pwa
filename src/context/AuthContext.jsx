@@ -3,7 +3,7 @@
 
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { LanguageContext } from './LanguageContext';
-import { ActivityLogService } from '../services/firebase-services';
+import { LegacyActivityLogService as ActivityLogService } from '../services/firebase-services-clean';
 import { db, doc, updateDoc, COLLECTIONS } from '../config/firebase';
 import { DEMO_USERS } from '../config/demo-data';
 import { cacheService } from '../services/CacheService';

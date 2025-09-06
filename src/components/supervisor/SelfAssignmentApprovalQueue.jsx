@@ -5,7 +5,7 @@ import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
-import { LegacyBundleService, WIPService, OperatorService } from '../../services/firebase-services';
+import { LegacyBundleService, WIPService, OperatorService } from '../../services/firebase-services-clean';
 import { db, collection, addDoc } from '../../config/firebase';
 
 const SelfAssignmentApprovalQueue = () => {
@@ -14,16 +14,27 @@ const SelfAssignmentApprovalQueue = () => {
   const { showNotification } = useContext(NotificationContext);
 
   const [pendingApprovals, setPendingApprovals] = useState([]);
+  const [rawPendingData, setRawPendingData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [operators, setOperators] = useState([]);
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [processingItems, setProcessingItems] = useState(new Set());
 
+  // Helper to resolve operator names - separate from useCallback to avoid circular deps
+  const resolveOperatorNames = (items, currentOperators) => {
+    return items.map(item => ({
+      ...item,
+      requestedByName: item.requestedByName || 
+        currentOperators.find(op => op.id === item.requestedBy)?.name || 
+        'Unknown Operator'
+    }));
+  };
+
   const loadOperators = useCallback(async () => {
     try {
       const result = await OperatorService.getAllOperators();
       if (result.success) {
-        setOperators(result.operators);
+        setOperators(result.data || []);
       }
     } catch (error) {
       console.error('Failed to load operators:', error);
@@ -44,8 +55,8 @@ const SelfAssignmentApprovalQueue = () => {
       
       // Log detailed info about the results
       if (bundleResults.success) {
-        console.log('📦 Bundle items found:', bundleResults.workItems?.length || 0);
-        bundleResults.workItems?.forEach((item, index) => {
+        console.log('📦 Bundle items found:', bundleResults.data?.length || 0);
+        bundleResults.data?.forEach((item, index) => {
           console.log(`  Bundle ${index + 1}:`, {
             id: item.id,
             status: item.status,
@@ -58,8 +69,8 @@ const SelfAssignmentApprovalQueue = () => {
       }
       
       if (wipResults.success) {
-        console.log('🔧 WIP items found:', wipResults.workItems?.length || 0);
-        wipResults.workItems?.forEach((item, index) => {
+        console.log('🔧 WIP items found:', wipResults.data?.length || 0);
+        wipResults.data?.forEach((item, index) => {
           console.log(`  WIP ${index + 1}:`, {
             id: item.id,
             status: item.status,
@@ -116,32 +127,32 @@ const SelfAssignmentApprovalQueue = () => {
         };
       }
 
-      const allPendingWork = [
-        ...(bundleResults.success ? bundleResults.workItems.map(item => ({ 
-          ...item, 
-          type: 'bundle',
-          requestedByName: item.requestedByName || operators.find(op => op.id === item.requestedBy)?.name || 'Unknown Operator',
-          operation: item.operation || item.currentOperation || 'Not specified',
-          rate: item.rate || item.unitPrice || 0,
-          selfAssignedAt: item.selfAssignedAt || item.timestamp || new Date(),
-          batchNumber: item.batchNumber || item.batchNo || item.batch || 'Not specified',
-          color: item.color || item.colorName || 'Not specified',
-          requestedAt: item.requestedAt || item.createdAt || item.timestamp || new Date(),
-          totalPrice: (item.rate || item.unitPrice || 0) * (item.pieces || item.quantity || 0)
-        })) : []),
-        ...(wipResults.success ? wipResults.workItems.map(item => ({ 
-          ...item, 
-          type: 'wip',
-          requestedByName: item.requestedByName || operators.find(op => op.id === item.requestedBy)?.name || 'Unknown Operator',
-          operation: item.operation || item.currentOperation || 'Not specified',
-          rate: item.rate || item.unitPrice || 0,
-          selfAssignedAt: item.selfAssignedAt || item.timestamp || new Date(),
-          batchNumber: item.batchNumber || item.batchNo || item.batch || 'Not specified',
-          color: item.color || item.colorName || 'Not specified',
-          requestedAt: item.requestedAt || item.createdAt || item.timestamp || new Date(),
-          totalPrice: (item.rate || item.unitPrice || 0) * (item.pieces || item.quantity || 0)
-        })) : [])
-      ];
+      // Process results and add metadata
+      const bundleItems = bundleResults.success ? bundleResults.data.map(item => ({ 
+        ...item, 
+        type: 'bundle',
+        operation: item.operation || item.currentOperation || 'Not specified',
+        rate: item.rate || item.unitPrice || 0,
+        selfAssignedAt: item.selfAssignedAt || item.timestamp || new Date(),
+        batchNumber: item.batchNumber || item.batchNo || item.batch || 'Not specified',
+        color: item.color || item.colorName || 'Not specified',
+        requestedAt: item.requestedAt || item.createdAt || item.timestamp || new Date(),
+        totalPrice: (item.rate || item.unitPrice || 0) * (item.pieces || item.quantity || 0)
+      })) : [];
+
+      const wipItems = wipResults.success ? wipResults.data.map(item => ({ 
+        ...item, 
+        type: 'wip',
+        operation: item.operation || item.currentOperation || 'Not specified',
+        rate: item.rate || item.unitPrice || 0,
+        selfAssignedAt: item.selfAssignedAt || item.timestamp || new Date(),
+        batchNumber: item.batchNumber || item.batchNo || item.batch || 'Not specified',
+        color: item.color || item.colorName || 'Not specified',
+        requestedAt: item.requestedAt || item.createdAt || item.timestamp || new Date(),
+        totalPrice: (item.rate || item.unitPrice || 0) * (item.pieces || item.quantity || 0)
+      })) : [];
+
+      const allPendingWork = [...bundleItems, ...wipItems];
 
       // Sort by self-assignment time (oldest first)
       allPendingWork.sort((a, b) => {
@@ -150,7 +161,7 @@ const SelfAssignmentApprovalQueue = () => {
         return timeA - timeB;
       });
 
-      setPendingApprovals(allPendingWork);
+      setRawPendingData(allPendingWork);
     } catch (error) {
       console.error('Failed to load pending approvals:', error);
       showNotification(
@@ -160,7 +171,17 @@ const SelfAssignmentApprovalQueue = () => {
     } finally {
       setLoading(false);
     }
-  }, [isNepali, showNotification, operators]);
+  }, [isNepali, showNotification]); // Removed operators to prevent circular dependency
+
+  // Resolve operator names when raw data or operators change
+  useEffect(() => {
+    if (rawPendingData.length > 0) {
+      const resolvedData = resolveOperatorNames(rawPendingData, operators);
+      setPendingApprovals(resolvedData);
+    } else {
+      setPendingApprovals([]);
+    }
+  }, [rawPendingData, operators]);
 
   // Load operators on component mount
   useEffect(() => {
@@ -172,7 +193,8 @@ const SelfAssignmentApprovalQueue = () => {
     if (operators.length > 0) {
       loadPendingApprovals();
     }
-  }, [operators.length, loadPendingApprovals]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operators.length]); // Explicitly excluding loadPendingApprovals to prevent infinite loop
 
   // Auto-refresh every 30 seconds (only if operators are loaded)
   useEffect(() => {
@@ -180,7 +202,8 @@ const SelfAssignmentApprovalQueue = () => {
       const interval = setInterval(loadPendingApprovals, 30000);
       return () => clearInterval(interval);
     }
-  }, [operators.length, loadPendingApprovals]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operators.length]); // Explicitly excluding loadPendingApprovals to prevent infinite loop
 
 
   const handleApprove = async (workItem) => {

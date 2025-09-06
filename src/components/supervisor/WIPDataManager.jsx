@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../../context/LanguageContext';
 import { useGlobalError } from '../common/GlobalErrorHandler';
-import { WIPService } from '../../services/firebase-services';
+import { WIPService } from '../../services/firebase-services-clean';
 import WIPManualEntry from './WIPManualEntry';
 import ProcessTemplateManager from './ProcessTemplateManager';
 

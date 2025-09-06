@@ -1,7 +1,7 @@
 // Core Services - Centralized Export
 
 // Main Firebase services
-export * from '../../services/firebase-services';
+export * from '../../services/firebase-services-clean';
 
 // Business services
 export { default as BusinessLogicService } from '../../services/BusinessLogicService';

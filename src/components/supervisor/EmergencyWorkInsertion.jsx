@@ -5,7 +5,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
-import { WIPService, BundleService, OperatorService, NotificationService } from '../../services/firebase-services';
+import { WIPService, LegacyBundleService as BundleService, OperatorService, NotificationService } from '../../services/firebase-services-clean';
 import { WorkflowAnalyticsService } from '../../services/WorkflowAnalyticsService';
 
 const EmergencyWorkInsertion = ({ lotNumber, onClose, onSuccess }) => {

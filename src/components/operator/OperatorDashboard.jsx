@@ -35,8 +35,8 @@ import OperatorAvatar from "../common/OperatorAvatar";
 import {
   LegacyBundleService as BundleService,
   ProductionService,
-  NotificationService,
-} from "../../services/firebase-services";
+  NotificationService
+} from "../../services/firebase-services-clean";
 import { damageReportService } from "../../services/DamageReportService";
 
 const OperatorDashboard = React.memo(() => {

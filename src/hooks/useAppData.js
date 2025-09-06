@@ -2,7 +2,7 @@
 // Custom hooks for consistent data access across components
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { useAppStore, useAppActions, useAppUtils } from '../store/AppStore';
+import { useAppStore, useAppActions, useAppUtils } from '../store/AppStore-simple';
 import { dataService } from '../services/DataService';
 import { useAuth } from '../context/AuthContext';
 import { useNotifications } from '../context/NotificationContext';

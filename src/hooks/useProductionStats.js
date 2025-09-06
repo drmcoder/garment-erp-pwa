@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { ProductionService } from "../services/firebase-services";
+import { ProductionService } from "../services/firebase-services-clean";
 
 export const useProductionStats = () => {
   const [stats, setStats] = useState(null);
