@@ -1,18 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Zap, RefreshCw } from 'lucide-react';
+import { LegacyBundleService } from '../../services/firebase-services';
+import { fixZeroRateWorkItems } from '../../utils/initializeOperationRates';
 
 const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
   const [selectedBundles, setSelectedBundles] = useState([]);
   const [draggedBundle, setDraggedBundle] = useState(null);
   const [dropTarget, setDropTarget] = useState(null);
   
-  // Simple mock data
-  const bundles = [
+  // Mock data as state so we can update it
+  const [bundles, setBundles] = useState([
     { id: 'B001', lot: '90', article: '8088', item: 'Polo T-Shirt', operation: 'Shoulder Join', size: 'Freesize', pieces: 96, time: 3, color: 'White', priority: 'high', machineType: 'overlock' },
     { id: 'B002', lot: '85', article: '7052', item: 'Round Neck', operation: 'Side Seam', size: 'L', pieces: 75, time: 2.5, color: 'Blue', priority: 'medium', machineType: 'overlock' },
     { id: 'B003', lot: '78', article: '6034', item: 'V-Neck Shirt', operation: 'Collar Attach', size: 'M', pieces: 60, time: 4, color: 'Black', priority: 'medium', machineType: 'singleNeedle' },
     { id: 'B004', lot: '92', article: '9012', item: 'Hoodie', operation: 'Hem Fold', size: 'XL', pieces: 45, time: 2, color: 'Gray', priority: 'low', machineType: 'flatlock' },
-  ];
+  ]);
+
+  // Save work assignment with duplicate prevention
+  const saveWorkAssignment = async (bundleData, operator) => {
+    try {
+      console.log(`🔄 Attempting to assign ${bundleData.id} to ${operator.id}`);
+      
+      // Check if this bundle is already assigned
+      const existingAssignment = await LegacyBundleService.getBundleById(bundleData.id);
+      if (existingAssignment.success && existingAssignment.bundle?.assignedTo) {
+        console.log(`❌ Bundle ${bundleData.id} already assigned to ${existingAssignment.bundle.assignedTo}`);
+        return { 
+          success: false, 
+          alreadyAssigned: true,
+          error: `Already assigned to ${existingAssignment.bundle.assignedOperatorName || existingAssignment.bundle.assignedTo}` 
+        };
+      }
+      
+      // Create the assignment
+      const assignmentData = {
+        bundleId: bundleData.id,
+        operatorId: operator.id,
+        operatorName: operator.name,
+        machineType: bundleData.machineType,
+        operation: bundleData.operation,
+        pieces: bundleData.pieces,
+        article: bundleData.article,
+        lot: bundleData.lot,
+        color: bundleData.color,
+        assignedAt: new Date(),
+        status: 'assigned',
+        assignmentMethod: 'drag-drop'
+      };
+      
+      const result = await LegacyBundleService.assignBundle(bundleData.id, operator.id, assignmentData);
+      
+      if (result.success) {
+        console.log(`✅ Successfully assigned ${bundleData.id} to ${operator.name}`);
+        return { success: true };
+      } else {
+        console.log(`❌ Failed to assign: ${result.error}`);
+        return { success: false, error: result.error };
+      }
+      
+    } catch (error) {
+      console.error('Error saving work assignment:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Initialize operation rates on component mount
+  useEffect(() => {
+    const initializeRates = async () => {
+      console.log('🔄 Initializing operation rates to fix ₹0 displays...');
+      await fixZeroRateWorkItems();
+      console.log('✅ Operation rates initialized');
+    };
+    
+    initializeRates();
+  }, []);
 
   const operators = [
     { id: 'OP001', name: 'Ram Singh', nameNp: 'राम सिंह', machine: 'overlock', efficiency: 88, workload: 2, maxWork: 3, status: 'available' },
@@ -192,7 +253,7 @@ const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
                 onDragLeave={() => {
                   setDropTarget(null);
                 }}
-                onDrop={(e) => {
+                onDrop={async (e) => {
                   e.preventDefault();
                   console.log('Drop attempted on operator:', operator.id);
                   
@@ -223,10 +284,22 @@ const WorkAssignmentSystem = ({ currentLanguage, t, getEfficiencyColor }) => {
                       if (!confirm) return;
                     }
                     
-                    alert(`${currentLanguage === "np" ? 'सफलतापूर्वक असाइन गरियो' : 'Successfully Assigned'}!\n${bundleData.item} → ${currentLanguage === "np" ? operator.nameNp : operator.name}`);
+                    // Save assignment to database with duplicate prevention
+                    const assignmentResult = await saveWorkAssignment(bundleData, operator);
                     
-                    // Here you would typically call an API to save the assignment
-                    console.log('Assignment created:', { bundle: bundleData, operator: operator });
+                    if (assignmentResult.success) {
+                      alert(`${currentLanguage === "np" ? 'सफलतापूर्वक असाइन गरियो' : 'Successfully Assigned'}!\n${bundleData.item} → ${currentLanguage === "np" ? operator.nameNp : operator.name}`);
+                      console.log('Assignment created:', { bundle: bundleData, operator: operator });
+                      
+                      // Remove the assigned bundle from available bundles
+                      setBundles(prevBundles => prevBundles.filter(b => b.id !== bundleData.id));
+                    } else {
+                      // Show specific error message
+                      const errorMsg = assignmentResult.alreadyAssigned 
+                        ? (currentLanguage === "np" ? 'यो काम पहिले नै असाइन गरिएको छ!' : 'This work is already assigned!')
+                        : (currentLanguage === "np" ? 'असाइनमेन्ट असफल!' : 'Assignment failed!');
+                      alert(`${errorMsg}\n${assignmentResult.error || ''}`);
+                    }
                     
                   } catch (error) {
                     console.error('Error in drop handler:', error);

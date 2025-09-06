@@ -245,12 +245,12 @@ const OperatorWorkDashboardNew = () => {
       const assigned = workList.filter(w => ['assigned', 'self_assigned'].includes(w.status));
       const completed = workList.filter(w => ['completed', 'operator_completed'].includes(w.status)).slice(0, 5);
       
-      // Combine in-progress and assigned work for "Currently Working On" section
-      // Show up to 10 items
-      const currentWorkItems = [...inProgress, ...assigned].slice(0, 10);
+      // Separate work sections to prevent duplication:
+      // - "Currently Working On" shows only in-progress work (actively being worked on)
+      // - "Ready to Start" shows only assigned work (not yet started)
       
-      setCurrentWork(currentWorkItems);
-      setReadyWork(assigned);
+      setCurrentWork(inProgress); // Only show actively worked items in current work
+      setReadyWork(assigned); // Only show assigned (not started) items in ready queue
       setCompletedWork(completed);
       
       // Calculate stats
@@ -296,6 +296,10 @@ const OperatorWorkDashboardNew = () => {
   // Start work
   const handleStartWork = async (workItem) => {
     try {
+      // Immediately update UI to prevent duplicates
+      setReadyWork(prev => prev.filter(w => w.id !== workItem.id));
+      setCurrentWork(prev => [...prev, { ...workItem, status: 'in_progress', startedAt: new Date() }]);
+
       const workRef = doc(db, COLLECTIONS.WORK_ITEMS, workItem.id);
       await updateDoc(workRef, {
         status: 'in_progress',
@@ -308,6 +312,7 @@ const OperatorWorkDashboardNew = () => {
         'success'
       );
       
+      // Refresh data to ensure consistency
       loadWorkData();
     } catch (error) {
       console.error('❌ Failed to start work:', error);
@@ -321,6 +326,9 @@ const OperatorWorkDashboardNew = () => {
   // Complete work
   const handleCompleteWork = async (workItem) => {
     try {
+      // Immediately update UI to remove from current work
+      setCurrentWork(prev => prev.filter(w => w.id !== workItem.id));
+      
       // Calculate earnings based on pieces and rate
       const pieces = workItem.pieces || 0;
       const rate = workItem.rate || 0;
@@ -758,13 +766,33 @@ const OperatorWorkDashboardNew = () => {
         <div className="bg-white rounded-2xl shadow-sm border">
           <div className="p-6 border-b border-gray-200">
             <div className="flex justify-between items-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                {isNepali ? '📋 सुरु गर्न तयार काम' : '📋 Ready to Start'}
-              </h2>
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">
+                  {isNepali ? '📋 सुरु गर्न तयार काम' : '📋 Ready to Start'}
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  {isNepali 
+                    ? 'सुपरवाइजर असाइन र स्वयं असाइन (अनुमोदन पर्खाइमा) दुवै काम' 
+                    : 'Supervisor-assigned & self-assigned (pending approval) work'
+                  }
+                </p>
+              </div>
               <div className="flex items-center space-x-2">
-                <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
-                  {readyWork.length} {isNepali ? 'काम' : 'items'}
-                </span>
+                <div className="flex flex-col items-end space-y-1">
+                  <span className="bg-blue-100 text-blue-800 text-sm font-medium px-3 py-1 rounded-full">
+                    {readyWork.length} {isNepali ? 'काम' : 'items'}
+                  </span>
+                  {readyWork.length > 0 && (
+                    <div className="flex space-x-1">
+                      <span className="bg-green-50 text-green-700 text-xs px-2 py-1 rounded">
+                        ✅ {readyWork.filter(w => w.status === 'assigned').length} {isNepali ? 'अनुमोदित' : 'approved'}
+                      </span>
+                      <span className="bg-orange-50 text-orange-700 text-xs px-2 py-1 rounded">
+                        ⏳ {readyWork.filter(w => w.status === 'self_assigned').length} {isNepali ? 'पर्खाइमा' : 'pending'}
+                      </span>
+                    </div>
+                  )}
+                </div>
                 {readyWork.length > 5 && (
                   <span className="bg-yellow-100 text-yellow-800 text-xs font-medium px-2 py-1 rounded">
                     {isNepali ? 'पहिलो ५ देखाइएको' : 'Showing first 5'}
@@ -798,11 +826,29 @@ const OperatorWorkDashboardNew = () => {
                           `#${workItem.id.slice(-6)}`
                         )}
                       </h3>
-                      {workItem.status === 'self_assigned' && (
-                        <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2 py-1 rounded-full">
-                          {isNepali ? 'पर्खाइमा' : 'Pending'}
-                        </span>
-                      )}
+                      <div className="flex flex-col items-end space-y-1">
+                        {workItem.status === 'self_assigned' ? (
+                          <>
+                            <span className="bg-orange-100 text-orange-800 text-xs font-medium px-2 py-1 rounded-full flex items-center space-x-1">
+                              <span>⏳</span>
+                              <span>{isNepali ? 'सुपरवाइजर अनुमोदन' : 'Supervisor Approval'}</span>
+                            </span>
+                            <span className="text-xs text-orange-600">
+                              {isNepali ? 'स्वयं असाइन' : 'Self-assigned'}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full flex items-center space-x-1">
+                              <span>✅</span>
+                              <span>{isNepali ? 'अनुमोदित' : 'Approved'}</span>
+                            </span>
+                            <span className="text-xs text-green-600">
+                              {isNepali ? 'सुपरवाइजर असाइन' : 'Supervisor assigned'}
+                            </span>
+                          </>
+                        )}
+                      </div>
                     </div>
 
                     {/* Key Details in Cards */}
@@ -849,23 +895,43 @@ const OperatorWorkDashboardNew = () => {
                     {/* Action Button */}
                     <div className="space-y-2">
                       {workItem.status === 'assigned' ? (
-                        <button
-                          onClick={() => handleStartWork(workItem)}
-                          className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-3 rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
-                        >
-                          <span className="text-lg">🚀</span>
-                          <span>{isNepali ? 'काम सुरु गर्नुहोस्' : 'Start Work'}</span>
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleStartWork(workItem)}
+                            className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white py-3 rounded-xl font-bold transition-all transform hover:scale-105 shadow-lg flex items-center justify-center space-x-2"
+                          >
+                            <span className="text-lg">🚀</span>
+                            <span>{isNepali ? 'काम सुरु गर्नुहोस्' : 'Start Work'}</span>
+                          </button>
+                          <div className="text-xs text-green-600 text-center bg-green-50 py-1 rounded">
+                            {isNepali ? '✅ सुपरवाइजर द्वारा अनुमोदित - तुरुन्त सुरु गर्न सकिन्छ' : '✅ Approved by supervisor - Ready to start'}
+                          </div>
+                        </>
                       ) : (
-                        <div className="w-full bg-orange-100 text-orange-800 px-4 py-3 rounded-xl text-sm font-medium text-center flex items-center justify-center space-x-2">
-                          <span>⏳</span>
-                          <span>{isNepali ? 'अनुमोदन पर्खाइमा' : 'Awaiting Approval'}</span>
-                        </div>
+                        <>
+                          <div className="w-full bg-orange-100 text-orange-800 px-4 py-3 rounded-xl text-sm font-medium text-center flex items-center justify-center space-x-2 border-2 border-orange-200">
+                            <span>⏳</span>
+                            <span>{isNepali ? 'सुपरवाइजर अनुमोदन पर्खाइमा' : 'Awaiting Supervisor Approval'}</span>
+                          </div>
+                          <div className="text-xs text-orange-600 text-center bg-orange-50 py-1 rounded">
+                            {isNepali ? '📋 तपाईंले स्वयं असाइन गर्नुभएको - अनुमोदन पछि सुरु गर्न सकिन्छ' : '📋 Self-assigned work - Can start after approval'}
+                          </div>
+                        </>
                       )}
 
-                      {/* Assigned time */}
-                      <div className="text-xs text-gray-500 text-center mt-2">
-                        {isNepali ? 'असाइन:' : 'Assigned:'} {workItem.assignedAt ? formatTimeAgo(workItem.assignedAt, isNepali ? 'np' : 'en') : 'N/A'}
+                      {/* Timing information */}
+                      <div className="text-xs text-gray-500 text-center mt-2 space-y-1">
+                        <div>
+                          {workItem.status === 'self_assigned' 
+                            ? (isNepali ? 'स्वयं असाइन:' : 'Self-assigned:') 
+                            : (isNepali ? 'सुपरवाइजर असाइन:' : 'Supervisor assigned:')
+                          } {workItem.assignedAt ? formatTimeAgo(workItem.assignedAt, isNepali ? 'np' : 'en') : 'N/A'}
+                        </div>
+                        {workItem.status === 'self_assigned' && (
+                          <div className="text-orange-600">
+                            {isNepali ? '⏰ अनुमोदन सम्म पर्खनुहोस्' : '⏰ Waiting for approval'}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -5,7 +5,7 @@ import React, { useState, useEffect, useContext, useCallback } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import { LanguageContext } from "../../context/LanguageContext";
 import { NotificationContext } from "../../context/NotificationContext";
-import { BundleService, WIPService, ActivityLogService } from "../../services/firebase-services";
+import { LegacyBundleService, WIPService, ActivityLogService } from "../../services/firebase-services";
 import { db, collection, getDocs, doc, updateDoc, COLLECTIONS } from "../../config/firebase";
 import OperationsSequenceEditor from '../common/OperationsSequenceEditor';
 import MachineSpecialitySelector from './MachineSpecialitySelector';
@@ -68,7 +68,7 @@ const SelfAssignmentSystem = () => {
       }
       
       console.log(`🔍 Loading work for operator machine: ${operatorMachine}`);
-      const result = await BundleService.getAvailableBundles(operatorMachine);
+      const result = await LegacyBundleService.getAvailableBundles(operatorMachine);
 
       if (result.success) {
         // Map Firebase data to component format with AI recommendations
@@ -382,7 +382,7 @@ const SelfAssignmentSystem = () => {
       } else {
         console.log(`🔄 Self-assigning traditional bundle: ${selectedWork.id}`);
         // Use atomic self-assignment method to prevent race conditions
-        assignResult = await BundleService.selfAssignBundle(
+        assignResult = await LegacyBundleService.selfAssignBundle(
           selectedWork.id,
           user.id,
           {

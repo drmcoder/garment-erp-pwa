@@ -6,6 +6,7 @@ import { AuthContext } from '../../context/AuthContext';
 import { LanguageContext } from '../../context/LanguageContext';
 import { NotificationContext } from '../../context/NotificationContext';
 import { LegacyBundleService, WIPService, OperatorService } from '../../services/firebase-services';
+import { db, collection, addDoc } from '../../config/firebase';
 
 const SelfAssignmentApprovalQueue = () => {
   const { user } = useContext(AuthContext);
@@ -18,6 +19,17 @@ const SelfAssignmentApprovalQueue = () => {
   const [selectedItems, setSelectedItems] = useState(new Set());
   const [processingItems, setProcessingItems] = useState(new Set());
 
+  const loadOperators = useCallback(async () => {
+    try {
+      const result = await OperatorService.getAllOperators();
+      if (result.success) {
+        setOperators(result.operators);
+      }
+    } catch (error) {
+      console.error('Failed to load operators:', error);
+    }
+  }, []);
+
   const loadPendingApprovals = useCallback(async () => {
     setLoading(true);
     try {
@@ -27,9 +39,108 @@ const SelfAssignmentApprovalQueue = () => {
         WIPService.getSelfAssignedWorkItems()
       ]);
 
+      console.log('🔍 Bundle results:', bundleResults);
+      console.log('🔍 WIP results:', wipResults);
+      
+      // Log detailed info about the results
+      if (bundleResults.success) {
+        console.log('📦 Bundle items found:', bundleResults.workItems?.length || 0);
+        bundleResults.workItems?.forEach((item, index) => {
+          console.log(`  Bundle ${index + 1}:`, {
+            id: item.id,
+            status: item.status,
+            requestedBy: item.requestedBy,
+            selfAssignedAt: item.selfAssignedAt
+          });
+        });
+      } else {
+        console.log('❌ Bundle query failed:', bundleResults.error);
+      }
+      
+      if (wipResults.success) {
+        console.log('🔧 WIP items found:', wipResults.workItems?.length || 0);
+        wipResults.workItems?.forEach((item, index) => {
+          console.log(`  WIP ${index + 1}:`, {
+            id: item.id,
+            status: item.status,
+            requestedBy: item.requestedBy,
+            selfAssignedAt: item.selfAssignedAt
+          });
+        });
+      } else {
+        console.log('❌ WIP query failed:', wipResults.error);
+      }
+
+      // Add test function to window for manual testing
+      if (typeof window !== 'undefined') {
+        window.createTestSelfAssignment = async () => {
+          console.log('🧪 Creating test self-assignment...');
+          try {
+            const testBundleRef = await addDoc(collection(db, 'bundles'), {
+              id: 'TEST_BUNDLE_' + Date.now(),
+              status: 'self_assigned',
+              selfAssignedAt: new Date(),
+              requestedBy: 'test_operator_123',
+              assignedOperator: 'test_operator_123',
+              operation: 'Test Operation',
+              pieces: 50,
+              articleNumber: 'TEST-001',
+              batchNumber: 'BATCH-TEST',
+              color: 'Blue',
+              rate: 5.50,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+            console.log('✅ Test bundle created:', testBundleRef.id);
+            
+            const testWorkItemRef = await addDoc(collection(db, 'workItems'), {
+              id: 'TEST_WORKITEM_' + Date.now(),
+              status: 'self_assigned',
+              selfAssignedAt: new Date(),
+              requestedBy: 'test_operator_456',
+              assignedOperator: 'test_operator_456',
+              operation: 'Test WIP Operation',
+              pieces: 30,
+              batchNumber: 'WIP-BATCH-TEST',
+              color: 'Red',
+              rate: 4.25,
+              createdAt: new Date(),
+              updatedAt: new Date()
+            });
+            console.log('✅ Test work item created:', testWorkItemRef.id);
+            console.log('🔄 Refreshing approval queue...');
+            loadPendingApprovals();
+          } catch (error) {
+            console.error('❌ Failed to create test data:', error);
+          }
+        };
+      }
+
       const allPendingWork = [
-        ...(bundleResults.success ? bundleResults.workItems.map(item => ({ ...item, type: 'bundle' })) : []),
-        ...(wipResults.success ? wipResults.workItems.map(item => ({ ...item, type: 'wip' })) : [])
+        ...(bundleResults.success ? bundleResults.workItems.map(item => ({ 
+          ...item, 
+          type: 'bundle',
+          requestedByName: item.requestedByName || operators.find(op => op.id === item.requestedBy)?.name || 'Unknown Operator',
+          operation: item.operation || item.currentOperation || 'Not specified',
+          rate: item.rate || item.unitPrice || 0,
+          selfAssignedAt: item.selfAssignedAt || item.timestamp || new Date(),
+          batchNumber: item.batchNumber || item.batchNo || item.batch || 'Not specified',
+          color: item.color || item.colorName || 'Not specified',
+          requestedAt: item.requestedAt || item.createdAt || item.timestamp || new Date(),
+          totalPrice: (item.rate || item.unitPrice || 0) * (item.pieces || item.quantity || 0)
+        })) : []),
+        ...(wipResults.success ? wipResults.workItems.map(item => ({ 
+          ...item, 
+          type: 'wip',
+          requestedByName: item.requestedByName || operators.find(op => op.id === item.requestedBy)?.name || 'Unknown Operator',
+          operation: item.operation || item.currentOperation || 'Not specified',
+          rate: item.rate || item.unitPrice || 0,
+          selfAssignedAt: item.selfAssignedAt || item.timestamp || new Date(),
+          batchNumber: item.batchNumber || item.batchNo || item.batch || 'Not specified',
+          color: item.color || item.colorName || 'Not specified',
+          requestedAt: item.requestedAt || item.createdAt || item.timestamp || new Date(),
+          totalPrice: (item.rate || item.unitPrice || 0) * (item.pieces || item.quantity || 0)
+        })) : [])
       ];
 
       // Sort by self-assignment time (oldest first)
@@ -49,27 +160,27 @@ const SelfAssignmentApprovalQueue = () => {
     } finally {
       setLoading(false);
     }
-  }, [isNepali, showNotification]);
+  }, [isNepali, showNotification, operators]);
 
-  const loadOperators = useCallback(async () => {
-    try {
-      const result = await OperatorService.getAllOperators();
-      if (result.success) {
-        setOperators(result.operators);
-      }
-    } catch (error) {
-      console.error('Failed to load operators:', error);
-    }
-  }, []);
-
+  // Load operators on component mount
   useEffect(() => {
-    loadPendingApprovals();
     loadOperators();
-    
-    // Auto-refresh every 30 seconds
-    const interval = setInterval(loadPendingApprovals, 30000);
-    return () => clearInterval(interval);
-  }, [loadPendingApprovals, loadOperators]);
+  }, [loadOperators]);
+
+  // Load pending approvals when operators are available
+  useEffect(() => {
+    if (operators.length > 0) {
+      loadPendingApprovals();
+    }
+  }, [operators.length, loadPendingApprovals]);
+
+  // Auto-refresh every 30 seconds (only if operators are loaded)
+  useEffect(() => {
+    if (operators.length > 0) {
+      const interval = setInterval(loadPendingApprovals, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [operators.length, loadPendingApprovals]);
 
 
   const handleApprove = async (workItem) => {
@@ -360,7 +471,7 @@ const SelfAssignmentApprovalQueue = () => {
 
                       {/* Work Details */}
                       <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-2">
+                        <div className="flex items-center space-x-2 mb-3">
                           <h4 className="font-semibold text-gray-900">
                             #{workItem.articleNumber || workItem.id}
                           </h4>
@@ -374,9 +485,19 @@ const SelfAssignmentApprovalQueue = () => {
                           }`}>
                             ⏱️ {waitingTime}
                           </span>
+                          {workItem.batchNumber && workItem.batchNumber !== 'Not specified' && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                              📦 Batch: {workItem.batchNumber}
+                            </span>
+                          )}
+                          {workItem.color && workItem.color !== 'Not specified' && (
+                            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                              🎨 {workItem.color}
+                            </span>
+                          )}
                         </div>
 
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm mb-3">
+                        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 text-sm mb-4">
                           <div>
                             <span className="text-gray-500 text-xs">
                               {isNepali ? 'अपरेशन:' : 'Operation:'}
@@ -393,40 +514,71 @@ const SelfAssignmentApprovalQueue = () => {
                             <span className="text-gray-500 text-xs">
                               {isNepali ? 'पिस:' : 'Pieces:'}
                             </span>
-                            <div className="font-medium">{workItem.pieces} pcs</div>
+                            <div className="font-medium">{workItem.pieces || workItem.quantity || 0} pcs</div>
                           </div>
                           <div>
                             <span className="text-gray-500 text-xs">
                               {isNepali ? 'दर:' : 'Rate:'}
                             </span>
                             <div className="font-medium text-green-600">
-                              {formatCurrency(workItem.rate)}/pc
+                              {workItem.rate && workItem.rate > 0 ? formatCurrency(workItem.rate) : 'Rate not set'}/pc
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 text-xs">
+                              {isNepali ? 'कुल मूल्य:' : 'Total Value:'}
+                            </span>
+                            <div className="font-medium text-green-700">
+                              {workItem.totalPrice > 0 ? formatCurrency(workItem.totalPrice) : 'Not calculated'}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-gray-500 text-xs">
+                              {isNepali ? 'अनुरोध गरियो:' : 'Requested:'}
+                            </span>
+                            <div className="font-medium text-blue-600">
+                              {workItem.requestedAt ? formatDateTime(workItem.requestedAt) : 'No date available'}
                             </div>
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
                           <div className="flex items-center space-x-3">
                             <div className="flex items-center space-x-2">
-                              <span className="font-medium text-gray-900">
-                                {workItem.requestedByName}
-                              </span>
-                              <span className={`text-xs px-2 py-1 rounded ${
-                                skillMatch === 'perfect' 
-                                  ? 'bg-green-100 text-green-700'
-                                  : skillMatch === 'good'
-                                  ? 'bg-yellow-100 text-yellow-700' 
-                                  : 'bg-red-100 text-red-700'
-                              }`}>
-                                {skillMatch === 'perfect' && '🎯 Perfect Match'}
-                                {skillMatch === 'good' && '👍 Good Match'}
-                                {skillMatch === 'poor' && '⚠️ Skill Mismatch'}
-                              </span>
+                              <div>
+                                <span className="font-medium text-gray-900">
+                                  👤 {workItem.requestedByName}
+                                </span>
+                                <span className={`ml-2 text-xs px-2 py-1 rounded ${
+                                  skillMatch === 'perfect' 
+                                    ? 'bg-green-100 text-green-700'
+                                    : skillMatch === 'good'
+                                    ? 'bg-yellow-100 text-yellow-700' 
+                                    : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {skillMatch === 'perfect' && '🎯 Perfect Match'}
+                                  {skillMatch === 'good' && '👍 Good Match'}
+                                  {skillMatch === 'poor' && '⚠️ Skill Mismatch'}
+                                </span>
+                              </div>
                             </div>
                           </div>
 
-                          <div className="text-xs text-gray-500">
-                            {formatDateTime(workItem.selfAssignedAt)}
+                          <div className="flex flex-col items-end text-xs text-gray-500">
+                            <div className="flex items-center space-x-2">
+                              <span>🔄 Self-assigned:</span>
+                              <span className="font-medium">
+                                {workItem.selfAssignedAt ? formatDateTime(workItem.selfAssignedAt) : 'No date available'}
+                              </span>
+                            </div>
+                            {workItem.requestedAt && workItem.requestedAt !== workItem.selfAssignedAt && (
+                              <div className="flex items-center space-x-2 mt-1">
+                                <span>📝 Originally requested:</span>
+                                <span className="font-medium">
+                                  {formatDateTime(workItem.requestedAt)}
+                                </span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>

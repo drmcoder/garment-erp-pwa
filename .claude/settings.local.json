@@ -63,7 +63,8 @@
       "Bash(npx create-react-app:*)",
       "Bash(PORT=3000 timeout 30 npm start)",
       "Bash(gcloud:*)",
-      "Bash(timeout 60 npm run build)"
+      "Bash(timeout 60 npm run build)",
+      "Bash(awk:*)"
     ],
     "deny": [],
     "ask": []

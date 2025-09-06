@@ -63,6 +63,12 @@ class BundlePaymentHoldService {
   // Hold related operator earnings
   static async holdOperatorEarnings(bundleNumber, operatorId, holdReason) {
     try {
+      // Validate parameters before making query
+      if (!bundleNumber || !operatorId) {
+        console.warn('⚠️ holdOperatorEarnings called with invalid parameters:', { bundleNumber, operatorId });
+        return { success: false, error: 'Invalid bundleNumber or operatorId' };
+      }
+
       const earningsQuery = query(
         collection(db, 'operatorEarnings'),
         where('bundleNumber', '==', bundleNumber),
@@ -254,6 +260,12 @@ class BundlePaymentHoldService {
   // Release payment when bundle is fully complete
   static async releasePayment(holdId, holdData) {
     try {
+      // Validate parameters before making query
+      if (!holdId || !holdData || !holdData.bundleNumber || !holdData.operatorId) {
+        console.warn('⚠️ releasePayment called with invalid parameters:', { holdId, holdData });
+        return { success: false, error: 'Invalid holdId or holdData' };
+      }
+
       // Update held earnings to confirmed status
       const earningsQuery = query(
         collection(db, 'operatorEarnings'),
@@ -324,6 +336,19 @@ class BundlePaymentHoldService {
   // Get operator's pending work (including held bundles)
   static async getOperatorPendingWork(operatorId) {
     try {
+      // Validate operatorId before making queries
+      if (!operatorId || operatorId === undefined || operatorId === null) {
+        console.warn('⚠️ getOperatorPendingWork called with invalid operatorId:', operatorId);
+        return {
+          success: true,
+          data: {
+            heldBundles: [],
+            regularWork: [],
+            totalPending: 0
+          }
+        };
+      }
+
       const [heldBundles, regularWork] = await Promise.all([
         // Get held bundles for this operator
         getDocs(query(
