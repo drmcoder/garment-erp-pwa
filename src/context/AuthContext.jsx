@@ -5,7 +5,7 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import { LanguageContext } from './LanguageContext';
 import { LegacyActivityLogService as ActivityLogService } from '../services/firebase-services-clean';
 import { db, doc, updateDoc, COLLECTIONS } from '../config/firebase';
-import { DEMO_USERS } from '../config/demo-data';
+// Demo users removed
 import { cacheService } from '../services/CacheService';
 
 export const AuthContext = createContext();
@@ -48,52 +48,24 @@ export const AuthProvider = ({ children }) => {
         console.log(`✅ Loaded ${usersWithStats.length} users from Firestore`);
         return usersWithStats;
       } else {
-        console.warn('⚠️ No users in Firestore, using demo users as fallback');
+        console.warn('⚠️ No users in Firestore, using empty user list');
         
-        // Use demo users as fallback
-        const demoUsers = [
-          ...DEMO_USERS.OPERATORS,
-          ...DEMO_USERS.SUPERVISORS, 
-          ...DEMO_USERS.MANAGEMENT
-        ].map(user => ({
-          ...user,
-          stats: {
-            todayPieces: 0,
-            todayEarnings: 0,
-            weeklyPieces: 0,
-            weeklyEarnings: 0,
-            monthlyPieces: 0,
-            monthlyEarnings: 0
-          }
-        }));
+        // Use empty users as fallback
+        const emptyUsers = [];
         
-        setAllUsers(demoUsers);
-        console.log(`✅ Using ${demoUsers.length} demo users`);
-        return demoUsers;
+        setAllUsers(emptyUsers);
+        console.log('✅ Using empty user list');
+        return emptyUsers;
       }
     } catch (error) {
       console.error('❌ Error loading users, using demo fallback:', error);
       
-      // Emergency demo users fallback
-      const demoUsers = [
-        ...DEMO_USERS.OPERATORS,
-        ...DEMO_USERS.SUPERVISORS, 
-        ...DEMO_USERS.MANAGEMENT
-      ].map(user => ({
-        ...user,
-        stats: {
-          todayPieces: 0,
-          todayEarnings: 0,
-          weeklyPieces: 0,
-          weeklyEarnings: 0,
-          monthlyPieces: 0,
-          monthlyEarnings: 0
-        }
-      }));
+      // Emergency fallback - return empty users
+      const emptyUsers = [];
       
-      setAllUsers(demoUsers);
-      console.log(`✅ Emergency: ${demoUsers.length} demo users loaded`);
-      return demoUsers;
+      setAllUsers(emptyUsers);
+      console.log('❌ No users found, using empty fallback');
+      return emptyUsers;
     }
   };
 
@@ -101,7 +73,7 @@ export const AuthProvider = ({ children }) => {
     loadUsersFromFirestore();
   }, [isNepali]);
 
-  const mockUsers = allUsers;
+  const currentUsers = allUsers;
 
   // Check for saved session on app start
   useEffect(() => {
@@ -389,7 +361,7 @@ export const AuthProvider = ({ children }) => {
       await new Promise(resolve => setTimeout(resolve, 500));
       
       // Find updated user data
-      const updatedUser = mockUsers.find(u => u.id === user.id);
+      const updatedUser = currentUsers.find(u => u.id === user.id);
       
       if (updatedUser) {
         setUser(updatedUser);
@@ -465,12 +437,12 @@ export const AuthProvider = ({ children }) => {
 
   // Get all operators (for supervisor use)
   const getAllOperators = () => {
-    return mockUsers.filter(user => user.role === 'operator');
+    return currentUsers.filter(user => user.role === 'operator');
   };
 
   // Get operators by speciality
   const getOperatorsBySpeciality = (speciality) => {
-    return mockUsers.filter(user => 
+    return currentUsers.filter(user => 
       user.role === 'operator' && user.speciality === speciality
     );
   };
@@ -610,7 +582,7 @@ export const AuthProvider = ({ children }) => {
     // Data access
     getAllOperators,
     getOperatorsBySpeciality,
-    mockUsers // Expose for development/testing
+    allUsers // All users data
   };
 
   return (

@@ -49,9 +49,7 @@ export const LegacyBundleService = {
   },
 
   subscribeToOperatorBundles: (operatorId, callback) => {
-    // Mock subscription - return unsubscribe function
-    console.log('Subscribing to operator bundles for:', operatorId);
-    return () => console.log('Unsubscribed from operator bundles');
+    return () => {};
   },
 
   getAvailableWorkForOperator: (machineType, skillLevel) => {
@@ -104,7 +102,7 @@ export const WIPService = {
 
 export { OperatorService, EarningsService };
 
-// Production Service - Simple production stats
+// Production Service
 export const ProductionService = {
   getStats: () => {
     return Promise.resolve({ success: true, data: {} });
@@ -113,21 +111,18 @@ export const ProductionService = {
     return Promise.resolve({ success: true, data: [] });
   },
   getOperatorDailyStats: async (operatorId, date) => {
-    console.log('Mock ProductionService.getOperatorDailyStats called:', operatorId, date);
     return { success: true, stats: {} };
   }
 };
 
-// Notification Service - Simple notifications
+// Notification Service
 export const NotificationService = {
   sendNotification: (data) => {
-    console.log('Notification sent:', data);
     return Promise.resolve({ success: true });
   },
   subscribeToUserNotifications: (userId, callback) => {
-    console.log('Mock NotificationService.subscribeToUserNotifications called:', userId);
     callback([]);
-    return () => {}; // Unsubscribe function
+    return () => {};
   }
 };
 
@@ -140,14 +135,12 @@ export const ConfigService = {
   delete: (id) => FirebaseService.delete('configs', id)
 };
 
-// Legacy compatibility - redirect to new services
+// Legacy compatibility
 export const LegacyActivityLogService = {
   logActivity: async (userId, action, details) => {
-    console.log('Activity logged:', { userId, action, details });
     return { success: true };
   },
   getUserActivity: async (userId, limit) => {
-    console.log('Getting user activity for:', userId);
     return [];
   }
 };
@@ -156,11 +149,9 @@ export const LegacyActivityLogService = {
 
 export const ActivityLogService = {
   log: async (action, details) => {
-    console.log('Mock ActivityLogService.log called:', action, details);
     return { success: true };
   },
   logActivity: async (userId, action, details) => {
-    console.log('Mock ActivityLogService.logActivity called:', userId, action, details);
     return { success: true };
   }
 };

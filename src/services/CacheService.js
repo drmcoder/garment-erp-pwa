@@ -7,7 +7,7 @@ import {
   getDocs, 
   COLLECTIONS
 } from '../config/firebase';
-import { DEMO_USERS } from '../config/demo-data';
+// Demo data removed
 
 class CacheService {
   constructor() {
@@ -162,21 +162,17 @@ class CacheService {
     } catch (error) {
       console.error('❌ Error loading users from Firestore, falling back to demo data:', error);
       
-      // Fallback to demo users when Firestore fails
-      const demoUsers = [
-        ...DEMO_USERS.OPERATORS,
-        ...DEMO_USERS.SUPERVISORS,
-        ...DEMO_USERS.MANAGEMENT
-      ];
+      // Return empty fallback when Firestore fails
+      const emptyUsers = [];
       
-      // Cache demo data
-      this.setCache('operators', DEMO_USERS.OPERATORS);
-      this.setCache('supervisors', DEMO_USERS.SUPERVISORS);
-      this.setCache('management', DEMO_USERS.MANAGEMENT);
-      this.setCache(cacheKey, demoUsers);
+      // Cache empty data
+      this.setCache('operators', []);
+      this.setCache('supervisors', []);
+      this.setCache('management', []);
+      this.setCache(cacheKey, emptyUsers);
       
-      console.log(`🔄 Using demo data: ${demoUsers.length} users`);
-      return { success: true, data: demoUsers, fromCache: false, isDemo: true };
+      console.log('🔄 Using empty fallback data');
+      return { success: false, data: emptyUsers, fromCache: false, error: error.message };
     }
   }
 

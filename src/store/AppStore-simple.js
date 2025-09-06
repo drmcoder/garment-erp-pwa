@@ -41,44 +41,36 @@ export const useAppStore = create((set, get) => ({
   setError: (error) => set({ error }),
   clearError: () => set({ error: null }),
   
-  // Simplified load functions that don't cause infinite loops
+  // Load functions
   loadUsers: async () => {
-    console.log('Mock loadUsers called');
     return { success: true };
   },
   
   loadWorkItems: async () => {
-    console.log('Mock loadWorkItems called');
     return { success: true };
   },
   
   assignWork: async () => {
-    console.log('Mock assignWork called');
     return { success: true };
   },
   
   completeWork: async () => {
-    console.log('Mock completeWork called');
     return { success: true };
   },
   
   loadProductionStats: async () => {
-    console.log('Mock loadProductionStats called');
     return { success: true };
   },
   
   updateProductionTargets: async () => {
-    console.log('Mock updateProductionTargets called');
     return { success: true };
   },
   
   updateUser: async () => {
-    console.log('Mock updateUser called');
     return { success: true };
   },
   
   refreshAll: async () => {
-    console.log('Mock refreshAll called'); 
     return { success: true };
   }
 }));
@@ -103,15 +95,13 @@ export const useAppActions = () => {
 
 export const useAppUtils = () => {
   return {
-    // Simple utility functions
+    // Utility functions
     formatDate: (date) => date?.toLocaleDateString() || 'N/A',
     formatCurrency: (amount) => `Rs. ${amount || 0}`,
     getAvailableOperators: () => {
-      console.log('Mock getAvailableOperators called');
       return [];
     },
     getWorkloadByOperator: () => {
-      console.log('Mock getWorkloadByOperator called');
       return {};
     },
   };

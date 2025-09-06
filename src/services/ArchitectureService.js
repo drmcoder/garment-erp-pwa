@@ -118,9 +118,9 @@ class ArchitectureService {
     }
   }
 
-  // Mock data structures for fallback scenarios
-  getMockDataStructure(collectionName) {
-    const mockStructures = {
+  // Fallback data structures for error scenarios
+  getFallbackDataStructure(collectionName) {
+    const fallbackStructures = {
       operators: {
         success: true,
         data: [],
@@ -147,7 +147,7 @@ class ArchitectureService {
       }
     };
 
-    return mockStructures[collectionName] || mockStructures.default;
+    return fallbackStructures[collectionName] || fallbackStructures.default;
   }
 
   // Retry mechanism with exponential backoff

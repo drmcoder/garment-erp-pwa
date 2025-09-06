@@ -1,7 +1,7 @@
 // Operation Rate Mapping Utility
 // Maps generic operation names to specific operation codes with rates
 
-import { OPERATION_MODULES } from '../data/mockData.js';
+// Operation modules now handled by service layer
 import OperationRateService from '../services/OperationRateService';
 import { getFirestoreRate, getFirestoreOperationDetails } from './firestoreRateLoader';
 
@@ -74,33 +74,21 @@ export const getOperationRateAsync = async (operationName) => {
 export const getOperationRate = (operationName) => {
   if (!operationName) return 2.5; // Default rate
   
-  // Check if it's already a specific operation key
-  if (OPERATION_MODULES[operationName]) {
-    return OPERATION_MODULES[operationName].rate;
-  }
-  
-  // Map generic name to specific operation
-  const specificOperation = OPERATION_RATE_MAP[operationName] || OPERATION_RATE_MAP[operationName.toLowerCase()];
-  
-  if (specificOperation && OPERATION_MODULES[specificOperation]) {
-    return OPERATION_MODULES[specificOperation].rate;
-  }
-  
   // Fallback based on operation type
   if (operationName.toLowerCase().includes('seam')) {
-    return OPERATION_MODULES['side-seam-basic']?.rate || 2.5;
+    return 2.5;
   }
   if (operationName.toLowerCase().includes('sleeve')) {
-    return OPERATION_MODULES['sleeve-attach-basic']?.rate || 3.0;
+    return 3.0;
   }
   if (operationName.toLowerCase().includes('shoulder')) {
-    return OPERATION_MODULES['shoulder-join-basic']?.rate || 2.0;
+    return 2.0;
   }
   if (operationName.toLowerCase().includes('neck')) {
-    return OPERATION_MODULES['neck-bind-basic']?.rate || 4.0;
+    return 4.0;
   }
   if (operationName.toLowerCase().includes('collar')) {
-    return OPERATION_MODULES['collar-attach-polo']?.rate || 5.0;
+    return 5.0;
   }
   
   // Default rate
@@ -113,15 +101,7 @@ export const getOperationRate = (operationName) => {
  * @returns {object} Operation details
  */
 export const getOperationDetails = (operationName) => {
-  const specificOperation = OPERATION_RATE_MAP[operationName] || OPERATION_RATE_MAP[operationName?.toLowerCase()];
-  
-  if (specificOperation && OPERATION_MODULES[specificOperation]) {
-    return {
-      ...OPERATION_MODULES[specificOperation],
-      key: specificOperation,
-      originalName: operationName
-    };
-  }
+  // Return default operation details based on name
   
   // Return default operation details
   return {
